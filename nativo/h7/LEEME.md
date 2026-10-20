@@ -5,7 +5,7 @@
 ## Qué hay ya
 
 - El código está en `nativo/ios/` y se compila solo en un Mac de GitHub cada vez que cambia (pestaña **Actions** del repositorio, «App nativa (iOS)»).
-- Sabe: hablar, pensar con Claude (la clave va en el llavero del iPhone), recordatorios con aviso, llamar, mandar mensajes, abrir apps y «Oye Siri, Araña».
+- Sabe: hablar, escuchar con su propio micrófono, pensar con Claude (la clave va en el llavero del iPhone) siguiendo el hilo y recordando lo que usted le cuenta, temporizadores, recordatorios con aviso, llamar, mandar mensajes, abrir apps y «Oye Siri, Araña».
 
 ## Lo que falta para instalarla
 

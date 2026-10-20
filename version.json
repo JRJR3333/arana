@@ -1,13 +1,13 @@
 {
-  "version": "0.16.0",
+  "version": "0.17.0",
   "date": "2026-10-20",
   "notes": [
+    "Ya sigo el hilo de la conversación y recuerdo lo que me cuenta de usted (en mi app).",
+    "Ya le escucho con mi propio micrófono.",
+    "Ya pongo temporizadores y alarmas.",
+    "Ya tejo mi telaraña con cada orden cumplida.",
     "Ya le digo cómo suena mi voz y la cambio cuando me lo pide.",
     "Ya miro una captura de su pantalla si me la da.",
-    "Ya sé qué sé de usted, y me intereso por sus gustos.",
-    "Ya puedo viajar a otro aparato: copie mi memoria y péguela allí.",
-    "Ya vuelvo a buscar cada 6 horas los iconos que no encontré.",
-    "Ya le digo «Pensando…» y «Aprendiendo…», y se me nota analizar.",
-    "Ya vivo a un toque, en el Centro de control o la pantalla bloqueada: sin carpetas."
+    "Ya sé qué sé de usted, y me intereso por sus gustos."
   ]
 }

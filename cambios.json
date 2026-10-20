@@ -1,5 +1,42 @@
 [
  {
+  "v": "0.17.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.17.0-1",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Sigo el hilo y recuerdo (app nativa)",
+    "detalle": "Petición #21. En la app nativa recuerdo los 3 últimos intercambios, así puede decir «y mañana también» y sé de qué hablamos. Si me cuenta algo duradero de usted, lo apunto (como mucho 20 datos) y lo tengo en cuenta. Se ve en Ajustes → «Lo que sé de usted». Gasto poco: frases recortadas. Dado de esta hora: 0,241 / 0,926 → sorpresa sí, sin condición.",
+    "probar": "En la app nativa diga «me gusta el jazz» y luego «¿qué música me gusta?»."
+   },
+   {
+    "id": "0.17.0-2",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "Mi propio micrófono (app nativa)",
+    "detalle": "Botón de micrófono junto al cuadro de texto: le escucho con el reconocimiento de voz del iPhone (en el propio teléfono si se puede), le enseño lo que voy oyendo y, al terminar, mando la orden. Sin dictado del teclado.",
+    "probar": "Pulse el micrófono, diga «pon un temporizador de un minuto» y pulse de nuevo."
+   },
+   {
+    "id": "0.17.0-3",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Temporizadores y alarmas (app nativa)",
+    "detalle": "Nuevo paso «timer»: un aviso con sonido dentro de los minutos o segundos que diga, aunque cierre la app.",
+    "probar": "Diga «avísame en 30 segundos para sacar la pizza» y cierre la app."
+   },
+   {
+    "id": "0.17.0-4",
+    "tipo": "sorpresa",
+    "titulo": "La telaraña crece",
+    "detalle": "Detrás de la araña hay una telaraña tenue. Cada orden que cumplo le añade una vuelta, hasta catorce. Se quita sin tocar nada más.",
+    "probar": "Haga unas cuantas órdenes y mire el fondo."
+   }
+  ]
+ },
+ {
   "v": "0.16.0",
   "fecha": "2026-10-20",
   "mejoras": [
