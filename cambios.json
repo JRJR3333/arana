@@ -1,5 +1,35 @@
 [
  {
+  "v": "0.19.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.19.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "Salgo en la Isla Dinámica (app nativa)",
+    "detalle": "Live Activity con su propia extensión: mientras pienso una orden aparezco en la Isla Dinámica y en la pantalla bloqueada, con la araña de puntos y líneas y lo que estoy haciendo; al terminar marco ✓ y me retiro a los 4 segundos. Dado de hoy: 0,939 / 0,659 → sin sorpresa y sin condición.",
+    "probar": "Cuando la app esté instalada: pídale algo y vuelva a la pantalla de inicio mientras piensa."
+   },
+   {
+    "id": "0.19.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Su agenda y sus citas (app nativa)",
+    "detalle": "Con el Calendario de iOS: «¿qué tengo hoy?» o «¿qué tengo mañana?» lo leo en local, sin gastar API. «Apunta dentista el jueves a las 10» lo guardo en el calendario con aviso 15 minutos antes. El cerebro ahora sabe la fecha y la hora.",
+    "probar": "Diga «¿qué tengo hoy?» y luego «apunta una cita mañana a las 9»."
+   },
+   {
+    "id": "0.19.0-3",
+    "tipo": "iniciativa",
+    "hito": "h7",
+    "titulo": "Araña para Android (peticiones #22, #23 y #24)",
+    "detalle": "Primera app de Android en nativo/android: la misma araña dentro de su propia app, con temporizadores y alarmas del reloj en nativo. Se compila sola en GitHub y se descarga como APK, sin cuenta de desarrollador. Así su hermano también puede usarla y mandarme mejoras.",
+    "probar": "En un móvil Android, abra el enlace de nativo/android/LEEME.md e instálela."
+   }
+  ]
+ },
+ {
   "v": "0.18.0",
   "fecha": "2026-10-20",
   "mejoras": [

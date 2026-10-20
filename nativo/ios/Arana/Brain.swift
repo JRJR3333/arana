@@ -8,6 +8,9 @@ struct Step: Codable {
     var minutes: Int?         // para "reminder" y "timer": dentro de cuántos minutos avisar
     var seconds: Int?         // para "timer": segundos sueltos
     var phone: String?        // para "call" y "message"
+    var when: String?         // para "event": fecha local AAAA-MM-DDTHH:MM
+    var duration: Int?        // para "event": minutos que dura (60 si no se dice)
+    var days: Int?            // para "agenda": 0 hoy, 1 mañana
 }
 
 struct Plan: Codable {
@@ -36,7 +39,8 @@ enum Brain {
     Responde siempre con la herramienta plan. "say" es lo que dirás en voz alta (una o dos frases). \
     Pasos posibles: open (url con el enlace de la app, p. ej. spotify://, whatsapp://, instagram://, youtube://, maps://?q=lugar), \
     reminder (text y minutes), timer (minutes y/o seconds, text opcional: temporizador o alarma dentro de un rato), \
-    call (phone), message (phone y text). Si no hace falta ningún paso, steps vacío. \
+    call (phone), message (phone y text), event (text, when AAAA-MM-DDTHH:MM o minutes, duration: cita en el calendario), \
+    agenda (days 0 hoy, 1 mañana: leer el calendario). Si no hace falta ningún paso, steps vacío. \
     Siga el hilo de la conversación. Si Juan le cuenta algo duradero de sí mismo (gustos, personas, costumbres), \
     póngalo en remember como frase corta en tercera persona.
     """
@@ -51,9 +55,10 @@ enum Brain {
                 "steps": ["type": "array", "items": [
                     "type": "object",
                     "properties": [
-                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer"]],
+                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda"]],
                         "url": ["type": "string"], "text": ["type": "string"],
-                        "minutes": ["type": "integer"], "seconds": ["type": "integer"], "phone": ["type": "string"]
+                        "minutes": ["type": "integer"], "seconds": ["type": "integer"], "phone": ["type": "string"],
+                        "when": ["type": "string"], "duration": ["type": "integer"], "days": ["type": "integer"]
                     ],
                     "required": ["type"]
                 ]],
@@ -66,6 +71,9 @@ enum Brain {
     /// Orden completa: pensar, hacer, recordar. La usan la pantalla y Siri.
     @MainActor
     static func ask(_ text: String) async -> String {
+        if let local = await quick(text) { return local }
+        Isla.start(text)
+        defer { Isla.end() }
         do {
             let plan = try await think(text)
             let fails = await Actions.run(plan.steps ?? [])
@@ -109,9 +117,25 @@ enum Brain {
         return try JSONDecoder().decode(Plan.self, from: planData)
     }
 
-    /// El sistema más lo poco que sabe de Juan.
+    /// Lo que se resuelve en local, sin gastar API: la agenda de hoy o de mañana.
+    @MainActor
+    static func quick(_ text: String) async -> String? {
+        let t = text.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
+        let pide = ["que tengo", "mi agenda", "la agenda", "mi calendario", "tengo algo"].contains { t.contains($0) }
+        guard pide, t.count < 40 else { return nil }
+        let reply = await Actions.agenda(days: t.contains("manana") ? 1 : 0)
+        Memory.addTurn(user: text, reply: reply)
+        return reply
+    }
+
+    /// El sistema más la fecha y lo poco que sabe de Juan.
     static func systemNow() -> String {
-        let f = Memory.facts
-        return f.isEmpty ? system : system + "\nLo que sabe de Juan: " + f.joined(separator: "; ")
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "EEEE yyyy-MM-dd'T'HH:mm"
+        var s = system + "\nAhora: " + f.string(from: Date()) + "."
+        let datos = Memory.facts
+        if !datos.isEmpty { s += "\nLo que sabe de Juan: " + datos.joined(separator: "; ") }
+        return s
     }
 }

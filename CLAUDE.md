@@ -80,6 +80,7 @@ Al añadir una habilidad nueva:
 - Antes de dar algo por hecho, comprobar que el workflow del último commit está en verde (`gh api repos/JRJR3333/arana/actions/runs?per_page=1`). Si está rojo, leer el log del job y arreglarlo en esa misma ejecución.
 - Funciones nuevas: dentro del código de la app (EventKit, App Intents, AVFoundation, WidgetKit, ActivityKit…), no en Atajos.
 - Gastar poco con Claude, igual que en la web: `max_tokens` corto, sin historial largo.
+- La araña tiene también una app de Android (`nativo/android/`, Kotlin sin librerías, workflow «App Android»): la web dentro de un WebView más órdenes nativas `arana://`. El APK se publica en la versión `android` del repo. Las peticiones de Android (el hermano de Juan) se atienden igual.
 - Firma: cuando Juan tenga cuenta de desarrollador, sus certificados van en *GitHub Secrets*, nunca en el repo.
 
 ## Modo evolución (una vez al día)

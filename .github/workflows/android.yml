@@ -1,0 +1,35 @@
+# Compila la araña para Android en la nube y deja el APK en la versión «android» del repositorio.
+name: App Android
+on:
+  push:
+    branches: [master]
+    paths: ["nativo/android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.10.2" }
+      - name: Llave de firma (opcional, la pone Juan en Secrets)
+        env: { KS: "${{ secrets.ARANA_KEYSTORE_B64 }}" }
+        run: |
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/arana.jks"; echo "ARANA_KEYSTORE=$RUNNER_TEMP/arana.jks" >> "$GITHUB_ENV"; fi
+      - name: Compilar
+        working-directory: nativo/android
+        env:
+          ARANA_KEYSTORE_PASS: ${{ secrets.ARANA_KEYSTORE_PASS }}
+          ARANA_KEY_ALIAS: ${{ secrets.ARANA_KEY_ALIAS }}
+        run: gradle --no-daemon assembleDebug
+      - name: Publicar el APK
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp nativo/android/app/build/outputs/apk/debug/app-debug.apk arana.apk
+          gh release view android >/dev/null 2>&1 || gh release create android --prerelease --title "Araña para Android" --notes "Descargue arana.apk en el móvil Android y ábralo. Guía: nativo/android/LEEME.md"
+          gh release upload android arana.apk --clobber

@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.17.0"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "0.19.0"
+    CURRENT_PROJECT_VERSION: "3"
 targets:
   Arana:
     type: application
@@ -22,10 +22,30 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Araña
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: La araña lee su agenda y apunta las citas que usted le pide.
         INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: La araña apunta los recordatorios que usted le pide.
         INFOPLIST_KEY_NSMicrophoneUsageDescription: La araña le escucha cuando usted pulsa el micrófono.
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: La araña convierte su voz en órdenes.
         INFOPLIST_KEY_LSApplicationQueriesSchemes: "whatsapp spotify youtube instagram shortcuts"
+    dependencies:
+      - target: AranaIsla
+  AranaIsla:
+    type: app-extension
+    platform: iOS
+    sources: [AranaIsla, Arana/IslaDatos.swift]
+    info:
+      path: AranaIsla/Info.plist
+      properties:
+        CFBundleDisplayName: Araña
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jrjr3333.arana.isla
+        PRODUCT_NAME: AranaIsla
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
 schemes:
   Arana:
     build:
