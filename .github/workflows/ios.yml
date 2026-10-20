@@ -20,6 +20,6 @@ jobs:
           if ! xcodebuild -project Arana.xcodeproj -scheme Arana -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build > build.log 2>&1; then
-            grep -E "error:|BUILD FAILED" build.log | head -60; exit 1
+            grep -E "error:|BUILD FAILED" build.log | head -60 | sed "s/^/::error::/"; exit 1
           fi
           tail -n 5 build.log

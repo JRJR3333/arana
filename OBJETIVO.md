@@ -1,6 +1,10 @@
 # Objetivo final: que la araña salga de la web
 
-**Meta:** que la araña deje de ser solo una página web y viva en el iPhone de Juan, con órdenes por voz, widgets, avisos y, al final, una app nativa. Hoy Juan no tiene Mac. Hay que avanzar con lo que permite un iPhone y la nube.
+**Meta (cambiada el 2026-10-20 por Juan):** la araña es **una app nativa propia**, un asistente tipo Siri que gestiona su iPhone. Es lo único que Juan quiere instalar: ni AltStore ni otras apps. Todas las funciones van en el código de la app (`nativo/ios/`), no en Atajos ni en guías para montar a mano. La web (`index.html`) queda en mantenimiento: solo arreglos y las valoraciones.
+
+Juan no tiene Mac: la app se compila en un Mac de GitHub Actions (`.github/workflows/ios.yml`). Para instalarla solo con un enlace de Safari hace falta la cuenta de desarrollador de Apple (99 $/año) y firmar en la nube (distribución ad hoc, con el UDID de su iPhone registrado). Mientras Juan no la tenga, se programa y se compila sin firmar.
+
+**Prioridad de trabajo, cada hora:** h7 (la app) primero, luego h8 y las funciones de asistente dentro de la app. Los hitos h1–h6 de Atajos quedan como están: no se amplían.
 
 ## Hitos y puntos
 
@@ -17,8 +21,8 @@ Los puntos de cada hito se suman al XP de la araña: cuanto más cerca está de 
 | h4 · A un toque | 20 | «Araña voz» como control del Centro de control, de la pantalla bloqueada o del botón de Acción (iOS 18). Rehecho en la 0.15.0 tras su ★★ al widget de carpetas. |
 | h5 · Avisos con la app cerrada | 20 | Automatizaciones de Atajos a la hora de cada rutina con «Mostrar notificación» o «Elegir del menú», que lanzan la rutina. La web prepara el texto. |
 | h6 · Cerebro fuera de la web | 25 | Atajo que llama a la API de Claude con «Obtener contenido de URL» (la clave la pone Juan en el atajo, nunca en el repo) y ejecuta el plan, sin Safari. |
-| h7 · App nativa | 40 | Proyecto Swift en `nativo/ios/`, compilado con GitHub Actions (runner macOS) y firmado con la cuenta gratuita de Juan mediante AltStore desde su PC (o TestFlight si algún día tiene cuenta de desarrollador). |
-| h8 · Isla Dinámica | 30 | Live Activity en la app nativa: la araña camina por la Isla mientras ejecuta una orden. |
+| h7 · App nativa | 40 | App SwiftUI en `nativo/ios/` (XcodeGen), compilada en GitHub Actions. Cerebro Claude (clave en el llavero), voz, «Oye Siri, Araña» con App Intents, recordatorios, llamadas, mensajes, abrir apps. Instalación: firma ad hoc en la nube con la cuenta de desarrollador de Juan y enlace de instalación desde GitHub Pages. |
+| h8 · Isla Dinámica | 30 | Live Activity en la app nativa: la araña camina por la Isla mientras ejecuta una orden. Después: widget de verdad y control del Centro de control, desde la misma app. |
 
 ## Mientras tanto: un asistente como Siri
 
@@ -35,7 +39,9 @@ Las mejoras del asistente no dan puntos de hito, pero sí cuentan en las valorac
 
 ## Reglas
 
-- **Sin instalar nada aparte** (lo pidió Juan el 2026-10-20). Solo la web, Safari y las apps que trae el iPhone, sobre todo Atajos. h7 y h8 quedan en pausa porque necesitan instalar otra app; no se trabajan salvo que Juan cambie de idea.
+- **Solo se instala la app de la araña** (Juan, 2026-10-20). Nada de AltStore, TestFlight ni otras apps de ayuda. Todo lo que haga la araña va dentro de su código.
+- **La app siempre compila.** Cada cambio en `nativo/ios/` debe dejar verde el workflow «App nativa (iOS)». Si queda rojo, la siguiente ejecución lo arregla antes de nada.
+- **Lo que iOS no deja a ninguna app** (cambiar Wi-Fi, Bluetooth o modo concentración, leer otras apps): se le dice a Juan claro, sin rodeos.
 
 - **Toda pieza nativa vive en `nativo/`** con una guía `LEEME.md` en español, pensada para hacerla desde el móvil en menos de 10 minutos.
 - **Ningún secreto en el repo.** Las claves las pone Juan en su dispositivo.

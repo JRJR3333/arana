@@ -1,6 +1,6 @@
 # Instrucciones para Claude: cómo actualizar Araña
 
-Araña es la app personal de Juan para iPhone. Es una web app instalada en la pantalla de inicio y alojada en GitHub Pages desde la rama `master`. Este archivo explica cómo atender sus peticiones de nuevas habilidades.
+Araña es la app personal de Juan para iPhone. Desde el 2026-10-20 el objetivo es que sea **una app nativa propia** (`nativo/ios/`, ver `OBJETIVO.md`); la web app de GitHub Pages (`index.html`, rama `master`) queda en mantenimiento. Este archivo explica cómo atender sus peticiones de nuevas habilidades.
 
 ## Peticiones
 
@@ -73,6 +73,15 @@ Al añadir una habilidad nueva:
 - No se suben imágenes de iconos al repo.
 - Las apps que no están en la tienda (`NO_STORE`) se quedan dibujadas.
 
+## App nativa (`nativo/ios/`)
+
+- SwiftUI, iOS 17+, proyecto generado con XcodeGen (`project.yml`). No se sube el `.xcodeproj`.
+- Se compila en GitHub Actions (`.github/workflows/ios.yml`, macOS). Es la única compilación permitida: en la nube, nunca en el iPhone de Juan.
+- Antes de dar algo por hecho, comprobar que el workflow del último commit está en verde (`gh api repos/JRJR3333/arana/actions/runs?per_page=1`). Si está rojo, leer el log del job y arreglarlo en esa misma ejecución.
+- Funciones nuevas: dentro del código de la app (EventKit, App Intents, AVFoundation, WidgetKit, ActivityKit…), no en Atajos.
+- Gastar poco con Claude, igual que en la web: `max_tokens` corto, sin historial largo.
+- Firma: cuando Juan tenga cuenta de desarrollador, sus certificados van en *GitHub Secrets*, nunca en el repo.
+
 ## Modo evolución (cada hora)
 
 Una tarea programada ejecuta a Claude cada hora, use Juan la araña o no. Cada ejecución sigue este orden:
@@ -84,7 +93,7 @@ Una tarea programada ejecuta a Claude cada hora, use Juan la araña o no. Cada e
    - **Hito confirmado** («funciona ✓») → `estado: "conseguido"` en `objetivo.json`. Si «no funciona ✗» → `en_curso`, y arreglarlo.
    - Comentar el issue con lo que se ha hecho con sus notas y cerrarlo.
 2. **Atender todas las peticiones** `nueva-habilidad` abiertas, en cada ejecución y sin límite (lo pidió Juan el 2026-10-20), como explica la sección de arriba. Cada una acaba implementada, cerrada con `no-posible` y una alternativa, o con `necesita-info`. Si una es grande, se hace la parte que se pueda terminar y se deja abierta explicando qué falta. Se suman a las 2–4 mejoras propias; no las sustituyen.
-3. **Publicar una versión con 2–4 mejoras.** Mezclar tipos: `funcionalidad`, `grafica`, `iniciativa`, `diseño`, `arreglo`.
+3. **Publicar una versión con 2–4 mejoras, sobre todo en la app nativa** (la web solo recibe arreglos). Mezclar tipos: `funcionalidad`, `grafica`, `iniciativa`, `diseño`, `arreglo`.
    - **Al menos una mejora por versión debe acercar a la araña al objetivo** (ver `OBJETIVO.md`) y llevar `"hito": "hN"`.
    - **Al menos otra debe acercarla a un asistente tipo Siri** (`"hito": "asistente"`; ver la sección de `OBJETIVO.md`).
    - Si un hito necesita que Juan haga algo en su iPhone, poner `estado: "listo_para_juan"`, rellenar `juan` con la tarea en una frase y `guia` con un enlace a la guía paso a paso en `nativo/`.
