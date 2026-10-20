@@ -1,0 +1,25 @@
+# Compila la app nativa de la araña en un Mac de GitHub (Juan no tiene Mac).
+# Por ahora sin firmar: comprueba que el código compila. La firma llegará cuando Juan tenga cuenta de desarrollador.
+name: App nativa (iOS)
+on:
+  push:
+    branches: [master]
+    paths: ["nativo/ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar el proyecto
+        run: brew install xcodegen && cd nativo/ios && xcodegen generate
+      - name: Compilar (simulador, sin firma)
+        run: |
+          cd nativo/ios
+          if ! xcodebuild -project Arana.xcodeproj -scheme Arana -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build > build.log 2>&1; then
+            grep -E "error:|BUILD FAILED" build.log | head -60; exit 1
+          fi
+          tail -n 5 build.log

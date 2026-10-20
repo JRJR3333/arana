@@ -1,0 +1,33 @@
+name: Arana
+options:
+  bundleIdPrefix: com.jrjr3333
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Arana:
+    type: application
+    platform: iOS
+    sources: [Arana]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jrjr3333.arana
+        PRODUCT_NAME: Arana
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Araña
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: La araña apunta los recordatorios que usted le pide.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: La araña le escucha cuando usted pulsa el micrófono.
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: La araña convierte su voz en órdenes.
+        INFOPLIST_KEY_LSApplicationQueriesSchemes: "whatsapp spotify youtube instagram shortcuts"
+schemes:
+  Arana:
+    build:
+      targets:
+        Arana: all
