@@ -2,8 +2,10 @@
   "meta": "Que la araña salga de la web y viva en el iPhone de Juan",
   "actualizado": "2026-10-20",
   "hitos": [
-    {"id": "h1", "nombre": "Varias órdenes en un solo salto a Atajos", "pts": 10, "estado": "pendiente",
-     "desc": "El atajo «Araña» recibe una lista de órdenes y las ejecuta seguidas, sin volver a la web entre paso y paso."},
+    {"id": "h1", "nombre": "Varias órdenes en un solo salto a Atajos", "pts": 10, "estado": "listo_para_juan",
+     "desc": "El atajo «Araña» recibe una lista de órdenes y las ejecuta seguidas, sin volver a la web entre paso y paso.",
+     "juan": "Meta su atajo «Araña» dentro de un «Repetir con cada» (5 minutos) y active Ajustes → Varias órdenes en un salto.",
+     "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h1/LEEME.md"},
     {"id": "h2", "nombre": "«Oye Siri, Araña»", "pts": 15, "estado": "pendiente",
      "desc": "Un atajo de Siri que recoge la orden por voz y la ejecuta sin abrir la web."},
     {"id": "h3", "nombre": "Automatizaciones de iOS", "pts": 15, "estado": "pendiente",

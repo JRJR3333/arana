@@ -892,10 +892,13 @@ function closeChip(){ if(pendingChip){ const d=pendingChip.done; pendingChip=nul
 const overlayOpen=()=>!!pendingChip||!$('#sheet').hidden;
 
 /* ================= Puente con iOS ================= */
-const scURL=(cmd,val)=>`shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT)}&input=text&text=${encodeURIComponent(cmd+'|'+val)}`;
+const scRaw=text=>`shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT)}&input=text&text=${encodeURIComponent(text)}`;
+const scURL=(cmd,val)=>scRaw(cmd+'|'+val);
+// h1: varias órdenes en un solo salto («wifi|off;brillo|30»). Solo si Juan ya preparó el atajo (Ajustes → Varias órdenes).
+const scMulti=list=>scRaw(list.map(x=>setById(x.id).sc+'|'+x.v).join(';'));
 function urlFor(a){
   if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); return x?x.url:''; }
-  if(a.t==='set') return scURL(setById(a.id).sc,a.v);
+  if(a.t==='set') return a.multi?scMulti(a.multi):scURL(setById(a.id).sc,a.v);
   if(a.t==='wa') return 'whatsapp://send?text='+encodeURIComponent(a.text||'');
   return null;
 }
@@ -1053,6 +1056,18 @@ function rules(l,raw){
   if(/^(abre|abrir|abra|lanza|entra)\b/.test(l)) return {cant:'Esa app no está en su pantalla. Mantenga pulsado un icono y use «+ Añadir».'};
   return null;
 }
+/* Varias órdenes en una frase sin gastar cerebro: «apaga el wifi y el bluetooth», «brillo al 30 y abre Spotify» */
+function multiRules(l){
+  const parts=l.split(/\s*(?:,|\by luego\b|\bluego\b|\bdespues\b|\by\b)\s*/).filter(Boolean);
+  if(parts.length<2||parts.length>5) return null;
+  const acts=[]; let verb='';
+  for(const p of parts){
+    let r=rules(p,p); if((!r||r.suggestSet)&&verb) r=rules(verb+' '+p,p);
+    if(!r||!r.act||r.act.t==='wa'||r.act.t==='carry') return null;
+    acts.push(r.act); const v=p.match(/^(apaga|enciende|activa|desactiva|pon|quita|sube|baja)\b/); if(v) verb=v[1];
+  }
+  return acts;
+}
 function similar(a,b){ const A=new Set(a.split(' ')), B=new Set(b.split(' ')); let i=0; A.forEach(x=>{ if(B.has(x)) i++; }); return i/(A.size+B.size-i||1); }
 function guesses(l){
   const toks=l.split(' ');
@@ -1121,6 +1136,7 @@ async function interpret(raw){
   // 3) Si mis reglas lo tienen claro y la orden es simple, lo hago yo: no gasto consulta
   const complex=/\b(y|luego|despues|tambien|ademas|antes|mientras|si|cuando|como siempre)\b|,/.test(l)||l.split(' ').length>9;
   if(!complex&&r&&(r.act||r.cant)) return rulesFlow(l,raw,r);
+  const ma=complex?multiRules(l):null; if(ma) return run(()=>planFlow({acts:ma,say:vary('ok')},l));
   // 4) Un plan que ya pensé hace poco para la misma frase: lo reutilizo gratis
   const pc=planCache[l]; if(pc&&Date.now()-pc.ts<7*864e5&&brain.on) return run(()=>planFlow({...pc.plan,remember:[],forget:[],routine:null},l));
   // 5) El cerebro piensa (con tope diario)
@@ -1272,6 +1288,9 @@ async function planFlow(plan,phrase){
   }
   for(let i=0;i<acts.length;i++){
     const a=acts[i]; if(abortFlag) throw ABORT;
+    if(a.t==='set'&&prefs.multi){ let j=i; while(j+1<acts.length&&acts[j+1].t==='set') j++;
+      if(j>i){ const grp=acts.slice(i,j+1); say('Pasos '+(i+1)+' a '+(j+1)+' de un salto: '+grp.map(label).join(', ')+'.',2600);
+        const r=await doAction({t:'set',id:a.id,v:a.v,multi:grp},null,{noAsk:true,inPlan:true}); if(r==='stop'){ say('Me detengo aquí.'); return; } i=j; continue; } }
     say('Paso '+(i+1)+' de '+acts.length+': '+label(a)+'.',2200);
     if(a.t==='pocket'){ pocket=a.text; saveAll(); renderPocket(); const pk=$('#pocket'); if(pk){ await reveal(pk); const c=center(pk); await approach(c); const w=await web(c); await wait(250); release(w); } continue; }
     const r=await doAction(a,null,{noAsk:true,inPlan:true});
@@ -1371,7 +1390,10 @@ function openSettings(){
       <p class="note" style="margin-top:6px">iOS no me deja ver qué apps tiene instaladas. Si instala o borra una, póngala o quítela aquí (o mantenga pulsado un icono).</p></div>
     <div><span class="lbl">Conexión con Atajos</span>
       <div class="row"><button class="btn ghost" type="button" id="test">Probar el atajo «Araña»</button></div>
-      <p class="note" style="margin-top:6px">Si no pasa nada, el atajo no existe o tiene otro nombre.</p></div>
+      <p class="note" style="margin-top:6px">Si no pasa nada, el atajo no existe o tiene otro nombre.</p>
+      <span class="lbl" style="margin-top:12px">Varias órdenes en un salto</span>${seg('multi',[['1','Mi atajo ya sabe'],['0','Todavía no']],prefs.multi?'1':'0')}
+      <div class="row" style="margin-top:8px"><button class="btn ghost" type="button" id="testMulti">Probar dos avisos</button><a class="btn ghost" style="text-decoration:none;display:inline-block" href="https://github.com/JRJR3333/arana/blob/master/nativo/h1/LEEME.md" target="_blank" rel="noopener">Cómo prepararlo</a></div>
+      <p class="note" style="margin-top:6px">Con el atajo preparado, mando todos los ajustes de una vez y no vuelvo a la web entre paso y paso. La prueba debe mostrar dos avisos.</p></div>
     <div class="row"><button class="btn ghost" type="button" id="reset">Olvidar todo</button><button class="btn" type="button" id="close">Cerrar</button></div>`);
   document.querySelectorAll('#sheet input[name="perm"]').forEach(i=>i.onchange=()=>{ prefs.perm=i.value; saveAll(); });
   document.querySelectorAll('#sheet input[name="mv"]').forEach(i=>i.onchange=()=>{ prefs.mv=i.value; saveAll(); });
@@ -1385,6 +1407,8 @@ function openSettings(){
     think('Preséntate en una frase y dime qué sabes de mí.').then(p=>{ say(p.say||'Funciona.',4200); happy(); }).catch(e=>say(/401/.test(String(e))?'La clave no es válida.':'No consigo conectar: '+String(e).slice(0,60),4200)).finally(()=>{ thinking=false; }); };
   document.querySelectorAll('#sheet [data-del]').forEach(b=>b.onclick=()=>{ delete mem[b.dataset.del]; saveAll(); openSettings(); });
   $('#test').onclick=()=>{ launch(scURL('test','1')); };
+  $('#testMulti').onclick=()=>{ launch(scRaw('test|1;test|2')); };
+  document.querySelectorAll('#sheet input[name="multi"]').forEach(i=>i.onchange=()=>{ prefs.multi=i.value==='1'; saveAll(); if(prefs.multi) say('Entendido. Desde ahora mando las órdenes juntas.',3000); });
   $('#hEdit').onclick=()=>{ closeSheet(); enterEdit(); };
   $('#hIcons').onclick=()=>{ closeSheet(); Object.keys(icons).forEach(k=>{ if(!icons[k].manual) delete icons[k]; }); store.set('icons',icons); say('Busco los iconos en la App Store.',2600); resolveIcons(true); };
   $('#hReset').onclick=()=>{ if(!confirm('¿Volver a la pantalla original? Se pierden sus cambios de iconos.')) return; home=JSON.parse(JSON.stringify(DEF_HOME)); saveHome(); closeSheet(); renderHome(); goPage(0); say('Como el primer día.'); };
@@ -1552,7 +1576,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>
