@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.15.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.15.0-1",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "«Pensando…» y «Aprendiendo…»",
+    "detalle": "Lo que pidió en #20, #19 y #11. Mientras pienso con Claude, una pastilla bajo mí dice «Pensando», «Analizando», «Buscando el plan», con puntos y un brillo que corre; alrededor de mi cabeza barre un radar rápido con estela. Cuando aprendo algo (una frase, un dato suyo, una rutina) sale «Aprendiendo» y un anillo se abre desde mi cuerpo. Como Siri, se ve que trabajo.",
+    "probar": "Pídame algo que tenga que pensar (por ejemplo «pon algo para relajarme»). Luego dígame «me llamo Juan» o enséñeme una frase nueva."
+   },
+   {
+    "id": "0.15.0-2",
+    "tipo": "arreglo",
+    "hito": "h4",
+    "titulo": "A un toque, sin carpetas",
+    "detalle": "Le puso ★★ al widget de carpetas: lo rehago. Ahora es un solo paso: «Araña voz» en el Centro de control, en la pantalla bloqueada o en el botón de Acción. 2 minutos y es un botón de verdad del iPhone, fuera de Safari. Las teclas por rutina quedan como extra opcional.",
+    "probar": "Evolución → «A un toque» → Ver pasos. Siga la opción A (2 minutos) y toque el control."
+   },
+   {
+    "id": "0.15.0-3",
+    "tipo": "sorpresa",
+    "titulo": "Una reverencia por las gracias",
+    "detalle": "Nadie lo pidió. Si me dice «gracias» me inclino como un mayordomo y le contesto, sin gastar consulta al cerebro. Dado de la hora: sorpresa sí, sin condición (0,90).",
+    "probar": "Escriba o diga «gracias»."
+   }
+  ]
+ },
+ {
   "v": "0.14.2",
   "fecha": "2026-10-20",
   "mejoras": [

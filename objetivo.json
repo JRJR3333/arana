@@ -31,11 +31,11 @@
     },
     {
       "id": "h4",
-      "nombre": "Widget en la pantalla de inicio (con Atajos)",
+      "nombre": "La araña a un toque, fuera de Safari",
       "pts": 20,
       "estado": "listo_para_juan",
-      "desc": "Widget de la app Atajos con la carpeta «Araña»: hablarle y lanzar sus rutinas con un toque. Sin instalar nada.",
-      "juan": "Cree la carpeta «Araña» en Atajos con «Araña voz» y sus recetas, y ponga el widget de Atajos (6 minutos).",
+      "desc": "«Araña voz» como control del Centro de control, de la pantalla bloqueada o del botón de Acción: un toque y habla. Rehecho tras su ★★: sin carpetas ni widget de Atajos. Sin instalar nada.",
+      "juan": "Ponga «Araña voz» en el Centro de control (o en la pantalla bloqueada, o en el botón de Acción) en 2 minutos.",
       "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h4/LEEME.md"
     },
     {

@@ -14,7 +14,7 @@ Los puntos de cada hito se suman al XP de la araña: cuanto más cerca está de 
 | h1 · Varias órdenes en un salto | 10 | El atajo «Araña» acepta `cmd|val;cmd|val` y los recorre con «Repetir con cada». La web manda la lista entera de una vez. |
 | h2 · «Oye Siri, Araña» | 15 | Atajo «Araña voz»: dictado → abre la web con `?q=` y la orden se ejecuta al cargar. Después, h6. |
 | h3 · Automatizaciones de iOS | 15 | Guías y textos listos para pegar en Automatización personal (hora, Wi-Fi, al abrir una app) que lanzan las rutinas aprendidas. La web exporta sus rutinas como órdenes del atajo. |
-| h4 · Widget | 20 | Widget de la app Atajos con la carpeta «Araña»: «Araña voz» y una tecla por receta (h3). |
+| h4 · A un toque | 20 | «Araña voz» como control del Centro de control, de la pantalla bloqueada o del botón de Acción (iOS 18). Rehecho en la 0.15.0 tras su ★★ al widget de carpetas. |
 | h5 · Avisos con la app cerrada | 20 | Automatizaciones de Atajos a la hora de cada rutina con «Mostrar notificación» o «Elegir del menú», que lanzan la rutina. La web prepara el texto. |
 | h6 · Cerebro fuera de la web | 25 | Atajo que llama a la API de Claude con «Obtener contenido de URL» (la clave la pone Juan en el atajo, nunca en el repo) y ejecuta el plan, sin Safari. |
 | h7 · App nativa | 40 | Proyecto Swift en `nativo/ios/`, compilado con GitHub Actions (runner macOS) y firmado con la cuenta gratuita de Juan mediante AltStore desde su PC (o TestFlight si algún día tiene cuenta de desarrollador). |

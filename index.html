@@ -115,6 +115,16 @@ button:focus-visible{outline:2px solid var(--ring); outline-offset:2px}
 .say{position:absolute; left:0; top:0; max-width:230px; padding:7px 12px 8px; border-radius:12px; background:var(--say-bg); color:var(--say-ink);
   font-family:var(--f-display); font-style:italic; font-size:18px; line-height:1.15; opacity:0; transition:opacity .25s}
 .say.on{opacity:1}
+/* Pensando / Aprendiendo: una pastilla pequeña bajo la araña (0.15.0) */
+.stat{position:absolute; left:0; top:0; padding:3px 10px 4px; border-radius:999px; background:var(--say-bg); color:var(--say-ink); font-size:12px; font-weight:600; letter-spacing:.03em;
+  opacity:0; transition:opacity .15s; white-space:nowrap; overflow:hidden}
+.stat.on{opacity:.92}
+.stat i{display:inline-block; width:4px; height:4px; margin-left:3px; border-radius:50%; background:currentColor; vertical-align:middle; animation:blip .6s infinite ease-in-out}
+.stat i:nth-child(2){animation-delay:.1s} .stat i:nth-child(3){animation-delay:.2s}
+.stat::after{content:''; position:absolute; inset:0; background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.28) 50%,transparent 70%); background-size:220% 100%; animation:shine .9s linear infinite}
+@keyframes blip{0%,100%{opacity:.25; transform:translateY(0)} 50%{opacity:1; transform:translateY(-2px)}}
+@keyframes shine{from{background-position:120% 0} to{background-position:-100% 0}}
+@media (prefers-reduced-motion: reduce){ .stat i,.stat::after{animation:none} }
 .chipbox{position:absolute; pointer-events:auto; display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px; border-radius:14px; background:var(--say-bg); color:var(--say-ink);
   max-width:calc(100vw - 24px); animation:pop .22s ease-out}
 .chipbox p{margin:0 6px; font-family:var(--f-display); font-style:italic; font-size:17px}
@@ -186,7 +196,7 @@ textarea{width:100%; min-height:90px; font:inherit; font-size:16px; padding:10px
 
 <canvas id="spider"></canvas>
 <div id="hit" role="button" aria-label="Araña" tabindex="0"></div>
-<div id="ui"><div class="say" id="say"></div></div>
+<div id="ui"><div class="say" id="say"></div><div class="stat" id="stat" aria-live="polite"></div></div>
 
 <div id="sheet" hidden>
   <div class="card" id="sheetCard"></div>
@@ -196,7 +206,7 @@ textarea{width:100%; min-height:90px; font:inherit; font-size:16px; padding:10px
 (()=>{
 'use strict';
 const $=s=>document.querySelector(s);
-const cv=$('#spider'), ctx=cv.getContext('2d'), sayEl=$('#say'), hit=$('#hit'), ui=$('#ui');
+const cv=$('#spider'), ctx=cv.getContext('2d'), sayEl=$('#say'), statEl=$('#stat'), hit=$('#hit'), ui=$('#ui');
 let W=innerWidth, H=innerHeight;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const SHORTCUT='Araña';
@@ -731,7 +741,7 @@ function press(el){ (el.querySelector('.sq')||el).animate([{transform:'scale(1)'
 function mark(el,on){ (el.querySelector('.sq')||el).classList.toggle('webbed',on); }
 
 /* ================= Araña: cuerpo ================= */
-const S={x:W*.7,y:H*.55,vx:0,vy:0,h:-Math.PI/2,tx:W*.7,ty:H*.55,face:null,fl:0,tuck:0,nod:0,hop:0,sag:0,travelFloat:false,hidden:false,user:false};
+const S={x:W*.7,y:H*.55,vx:0,vy:0,h:-Math.PI/2,tx:W*.7,ty:H*.55,face:null,fl:0,tuck:0,nod:0,hop:0,sag:0,travelFloat:false,hidden:false,user:false,learn:0};
 const LA=[.5,1.12,1.82,2.45], LR=[40,36,35,41], legs=[];
 [1,-1].forEach(side=>LA.forEach((a,k)=>legs.push({a:a*side,r:LR[k],g:(k+(side>0?0:1))%2,fx:0,fy:0,st:null})));
 let webs=[]; const carry={on:false,x:0,y:0};
@@ -760,7 +770,7 @@ function update(dt,t){
   const sp=Math.hypot(S.vx,S.vy), target=sp>12?Math.atan2(S.vy,S.vx):S.face;
   if(target!=null) S.h=lerpAng(S.h,target,Math.min(1,dt*(sp>12?5:3)));
   S.tuck+=((S.hidden?1:S.sag)-S.tuck)*Math.min(1,dt*3);
-  S.nod=Math.max(0,S.nod-dt*1.4); S.hop=Math.max(0,S.hop-dt*1.1); S.sag=Math.max(0,S.sag-dt*.35);
+  S.nod=Math.max(0,S.nod-dt*1.4); S.learn=Math.max(0,S.learn-dt*1.3); S.hop=Math.max(0,S.hop-dt*1.1); S.sag=Math.max(0,S.sag-dt*.35);
   if(S.hop>0) S.h+=dt*7*Math.sin(S.hop*Math.PI);
   const shrink=1-.42*Math.max(S.fl,S.tuck);
   for(const L of legs){
@@ -777,7 +787,7 @@ function update(dt,t){
   webs=webs.filter(w=>!w.dead);
   if(carry.on){ const tx=S.x-Math.cos(S.h)*36, ty=S.y-Math.sin(S.h)*36; carry.x+=(tx-carry.x)*Math.min(1,dt*6); carry.y+=(ty-carry.y)*Math.min(1,dt*6); }
   hit.style.transform=`translate(${S.x}px,${S.y}px)`;
-  placeSay();
+  placeSay(); placeStat();
   const idle=performance.now()-lastActive;
   if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&!editing&&idle>3000&&idle<7500&&Math.random()<dt*.18*surprise()) curiosea();
   if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&idle>8000) hideAtEdge();
@@ -817,7 +827,14 @@ function draw(t){
     ctx.beginPath(); ctx.arc(k.x,k.y,1.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(fx,fy,1.3,0,Math.PI*2); ctx.fill();
   }
   const ab={x:S.x-hx*10,y:S.y-hy*10+bob}, hd={x:S.x+hx*(6+nod),y:S.y+hy*(6+nod)+bob};
-  if(S.think){ for(let i=0;i<3;i++){ const a=t*3.4+i*2.094; ctx.beginPath(); ctx.arc(hd.x+Math.cos(a)*15,hd.y+Math.sin(a)*15,1.6,0,Math.PI*2); ctx.fill(); } }
+  if(S.think){ // analizando: un radar que barre rápido alrededor de la cabeza, con estela, y tres puntos en órbita
+    const sw=t*7.5; ctx.lineWidth=1.2;
+    for(let k=0;k<4;k++){ ctx.globalAlpha=.55-k*.13; ctx.beginPath(); ctx.arc(hd.x,hd.y,19,sw-k*.32,sw-k*.32+.3); ctx.stroke(); }
+    ctx.globalAlpha=.85; for(let i=0;i<3;i++){ const a=t*5.2+i*2.094, r=13+Math.sin(t*9+i)*2.2; ctx.beginPath(); ctx.arc(hd.x+Math.cos(a)*r,hd.y+Math.sin(a)*r,1.5,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1; ctx.lineWidth=1.5; }
+  if(S.learn>0){ // aprendiendo: un anillo que se expande desde el abdomen
+    const e=1-S.learn; ctx.lineWidth=1; for(const d of [0,.28]){ const q=Math.max(0,e-d); if(q<=0) continue; ctx.globalAlpha=S.learn*.8; ctx.beginPath(); ctx.arc(S.x,S.y+bob,10+ease(Math.min(1,q))*38,0,Math.PI*2); ctx.stroke(); }
+    ctx.globalAlpha=1; ctx.lineWidth=1.5; }
   ctx.beginPath(); ctx.arc(ab.x,ab.y,8.5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(ab.x,ab.y,2.2,0,Math.PI*2); ctx.fill();
   // Evolución visible: cada nivel añade un rasgo
   if(LV>=1){ ctx.lineWidth=.8; ctx.beginPath(); ctx.arc(ab.x,ab.y,5.2,0,Math.PI*2); ctx.stroke(); ctx.lineWidth=1.5; }
@@ -840,6 +857,7 @@ const faceTo=p=>{ S.face=Math.atan2(p.y-S.y,p.x-S.x); };
 async function approach(p){ const dy=p.y>H*.62?-70:66; await moveTo(p.x,p.y+dy); faceTo(p); await wait(200); }
 async function web(p){ const w={to:p,p:0,ten:0,b:0}; webs.push(w); await until(()=>w.ten>=1); return w; }
 const release=w=>{ if(w){ w.out=true; w.pulse=false; } };
+const bow=()=>{ S.sag=.55; S.nod=1; setTimeout(()=>{ S.nod=1; },420); setTimeout(()=>{ S.hop=.6; },1100); };
 const happy=()=>{ S.hop=1; S.nod=1; if(roll(.3)) setTimeout(()=>{ S.hop=1; },650); }, sad=()=>{ S.sag=.7; };
 
 let sayTimer=null;
@@ -865,6 +883,22 @@ function say(text,ms=2600){
   clearTimeout(sayTimer); sayEl.classList.add('on');
   if(reduce) sayEl.textContent=text; else { let i=0; const f=()=>{ sayEl.textContent=text.slice(0,++i); if(i<text.length) setTimeout(f,20); }; f(); }
   sayTimer=setTimeout(()=>sayEl.classList.remove('on'),ms);
+}
+/* Pastilla de estado: «Pensando…», «Analizando…», «Aprendiendo…» */
+let statTick=null, statTimer=null;
+function status(words,ms){
+  clearInterval(statTick); clearTimeout(statTimer);
+  if(!words){ statEl.classList.remove('on'); return; }
+  const ws=[].concat(words); let i=0;
+  const put=()=>{ statEl.innerHTML=''; statEl.append(ws[i%ws.length]); for(let k=0;k<3;k++) statEl.appendChild(document.createElement('i')); i++; };
+  put(); statEl.classList.add('on'); if(ws.length>1) statTick=setInterval(put,850);
+  if(ms) statTimer=setTimeout(()=>status(null),ms);
+}
+function learning(){ S.learn=1; if(!S.think) status('Aprendiendo',1400); }
+function placeStat(){
+  if(!statEl.classList.contains('on')) return;
+  const bw=statEl.offsetWidth||90; const x=Math.max(10,Math.min(W-bw-10,S.x-bw/2)); let y=S.y+44; if(y>H-40) y=S.y-80;
+  statEl.style.transform=`translate(${x}px,${y}px)`;
 }
 function placeSay(){
   const bw=sayEl.offsetWidth||120, bh=sayEl.offsetHeight||30;
@@ -920,6 +954,7 @@ function learn(phrase,a,delta){
   const st=Array.isArray(a)?a:[a], cur=mem[phrase];
   const m=cur&&keyOfSteps(stepsOf(cur))===keyOfSteps(st)?{steps:stepsOf(cur),score:cur.score}:{steps:st,score:0};
   m.score+=delta; if(m.score<=-2) delete mem[phrase]; else mem[phrase]=m; saveAll();
+  if(delta>0) learning();
 }
 async function askFeedback(p){
   const st=p.steps||[p.act], one=st.length===1?st[0]:{t:'plan',steps:st};
@@ -1184,6 +1219,8 @@ async function interpret(raw){
   const l=norm(raw); if(!l) return; lastActive=performance.now();
   if(thinking){ say('Un momento, estoy pensando.'); return; }
   // 0) Respuestas al instante (hora, cuentas, su nombre…): gratis y sin cerebro
+  // Sorpresa 0.15.0: si me da las gracias, hago una reverencia de mayordomo (gratis, sin cerebro)
+  if(/^(?:muchas |mil |pues )?gracias(?: arana| de verdad| majo| crack)?$/.test(l)){ const t=pick(['A usted.','Es un honor.','Siempre a su servicio.','No hay de qué. Me inclino.']); bow(); say(t,2600); speak(t); logEv('answer',null,l); return; }
   const qa=quickAnswer(l,raw); if(qa) return answer(qa,l);
   // 1) Lo aprendido manda (gratis y al instante)
   let m=mem[l]; if(!m){ let best=null,bs=0; for(const k in mem){ const s=similar(k,l); if(s>bs){ bs=s; best=k; } } if(bs>=.75&&mem[best].score>=1) m=mem[best]; }
@@ -1289,7 +1326,7 @@ const PLAN_TOOL={name:'plan',description:'Lo que la araña dice y hace ante la o
   skill_request:{type:'string',description:'Habilidad nueva que Claude podría programar para lograrlo, en una frase.'}
 },required:['say','steps']}};
 async function think(raw){
-  S.think=true;
+  S.think=true; status(['Pensando','Analizando','Buscando el plan']);
   const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),20000);
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctl.signal,headers:{
@@ -1305,7 +1342,7 @@ async function think(raw){
     convo.push({role:'user',content:raw},{role:'assistant',content:'(Dije: «'+(plan.say||'')+'». Pasos: '+did+'.)'});
     if(convo.length>14) convo=convo.slice(-14);
     return plan;
-  } finally { clearTimeout(to); S.think=false; }
+  } finally { clearTimeout(to); S.think=false; status(null); }
 }
 function toActs(steps){
   const acts=[], bad=[];
@@ -1324,11 +1361,11 @@ function toActs(steps){
 /* Ejecuta lo que ha decidido el cerebro (o una rutina aprendida). Corre dentro de run(). */
 async function planFlow(plan,phrase){
   (plan.forget||[]).forEach(f=>{ facts=facts.filter(x=>x.t!==f); });
-  (plan.remember||[]).forEach(t=>{ t=String(t).trim(); if(t&&!facts.some(f=>f.t===t)){ facts.push({t,ts:Date.now()}); logEv('fact',null,'',{name:t}); } });
+  (plan.remember||[]).forEach(t=>{ t=String(t).trim(); if(t&&!facts.some(f=>f.t===t)){ facts.push({t,ts:Date.now()}); logEv('fact',null,'',{name:t}); learning(); } });
   if(facts.length>40) facts=facts.slice(-40); saveBrain();
   const {acts,bad}=plan.acts?{acts:plan.acts,bad:[]}:toActs(plan.steps);
   if(plan.routine&&plan.routine.name&&acts.length){
-    [plan.routine.name,...(plan.routine.phrases||[])].map(norm).filter(Boolean).forEach(n=>{ mem[n]={steps:acts,score:1}; });
+    [plan.routine.name,...(plan.routine.phrases||[])].map(norm).filter(Boolean).forEach(n=>{ mem[n]={steps:acts,score:1}; }); learning();
     saveAll(); logEv('learned',{t:'plan',steps:acts},norm(plan.routine.name)); checkLevel();
   }
   if(!acts.length){
@@ -1570,7 +1607,7 @@ function openEvolution(){
       <div class="lvl"><b>${gm?Math.round(gp/gm*100):0} %</b><small>${gp} de ${gm} puntos de hito</small></div><div class="xp"><i style="width:${gm?Math.round(gp/gm*100):0}%"></i></div>
       <ul class="events" style="margin-top:8px">${GOAL.hitos.map(h=>{ const t=ST[h.estado]||[h.estado,'']; return `<li><span class="tag ${t[1]}">${t[0]}</span><span class="tx" style="white-space:normal">${escapeHTML(h.nombre)} · ${h.pts} pts${h.estado==='listo_para_juan'&&h.juan?`<br><small style="color:var(--muted)">${escapeHTML(h.juan)}</small>${h.guia?` <a href="${escapeHTML(h.guia)}" target="_blank" rel="noopener">Ver pasos</a>`:''}<br><button type="button" class="iconbtn" data-gok="${escapeHTML(h.id)}" style="margin-top:4px">${goalOK[h.id]==='si'?'Confirmado ✓':'Ya funciona'}</button> <button type="button" class="iconbtn" data-gko="${escapeHTML(h.id)}" style="margin-top:4px">No me funciona</button>`:''}</span></li>`; }).join('')}</ul></div>`:''}
     ${(()=>{ const rx=exportRoutines(); return `<div><span class="lbl">Recetario de rutinas · para Automatización</span>${rx.length?`<ul class="events">${rx.map((r,i)=>`<li><span class="tag ${r.kind==='rutina'?'ok':''}">${r.hour!=null?String(r.hour).padStart(2,'0')+':00':'—'}</span><span class="tx" style="white-space:normal"><b>«${escapeHTML(r.name)}»</b><br><small style="color:var(--muted)">${escapeHTML(r.steps)}</small><br><button type="button" class="iconbtn" data-rxq="${i}" style="margin-top:4px">Copiar enlace</button>${r.sc?` <button type="button" class="iconbtn" data-rxs="${i}" style="margin-top:4px">Copiar texto del atajo</button>`:''}</span></li>`).join('')}</ul>`:'<p class="note">Aún no tengo recetas. Cuando repita algo 3 días a la misma hora, o bautice una rutina, aparecerá aquí.</p>'}<p class="note" style="margin-top:6px">Péguelo en Atajos → Automatización. <a href="https://github.com/JRJR3333/arana/blob/master/nativo/h3/LEEME.md" target="_blank" rel="noopener">Ver pasos</a></p></div>`; })()}
-    <div><span class="lbl">Widget · con Atajos, sin instalar nada</span><p class="note">El widget de la app Atajos me pone en su pantalla de inicio: «Araña voz» para hablarme y una tecla por cada receta de arriba («Copiar texto del atajo» o «Copiar enlace»).</p>
+    <div><span class="lbl">A un toque · fuera de Safari, sin instalar nada</span><p class="note">Ponga «Araña voz» en el Centro de control, en la pantalla bloqueada o en el botón de Acción: un toque, habla y lo hago. Son 2 minutos y no hay carpetas que montar.</p>
       <p class="note" style="margin-top:6px"><a href="https://github.com/JRJR3333/arana/blob/master/nativo/h4/LEEME.md" target="_blank" rel="noopener">Ver pasos</a></p></div>
     ${(()=>{ const rx=exportRoutines(), ra=rx.filter(r=>r.hour!=null); return `<div><span class="lbl">Avisos · con la app cerrada</span>${hourChartSVG(rx)}
       <div class="legend"><span><i style="background:var(--app-3)"></i>Me usa</span><span><i style="background:var(--app-1)"></i>Hora de una receta</span></div>
