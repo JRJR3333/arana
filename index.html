@@ -7,13 +7,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Araña">
-<meta name="theme-color" content="#101317">
+<meta name="theme-color" content="#090a14">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Araña</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Unbounded:wght@700&family=JetBrains+Mono:wght@500;600&display=swap">
 <style>
 /* Layout: una sola pantalla fija. Arriba la marca, en medio las "estaciones" (apps, ajustes, bolsillo) por las que camina la araña, abajo la barra de órdenes. */
 :root{
@@ -39,10 +39,16 @@ body{background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size
 .iconbtn{border:1px solid var(--line); background:transparent; color:var(--fg); font:inherit; font-size:13px; padding:7px 12px; border-radius:999px}
 .field{flex:1; min-height:0; display:flex; flex-direction:column; gap:14px; overflow:hidden}
 /* Pantalla de inicio al estilo de su iPhone: páginas de 4×6, puntos, barra y dock */
-:root{--home:#675a4b; --home-ink:#fff; --ic:58px}
+/* 0.18.0: la pantalla del prototipo que eligió Juan: rejilla fina, brillos violeta y verde azulado, cristal oscuro */
+:root{--home:#090a14; --home-ink:#fff; --ic:58px; --pink:#ff4fa3; --green:#3dff9a; --cyan:#5ee7ff; --orange:#ff9a3d; --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace}
 body{background:var(--home); -webkit-touch-callout:none}
-#app{background:var(--home); color:var(--home-ink)}
-#app .brand small{color:rgba(255,255,255,.7)}
+#app{color:var(--home-ink); background:
+  repeating-linear-gradient(0deg,rgba(94,231,255,.035) 0 1px,transparent 1px 28px),
+  repeating-linear-gradient(90deg,rgba(94,231,255,.035) 0 1px,transparent 1px 28px),
+  radial-gradient(110% 70% at 15% 5%,#33205e 0%,transparent 60%),
+  radial-gradient(100% 70% at 95% 95%,#0e4152 0%,transparent 60%),var(--home)}
+#app .brand{font-family:"Unbounded", var(--f-display); font-weight:700; font-size:26px; letter-spacing:-.02em}
+#app .brand small{font-family:var(--f-mono); font-style:normal; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--pink)!important; margin-left:8px; font-weight:600}
 #app .top .iconbtn{border-color:rgba(255,255,255,.35); color:#fff}
 #app .top .iconbtn.on{background:#fff; color:#2a241d; border-color:#fff}
 .top [hidden]{display:none}
@@ -53,7 +59,7 @@ body{background:var(--home); -webkit-touch-callout:none}
 .dots i{width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.4)}
 .dots i.on{background:#fff}
 #app .tile{color:#fff; width:100%; position:relative}
-#app .tile .sq{width:var(--ic); height:var(--ic); border-radius:calc(var(--ic)*.23); color:var(--fg2,#fff); box-shadow:0 1px 3px rgba(0,0,0,.18)}
+#app .tile .sq{width:var(--ic); height:var(--ic); border-radius:calc(var(--ic)*.23); color:var(--fg2,#fff); box-shadow:0 2px 8px rgba(0,0,0,.35)}
 #app .tile .sq.img{background:transparent; overflow:hidden}
 #app .tile .sq.img img{width:100%; height:100%; display:block; object-fit:cover; border-radius:inherit; pointer-events:none}
 .ipick{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
@@ -61,7 +67,7 @@ body{background:var(--home); -webkit-touch-callout:none}
 .ipick img{width:48px; height:48px; border-radius:11px}
 .ipick span{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 #app .tile .sq b{font-family:var(--f-body); font-weight:600; font-size:calc(var(--ic)*.36); letter-spacing:-.02em}
-#app .tile .nm{font-size:11.5px; font-weight:500; text-shadow:0 1px 2px rgba(0,0,0,.35); max-width:calc(var(--ic) + 22px)}
+#app .tile .nm{font-family:-apple-system,"SF Pro Text",var(--f-body); font-size:12px; font-weight:400; text-shadow:0 1px 2px rgba(0,0,0,.5); max-width:calc(var(--ic) + 22px)}
 .tile .x{display:none; position:absolute; top:-6px; left:calc(50% - var(--ic)/2 - 6px); width:22px; height:22px; border-radius:50%; background:#d9d6d0; color:#222; font-size:15px; line-height:22px; text-align:center; z-index:2}
 body.editing .tile .x{display:block}
 body.editing .page .tile .sq, body.editing .dock .tile .sq{animation:jig .26s ease-in-out infinite alternate}
@@ -70,22 +76,25 @@ body.editing .page .tile:nth-child(2n) .sq{animation-delay:-.13s}
 .folder .sq{background:rgba(255,255,255,.22)!important; display:grid!important; grid-template-columns:repeat(3,1fr); gap:3px; padding:calc(var(--ic)*.14)}
 .folder .sq{place-items:stretch!important; align-content:start}
 .folder .sq i{display:block; width:100%; border-radius:3px; aspect-ratio:1}
-.widget{grid-column:span 2; grid-row:span 2; align-self:stretch; justify-self:stretch; margin:6px 6px 14px; border-radius:22px; padding:12px; background:rgba(30,33,52,.82); color:#fff; display:flex; flex-direction:column; gap:8px; min-height:0; border:0; font:inherit; text-align:left}
+.widget{grid-column:span 2; grid-row:span 2; align-self:stretch; justify-self:stretch; margin:6px 6px 14px; border-radius:22px; padding:12px; background:rgba(20,22,40,.6); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); color:#fff; display:flex; flex-direction:column; gap:8px; min-height:0; border:0; font:inherit; text-align:left}
 .widget .wl{font-size:12px; font-weight:600; letter-spacing:.02em; opacity:.85}
 .wgrid{flex:1; display:grid; grid-template-columns:repeat(4,1fr); align-items:center; justify-items:center; gap:4px}
 #app .wgrid .tile .sq{width:calc(var(--ic)*.6); height:calc(var(--ic)*.6); border-radius:50%; box-shadow:none; background:rgba(255,255,255,.16)}
 #app .wgrid .tile .sq svg{width:18px; height:18px}
 #app .wgrid .tile .nm{display:none}
+.wpocket{background:#fffdf3; color:#222; box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.wpocket .wl{color:#d29a00; font-weight:700; opacity:1; font-size:13px}
+.wclock{font-size:12px; font-weight:500; color:#8fe8ff; font-variant-numeric:tabular-nums; float:right}
 .wpocket #pocketTxt{flex:1; min-height:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; font-size:13.5px; line-height:1.3; opacity:.75}
 .wpocket.full #pocketTxt{opacity:1}
-.wpocket .dot{width:26px; height:26px; flex:none; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center; align-self:flex-end}
+.wpocket .dot{color:#d29a00; width:26px; height:26px; flex:none; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center; align-self:flex-end}
 .wpocket .dot i{width:7px; height:7px; background:currentColor; transform:rotate(45deg)}
 #app #bar{padding:6px 18px 8px}
-#app #cmd{background:rgba(25,20,15,.55); border-color:transparent; color:#fff; border-radius:999px; text-align:center}
+#app #cmd{background:rgba(10,12,28,.6); border-color:rgba(255,255,255,.1); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); color:#fff; border-radius:999px; text-align:center}
 #app #cmd::placeholder{color:rgba(255,255,255,.75)}
-#app #bar .btn.ghost{background:rgba(25,20,15,.55); border-color:transparent; color:#fff; border-radius:999px}
-#app #bar .btn{border-radius:999px; background:#fff; color:#2a241d}
-.dock{display:grid; grid-template-columns:repeat(4,1fr); justify-items:center; align-items:center; padding:12px 10px; margin:0 -4px; border-radius:34px; background:rgba(20,16,12,.72); min-height:calc(var(--ic) + 24px)}
+#app #bar .btn.ghost{background:rgba(10,12,28,.6); border-color:rgba(255,255,255,.1); color:#fff; border-radius:999px}
+#app #bar .btn{border-radius:999px; background:var(--pink); color:#0a0c15; font-weight:600}
+.dock{display:grid; grid-template-columns:repeat(4,1fr); justify-items:center; align-items:center; padding:12px 10px; margin:0 -4px; border-radius:34px; background:rgba(255,255,255,.12); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); min-height:calc(var(--ic) + 24px)}
 .dock .tile .nm{display:none}
 .inp{width:100%; font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--fg)}
 .sw{width:30px; height:30px; flex:none; border-radius:8px; display:grid; place-items:center; font-weight:600; font-size:12px}
@@ -96,7 +105,7 @@ body.editing .page .tile:nth-child(2n) .sq{animation-delay:-.13s}
 .tile .sq b{font-family:var(--f-display); font-weight:400; font-size:28px}
 .tile .sq svg{width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 .tile .nm{font-size:11px; font-weight:500; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.webbed{box-shadow:0 0 0 2px var(--ring), 0 0 0 7px rgba(227,184,102,.25)}
+.webbed{box-shadow:0 0 0 2px var(--orange), 0 0 14px 2px rgba(255,154,61,.45)}
 .pocket{width:100%; display:flex; align-items:center; gap:12px; border:1px dashed var(--line); background:var(--panel); color:var(--fg); border-radius:16px; padding:12px 14px; font:inherit; text-align:left}
 .pocket .dot{width:30px; height:30px; flex:none; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center}
 .pocket .dot i{width:8px; height:8px; background:currentColor; transform:rotate(45deg)}
@@ -109,11 +118,20 @@ body.editing .page .tile:nth-child(2n) .sq{animation-delay:-.13s}
 .btn.ghost{background:var(--panel); color:var(--fg); border:1px solid var(--line); padding:12px}
 button:focus-visible{outline:2px solid var(--ring); outline-offset:2px}
 
-#spider{position:fixed; inset:0; pointer-events:none; mix-blend-mode:difference; z-index:20}
+#spider{position:fixed; inset:0; pointer-events:none; z-index:20}
+/* Etiquetas que deja la araña sobre lo que lee o pulsa (0.18.0) */
+.tagbox{position:absolute; border:1.5px solid var(--cyan); border-radius:6px; box-shadow:0 0 12px -2px var(--cyan); animation:tagIn .2s ease-out, tagOut .4s ease-in 1.5s forwards}
+.tagbox b{position:absolute; bottom:100%; left:-1.5px; margin-bottom:3px; font:600 9.5px/1 var(--f-mono); letter-spacing:.06em; color:#0a0c15; background:var(--cyan); padding:3px 6px; border-radius:3px; white-space:nowrap}
+.tagbox.pink{border-color:var(--pink); box-shadow:0 0 12px -2px var(--pink)} .tagbox.pink b{background:var(--pink)}
+.tagbox.orange{border-color:var(--orange); box-shadow:0 0 12px -2px var(--orange)} .tagbox.orange b{background:var(--orange)}
+.tagbox.green{border-color:var(--green); box-shadow:0 0 12px -2px var(--green)} .tagbox.green b{background:var(--green)}
+@keyframes tagIn{from{transform:scale(1.2); opacity:0}}
+@keyframes tagOut{to{opacity:0}}
 #hit{position:fixed; left:0; top:0; width:66px; height:66px; margin:-33px 0 0 -33px; border-radius:50%; z-index:21; touch-action:none}
 #ui{position:fixed; inset:0; pointer-events:none; z-index:22}
-.say{position:absolute; left:0; top:0; max-width:230px; padding:7px 12px 8px; border-radius:12px; background:var(--say-bg); color:var(--say-ink);
-  font-family:var(--f-display); font-style:italic; font-size:18px; line-height:1.15; opacity:0; transition:opacity .25s}
+.say{position:absolute; left:0; top:0; max-width:230px; padding:7px 11px 8px; border-radius:9px; background:rgba(10,12,24,.9); color:#e9eaf5; border:1px solid var(--pink);
+  font-family:var(--f-mono); font-size:12.5px; font-weight:500; line-height:1.4; opacity:0; transition:opacity .25s}
+.say::before{content:'ARAÑA'; display:block; font-size:8.5px; letter-spacing:.16em; color:var(--pink); margin-bottom:2px}
 .say.on{opacity:1}
 /* Pensando / Aprendiendo: una pastilla pequeña bajo la araña (0.15.0) */
 .stat{position:absolute; left:0; top:0; padding:3px 10px 4px; border-radius:999px; background:var(--say-bg); color:var(--say-ink); font-size:12px; font-weight:600; letter-spacing:.03em;
@@ -129,7 +147,8 @@ button:focus-visible{outline:2px solid var(--ring); outline-offset:2px}
   max-width:calc(100vw - 24px); animation:pop .22s ease-out}
 .chipbox p{margin:0 6px; font-family:var(--f-display); font-style:italic; font-size:17px}
 .chipbox button{font:inherit; font-size:13px; font-weight:500; border:0; border-radius:10px; padding:8px 12px; background:rgba(255,255,255,.14); color:var(--say-ink)}
-.chipbox button.yes{background:var(--ring); color:#1d1a14}
+.chipbox button.yes{background:var(--orange); color:#0a0c15}
+.chipbox{border:1px solid rgba(255,79,163,.55)}
 @keyframes pop{from{opacity:0; transform:translateY(6px)}}
 
 #sheet[hidden]{display:none}
@@ -557,7 +576,7 @@ function tileFor(id){
 }
 function widgets(){
   const f=document.createDocumentFragment();
-  const w=document.createElement('div'); w.className='widget'; w.innerHTML='<span class="wl">Ajustes</span><div class="wgrid"></div>';
+  const w=document.createElement('div'); w.className='widget'; w.innerHTML='<span class="wl">Ajustes<span class="wclock"></span></span><div class="wgrid"></div>';
   SETS.forEach(s=>{
     const b=document.createElement('button'); b.className='tile'; b.type='button'; b.dataset.set=s.id; b.setAttribute('aria-label',s.name);
     b.innerHTML=tileHTML(`<svg viewBox="0 0 24 24">${IC[s.id]}</svg>`,'transparent')+`<span class="nm">${s.name}</span>`;
@@ -569,6 +588,8 @@ function widgets(){
   p.onclick=()=>{ if(!busy&&!editing) fillPocket(); };
   f.append(w,p); return f;
 }
+function clockTick(){ const t=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); document.querySelectorAll('.wclock').forEach(e=>e.textContent=t); }
+setInterval(clockTick,15000);
 function renderHome(){
   rebuildApps();
   const pager=$('#pager'), keep=pager.scrollLeft; pager.innerHTML='';
@@ -580,7 +601,7 @@ function renderHome(){
   });
   const dock=$('#dock'); dock.innerHTML=''; home.dock.forEach(id=>{ const t=tileFor(id); if(t) dock.appendChild(t); });
   $('#dots').innerHTML=home.pages.map(()=>'<i></i>').join('');
-  pager.scrollLeft=keep; renderPocket(); sizeIcons(); markDot();
+  pager.scrollLeft=keep; renderPocket(); sizeIcons(); markDot(); clockTick();
 }
 function markDot(){ const pager=$('#pager'), i=Math.round(pager.scrollLeft/Math.max(1,pager.clientWidth)); [...$('#dots').children].forEach((d,k)=>d.classList.toggle('on',k===i)); }
 function sizeIcons(){ const h=$('#pager').clientHeight; if(!h) return; const ic=Math.round(Math.max(40,Math.min(62,h/6-26))); document.documentElement.style.setProperty('--ic',ic+'px'); }
@@ -738,18 +759,45 @@ function renderPocket(){ const p=$('#pocket'); if(!p) return; p.classList.toggle
 renderHome();
 function center(el){ const r=(el.querySelector('.sq')||el.querySelector('.dot')||el).getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; }
 function press(el){ (el.querySelector('.sq')||el).animate([{transform:'scale(1)'},{transform:'scale(.86)'},{transform:'scale(1)'}],{duration:260,easing:'ease-out'}); }
-function mark(el,on){ (el.querySelector('.sq')||el).classList.toggle('webbed',on); }
+function mark(el,on){ (el.querySelector('.sq')||el).classList.toggle('webbed',on); if(on){ const n=nameOf(el); tagEl(el,(n||'Aquí').toUpperCase(),'orange'); } }
 
 /* ================= Araña: cuerpo ================= */
-const S={x:W*.7,y:H*.55,vx:0,vy:0,h:-Math.PI/2,tx:W*.7,ty:H*.55,face:null,fl:0,tuck:0,nod:0,hop:0,sag:0,travelFloat:false,hidden:false,user:false,learn:0};
-const LA=[.5,1.12,1.82,2.45], LR=[40,36,35,41], legs=[];
-[1,-1].forEach(side=>LA.forEach((a,k)=>legs.push({a:a*side,r:LR[k],g:(k+(side>0?0:1))%2,fx:0,fy:0,st:null})));
+/* 0.18.0: araña de puntos y líneas (como la del vídeo de Juan). Cuerpo rectangular, ocho patas largas de dos tramos
+   que pisan las esquinas de los iconos, marcas de luz donde apoya, antenas de lectura y colores según lo que hace:
+   rosa al caminar, cian al leer o pensar, naranja al lanzar la red. */
+const S={x:W*.7,y:H*.55,vx:0,vy:0,h:-Math.PI/2,tx:W*.7,ty:H*.55,face:null,fl:0,tuck:0,nod:0,hop:0,sag:0,travelFloat:false,hidden:false,user:false,learn:0,scan:0};
+const legs=[];
+[-1,1].forEach(side=>[0,1,2,3].forEach(k=>legs.push({side,k,a:side*[38,72,110,148][k]*Math.PI/180,hx:[8,3,-3,-8][k],hy:side*5.5,
+  r:[70,62,60,72][k],l1:[42,38,38,44][k],l2:[46,41,41,48][k],g:(k+(side>0?1:0))%2,fx:0,fy:0,st:null,el:null,slack:0})));
 let webs=[]; const carry={on:false,x:0,y:0};
 const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 const lerpAng=(a,b,k)=>{ const d=((b-a+Math.PI*3)%(Math.PI*2))-Math.PI; return a+d*k; };
 function initLegs(){ legs.forEach(L=>{ const a=S.h+L.a; L.fx=S.x+Math.cos(a)*L.r; L.fy=S.y+Math.sin(a)*L.r; }); }
 const topSafe=()=>parseFloat(getComputedStyle($('#app')).paddingTop)||20;
 const clampX=x=>Math.max(28,Math.min(W-28,x)), clampY=y=>Math.max(topSafe()+30,Math.min(H-40,y));
+/* Colores por modo */
+const PAL={walk:{leg:[255,79,163],joint:[61,255,154],body:[94,231,255]},scan:{leg:[94,231,255],joint:[255,79,163],body:[255,79,163]},act:{leg:[255,154,61],joint:[61,255,154],body:[255,154,61]}};
+const pal={leg:[...PAL.walk.leg],joint:[...PAL.walk.joint],body:[...PAL.walk.body]};
+const rgba=(c,a)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a==null?1:a})`;
+/* Puntos de apoyo: esquinas y bordes de lo que hay en pantalla */
+let anchors=[], anchorAt=0; const flashes=[], feelers=[];
+const AP=[[0,0],[1,0],[0,1],[1,1],[.5,0],[.5,1],[0,.5],[1,.5]];
+function refreshAnchors(){
+  anchors=[]; if(!$('#sheet').hidden) return;
+  document.querySelectorAll('#app .tile .sq, #app .widget').forEach(el=>{ const r=el.getBoundingClientRect(); if(!r.width||r.right<4||r.left>W-4) return; for(const [u,v] of AP) anchors.push({x:r.left+r.width*u,y:r.top+r.height*v,el}); });
+}
+function snapTo(p){ let best=null,bd=22; for(const a of anchors){ const d=Math.hypot(a.x-p.x,a.y-p.y); if(d<bd){ bd=d; best=a; } } return best; }
+function flashUnder(el,col){ const r=el.getBoundingClientRect(), w=r.width*(.35+Math.random()*.55); flashes.push({x:r.left+Math.random()*(r.width-w),y:Math.random()<.5?r.bottom+3:r.top-6,w,h:3,col:[...col],t:0,life:.7+Math.random()*.5}); }
+function feel(p,life){ feelers.push({x:p.x,y:p.y,t:0,life:life||1}); }
+/* Etiqueta sobre lo que lee o pulsa */
+function tagEl(el,text,color){
+  if(!el) return; const r=(el.querySelector('.sq')||el).getBoundingClientRect(); if(!r.width) return;
+  const d=document.createElement('div'); d.className='tagbox '+(color||'cyan');
+  d.style.cssText=`left:${r.left-4}px;top:${r.top-4}px;width:${r.width+8}px;height:${r.height+8}px`;
+  const b=document.createElement('b'); b.textContent=text; d.appendChild(b); ui.appendChild(d); setTimeout(()=>d.remove(),1900);
+  S.scan=Math.max(S.scan,1.1); feel({x:r.left+r.width/2,y:r.top+r.height/2},1.3);
+}
+function nameOf(el){ const n=el&&(el.querySelector('.nm')||el.querySelector('.wl')); return (n?n.textContent:(el&&el.getAttribute('aria-label'))||'').trim(); }
 
 function resize(){
   W=innerWidth; H=innerHeight; const dpr=Math.min(3,devicePixelRatio||1);
@@ -762,7 +810,7 @@ function update(dt,t){
   if(!S.user){
     const dx=S.tx-S.x, dy=S.ty-S.y, d=Math.hypot(dx,dy);
     const mode=prefs.mv==='auto'?(S.travelFloat?'float':'walk'):prefs.mv;
-    const max=mode==='float'?330:140;
+    const max=mode==='float'?330:150;
     let dvx=0,dvy=0; if(d>.5){ const sp=Math.min(max,d*3.2); dvx=dx/d*sp; dvy=dy/d*sp; }
     const k=Math.min(1,dt*5); S.vx+=(dvx-S.vx)*k; S.vy+=(dvy-S.vy)*k; S.x+=S.vx*dt; S.y+=S.vy*dt;
     S.fl+=((((mode==='float'&&d>4)||S.hop>0)?1:0)-S.fl)*Math.min(1,dt*4);
@@ -770,15 +818,23 @@ function update(dt,t){
   const sp=Math.hypot(S.vx,S.vy), target=sp>12?Math.atan2(S.vy,S.vx):S.face;
   if(target!=null) S.h=lerpAng(S.h,target,Math.min(1,dt*(sp>12?5:3)));
   S.tuck+=((S.hidden?1:S.sag)-S.tuck)*Math.min(1,dt*3);
-  S.nod=Math.max(0,S.nod-dt*1.4); S.learn=Math.max(0,S.learn-dt*1.3); S.hop=Math.max(0,S.hop-dt*1.1); S.sag=Math.max(0,S.sag-dt*.35);
+  S.nod=Math.max(0,S.nod-dt*1.4); S.learn=Math.max(0,S.learn-dt*1.3); S.hop=Math.max(0,S.hop-dt*1.1); S.sag=Math.max(0,S.sag-dt*.35); S.scan=Math.max(0,S.scan-dt);
   if(S.hop>0) S.h+=dt*7*Math.sin(S.hop*Math.PI);
-  const shrink=1-.42*Math.max(S.fl,S.tuck);
+  if(t*1000-anchorAt>400){ anchorAt=t*1000; refreshAnchors(); }
+  const shrink=1-.42*Math.max(S.fl,S.tuck), ch=Math.cos(S.h), sh=Math.sin(S.h);
+  const STEP=sp<10?14:28, gb=[0,0]; legs.forEach(L=>{ if(L.st) gb[L.g]++; });
   for(const L of legs){
-    const a=S.h+L.a, r=L.r*shrink, ix=S.x+Math.cos(a)*r, iy=S.y+Math.sin(a)*r;
-    if(S.fl>.35){ L.st=null; const kk=Math.min(1,dt*14); L.fx+=(ix-L.fx)*kk; L.fy+=(iy-L.fy)*kk; continue; }
-    if(L.st){ L.st.t+=dt/.12; const e=ease(Math.min(1,L.st.t)); L.fx=L.st.x0+(L.st.x1-L.st.x0)*e; L.fy=L.st.y0+(L.st.y1-L.st.y0)*e; if(L.st.t>=1) L.st=null; continue; }
-    const off=Math.hypot(L.fx-ix,L.fy-iy), thr=sp>15?13:4, other=legs.some(o=>o.st&&o.g!==L.g);
-    if(off>thr&&(!other||off>34)) L.st={t:0,x0:L.fx,y0:L.fy,x1:ix+S.vx*.11,y1:iy+S.vy*.11};
+    L.hipx=S.x+L.hx*ch-L.hy*sh; L.hipy=S.y+L.hx*sh+L.hy*ch;
+    const a=S.h+L.a, r=L.r*shrink, ix=S.x+Math.cos(a)*r+S.vx*.22, iy=S.y+Math.sin(a)*r+S.vy*.22;
+    if(S.fl>.35){ L.st=null; L.el=null; const kk=Math.min(1,dt*14); L.fx+=(ix-L.fx)*kk; L.fy+=(iy-L.fy)*kk; continue; }
+    if(L.st){ L.st.t+=dt/L.st.d; const e=1-Math.pow(1-Math.min(1,L.st.t),2); L.fx=L.st.x0+(L.st.x1-L.st.x0)*e; L.fy=L.st.y0+(L.st.y1-L.st.y0)*e;
+      if(L.st.t>=1){ L.st=null; if(L.el&&Math.random()<.5) flashUnder(L.el,Math.random()<.5?pal.leg:pal.joint); } continue; }
+    const off=Math.hypot(L.fx-ix,L.fy-iy);
+    if((off>Math.max(STEP,L.slack)&&!gb[1-L.g]&&gb[L.g]<4)||off>95){
+      const an=!S.hidden&&Math.random()<.7?snapTo({x:ix,y:iy}):null;
+      L.el=an?an.el:null; L.slack=an?Math.hypot(an.x-ix,an.y-iy)+12:0;
+      L.st={t:0,d:Math.max(.085,Math.min(.16,.16-sp*.00025)),x0:L.fx,y0:L.fy,x1:an?an.x:ix,y1:an?an.y:iy}; gb[L.g]++;
+    }
   }
   for(const w of webs){
     if(w.out){ w.p-=dt*3.2; if(w.p<=0) w.dead=true; continue; }
@@ -786,62 +842,96 @@ function update(dt,t){
   }
   webs=webs.filter(w=>!w.dead);
   if(carry.on){ const tx=S.x-Math.cos(S.h)*36, ty=S.y-Math.sin(S.h)*36; carry.x+=(tx-carry.x)*Math.min(1,dt*6); carry.y+=(ty-carry.y)*Math.min(1,dt*6); }
+  /* color según lo que hace */
+  const P=PAL[(S.user||webs.some(w=>!w.out))?'act':(S.think||S.scan>0)?'scan':'walk'], pk=Math.min(1,dt*5);
+  for(const k of ['leg','joint','body']) for(let i=0;i<3;i++) pal[k][i]+=(P[k][i]-pal[k][i])*pk;
+  for(const f of feelers) f.t+=dt; for(let i=feelers.length-1;i>=0;i--) if(feelers[i].t>feelers[i].life) feelers.splice(i,1);
+  for(const f of flashes) f.t+=dt; for(let i=flashes.length-1;i>=0;i--) if(flashes[i].t>flashes[i].life) flashes.splice(i,1);
+  /* antenas: de vez en cuando toca algo cercano, como si leyera */
+  if(!S.hidden&&!S.user&&anchors.length&&Math.random()<dt*1.4){ let best=null,bd=160; for(const a of anchors){ const d=Math.hypot(a.x-S.x,a.y-S.y); if(d>40&&d<bd&&Math.random()<.5){ bd=d; best=a; } } if(best) feel(best,.6+Math.random()*.5); }
   hit.style.transform=`translate(${S.x}px,${S.y}px)`;
   placeSay(); placeStat();
   const idle=performance.now()-lastActive;
   if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&!editing&&idle>3000&&idle<7500&&Math.random()<dt*.18*surprise()) curiosea();
   if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&idle>8000) hideAtEdge();
 }
-function ik(hx,hy,fx,fy,L1,L2){
-  const dx=fx-hx, dy=fy-hy, len=Math.hypot(dx,dy)||1, d=Math.max(4,Math.min(L1+L2-.5,len)), ux=dx/len, uy=dy/len;
-  const a=(L1*L1-L2*L2+d*d)/(2*d), h=Math.sqrt(Math.max(0,L1*L1-a*a)), bx=hx+ux*a, by=hy+uy*a;
-  const k1={x:bx-uy*h,y:by+ux*h}, k2={x:bx+uy*h,y:by-ux*h};
-  return Math.hypot(k1.x-S.x,k1.y-S.y)>Math.hypot(k2.x-S.x,k2.y-S.y)?k1:k2;
+function ik(hx,hy,fx,fy,a,b,bend){
+  const dx=fx-hx, dy=fy-hy; let d=Math.hypot(dx,dy); d=Math.max(Math.abs(a-b)+1,Math.min(a+b-.5,d));
+  const ang=Math.atan2(dy,dx), A=Math.acos(Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d)))), k=ang+bend*A;
+  return {x:hx+Math.cos(k)*a,y:hy+Math.sin(k)*a};
 }
 function draw(t){
-  ctx.clearRect(0,0,W,H); ctx.strokeStyle=ctx.fillStyle='#fff'; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.clearRect(0,0,W,H); ctx.lineCap='round'; ctx.lineJoin='round';
   const bob=Math.sin(t*3.2)*1.8*S.fl-Math.sin(S.hop*Math.PI)*6, hx=Math.cos(S.h), hy=Math.sin(S.h), nod=Math.sin(S.nod*Math.PI*2)*2.4;
-  const mouth={x:S.x+hx*(12+nod),y:S.y+hy*(12+nod)+bob};
+  /* marcas de luz donde pisa */
+  for(const f of flashes){ const a=1-f.t/f.life; ctx.fillStyle=rgba(f.col,a*.9); ctx.shadowColor=rgba(f.col,a); ctx.shadowBlur=8; ctx.fillRect(f.x,f.y,f.w,f.h); }
+  ctx.shadowBlur=0;
+  /* antenas de lectura */
+  for(const f of feelers){ const a=Math.sin(Math.PI*Math.min(1,f.t/f.life)); ctx.strokeStyle=rgba(pal.leg,a*.5); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(S.x,S.y+bob); ctx.lineTo(f.x,f.y); ctx.stroke(); ctx.fillStyle=rgba(pal.joint,a); ctx.beginPath(); ctx.arc(f.x,f.y,2.3,0,7); ctx.fill(); }
+  const mouth={x:S.x+hx*(17+nod),y:S.y+hy*(17+nod)+bob};
+  /* la red */
   for(const w of webs){
     const e=ease(Math.max(0,w.p)), to=w.to, cx=mouth.x+(to.x-mouth.x)*e, cy=mouth.y+(to.y-mouth.y)*e;
     const mx=(mouth.x+cx)/2, my=(mouth.y+cy)/2, len=Math.hypot(cx-mouth.x,cy-mouth.y)||1;
-    const sag=(1-w.ten)*Math.min(26,len*.18), px=-(cy-mouth.y)/len, py=(cx-mouth.x)/len, pulse=w.pulse?(.6+.4*Math.sin(t*7)):1;
-    ctx.globalAlpha=pulse; ctx.lineWidth=1.25; ctx.beginPath(); ctx.moveTo(mouth.x,mouth.y); ctx.quadraticCurveTo(mx+px*sag,my+py*sag+sag*.4,cx,cy); ctx.stroke();
-    ctx.globalAlpha=.35*pulse; ctx.lineWidth=.8; ctx.beginPath(); ctx.moveTo(mouth.x,mouth.y); ctx.quadraticCurveTo(mx+px*(sag+5),my+py*(sag+5),cx,cy); ctx.stroke();
+    const sag=(1-w.ten)*Math.min(26,len*.18)+(w.ten>=1?Math.sin(t*5)*2:0), px=-(cy-mouth.y)/len, py=(cx-mouth.x)/len, pulse=w.pulse?(.6+.4*Math.sin(t*7)):1;
+    const qx=mx+px*sag, qy=my+py*sag+sag*.4, qp=s=>({x:(1-s)*(1-s)*mouth.x+2*(1-s)*s*qx+s*s*cx,y:(1-s)*(1-s)*mouth.y+2*(1-s)*s*qy+s*s*cy});
+    ctx.globalAlpha=pulse; ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=1.5; ctx.shadowColor=rgba(pal.body,.9); ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.moveTo(mouth.x,mouth.y); ctx.quadraticCurveTo(qx,qy,cx,cy); ctx.stroke(); ctx.shadowBlur=0;
+    ctx.fillStyle=rgba(pal.joint); for(const s of [.25,.5,.75]){ const p=qp(s); ctx.beginPath(); ctx.arc(p.x,p.y,2,0,7); ctx.fill(); }
+    if(w.ten>=1){ const p=qp((t*1.6)%1); ctx.fillStyle=rgba(pal.body); ctx.beginPath(); ctx.arc(p.x,p.y,2.6,0,7); ctx.fill(); }
     if(w.b>0&&!w.out){
-      ctx.globalAlpha=pulse; ctx.lineWidth=1;
+      ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=1;
       for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+.3; ctx.beginPath(); ctx.moveTo(to.x,to.y); ctx.lineTo(to.x+Math.cos(a)*10*w.b,to.y+Math.sin(a)*10*w.b); ctx.stroke(); }
-      ctx.beginPath(); ctx.arc(to.x,to.y,6.5*w.b,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(to.x,to.y,1.8,0,Math.PI*2); ctx.fill();
+      ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(to.x,to.y,(6.5+Math.sin(t*8))*w.b,0,Math.PI*2); ctx.stroke();
     }
+    ctx.fillStyle=rgba(pal.body); ctx.beginPath(); ctx.arc(cx,cy,3,0,7); ctx.fill();
     ctx.globalAlpha=1;
   }
+  /* lo que lleva del bolsillo */
   if(carry.on){
     const tail={x:S.x-hx*18,y:S.y-hy*18+bob};
-    ctx.lineWidth=1; ctx.globalAlpha=.8; ctx.beginPath(); ctx.moveTo(tail.x,tail.y); ctx.lineTo(carry.x,carry.y); ctx.stroke(); ctx.globalAlpha=1;
-    ctx.save(); ctx.translate(carry.x,carry.y); ctx.rotate(Math.PI/4); ctx.fillRect(-4,-4,8,8); ctx.restore();
+    ctx.strokeStyle=rgba(pal.joint,.8); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(tail.x,tail.y); ctx.lineTo(carry.x,carry.y); ctx.stroke();
+    ctx.save(); ctx.translate(carry.x,carry.y); ctx.rotate(Math.PI/4); ctx.fillStyle=rgba(pal.joint); ctx.shadowColor=rgba(pal.joint); ctx.shadowBlur=10; ctx.fillRect(-4.5,-4.5,9,9); ctx.restore();
   }
-  ctx.lineWidth=1.5;
+  /* patas */
   for(const L of legs){
-    const a=S.h+L.a, hipx=S.x+hx+Math.cos(a)*4, hipy=S.y+hy+Math.sin(a)*4+bob, fx=L.fx, fy=L.fy+bob*.5, k=ik(hipx,hipy,fx,fy,23,23);
-    ctx.beginPath(); ctx.moveTo(hipx,hipy); ctx.lineTo(k.x,k.y); ctx.lineTo(fx,fy); ctx.stroke();
-    ctx.beginPath(); ctx.arc(k.x,k.y,1.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(fx,fy,1.3,0,Math.PI*2); ctx.fill();
+    let fx=L.fx, fy=L.fy+bob*.5;
+    if(L.st){ const lift=Math.sin(Math.PI*Math.min(1,L.st.t))*7, dx=fx-S.x, dy=fy-S.y, d=Math.hypot(dx,dy)||1; fx+=dx/d*lift; fy+=dy/d*lift; }
+    const hipx=L.hipx, hipy=L.hipy+bob, k=ik(hipx,hipy,fx,fy,L.l1,L.l2,L.side*(L.k<2?-1:1));
+    ctx.strokeStyle=rgba(pal.leg,.95); ctx.lineWidth=1.7; ctx.shadowColor=rgba(pal.leg,.7); ctx.shadowBlur=5;
+    ctx.beginPath(); ctx.moveTo(hipx,hipy); ctx.lineTo(k.x,k.y); ctx.lineTo(fx,fy); ctx.stroke(); ctx.shadowBlur=0;
+    ctx.fillStyle=rgba(pal.joint); ctx.beginPath(); ctx.arc(k.x,k.y,2.8,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(fx,fy,L.st?3.2:2.4,0,7); ctx.fill();
   }
-  const ab={x:S.x-hx*10,y:S.y-hy*10+bob}, hd={x:S.x+hx*(6+nod),y:S.y+hy*(6+nod)+bob};
-  if(S.think){ // analizando: un radar que barre rápido alrededor de la cabeza, con estela, y tres puntos en órbita
-    const sw=t*7.5; ctx.lineWidth=1.2;
-    for(let k=0;k<4;k++){ ctx.globalAlpha=.55-k*.13; ctx.beginPath(); ctx.arc(hd.x,hd.y,19,sw-k*.32,sw-k*.32+.3); ctx.stroke(); }
-    ctx.globalAlpha=.85; for(let i=0;i<3;i++){ const a=t*5.2+i*2.094, r=13+Math.sin(t*9+i)*2.2; ctx.beginPath(); ctx.arc(hd.x+Math.cos(a)*r,hd.y+Math.sin(a)*r,1.5,0,Math.PI*2); ctx.fill(); }
-    ctx.globalAlpha=1; ctx.lineWidth=1.5; }
-  if(S.learn>0){ // aprendiendo: un anillo que se expande desde el abdomen
-    const e=1-S.learn; ctx.lineWidth=1; for(const d of [0,.28]){ const q=Math.max(0,e-d); if(q<=0) continue; ctx.globalAlpha=S.learn*.8; ctx.beginPath(); ctx.arc(S.x,S.y+bob,10+ease(Math.min(1,q))*38,0,Math.PI*2); ctx.stroke(); }
-    ctx.globalAlpha=1; ctx.lineWidth=1.5; }
-  ctx.beginPath(); ctx.arc(ab.x,ab.y,8.5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(ab.x,ab.y,2.2,0,Math.PI*2); ctx.fill();
+  const cx0=S.x, cy0=S.y+bob;
+  /* leyendo: anillo punteado que gira */
+  if(S.scan>0||S.think){
+    ctx.save(); ctx.translate(cx0,cy0); ctx.rotate(t*1.1); ctx.setLineDash([3,6]); ctx.strokeStyle=rgba(pal.body,.6); ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.arc(0,0,58,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  }
+  if(S.think){ // analizando: radar rápido con estela y tres puntos en órbita
+    const sw=t*7.5; ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=1.4;
+    for(let k=0;k<4;k++){ ctx.globalAlpha=.6-k*.14; ctx.beginPath(); ctx.arc(cx0,cy0,70,sw-k*.32,sw-k*.32+.3); ctx.stroke(); }
+    ctx.globalAlpha=.9; ctx.fillStyle=rgba(pal.leg); for(let i=0;i<3;i++){ const a=t*5.2+i*2.094, r=30+Math.sin(t*9+i)*3; ctx.beginPath(); ctx.arc(cx0+Math.cos(a)*r,cy0+Math.sin(a)*r,1.8,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1;
+  }
+  if(S.learn>0){ // aprendiendo: anillo que se expande
+    const e=1-S.learn; ctx.strokeStyle=rgba(pal.joint); ctx.lineWidth=1;
+    for(const d of [0,.28]){ const q=Math.max(0,e-d); if(q<=0) continue; ctx.globalAlpha=S.learn*.8; ctx.beginPath(); ctx.arc(cx0,cy0,14+ease(Math.min(1,q))*44,0,Math.PI*2); ctx.stroke(); }
+    ctx.globalAlpha=1;
+  }
+  /* cuerpo */
+  ctx.save(); ctx.translate(cx0,cy0); ctx.rotate(S.h); const sc=1+Math.sin(S.hop*Math.PI)*.15; ctx.scale(sc,sc);
+  ctx.fillStyle='rgba(10,12,28,.82)'; ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=2; ctx.shadowColor=rgba(pal.body,.9); ctx.shadowBlur=10;
+  ctx.beginPath(); ctx.rect(-17,-8,34,16); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
   // Evolución visible: cada nivel añade un rasgo
-  if(LV>=1){ ctx.lineWidth=.8; ctx.beginPath(); ctx.arc(ab.x,ab.y,5.2,0,Math.PI*2); ctx.stroke(); ctx.lineWidth=1.5; }
-  if(LV>=2){ for(const s of [-1,1]){ const a=S.h+s*.42; ctx.beginPath(); ctx.moveTo(hd.x,hd.y); ctx.lineTo(hd.x+Math.cos(a)*11,hd.y+Math.sin(a)*11); ctx.stroke(); ctx.beginPath(); ctx.arc(hd.x+Math.cos(a)*11,hd.y+Math.sin(a)*11,1.4,0,Math.PI*2); ctx.fill(); } }
-  if(LV>=3){ ctx.lineWidth=.8; ctx.setLineDash([1.5,3]); ctx.beginPath(); ctx.arc(ab.x,ab.y,12.5,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth=1.5; }
-  if(LV>=4){ for(let i=0;i<3;i++){ const a=S.h+Math.PI+(i-1)*.5; ctx.beginPath(); ctx.arc(ab.x+Math.cos(a)*16,ab.y+Math.sin(a)*16,1.1,0,Math.PI*2); ctx.fill(); } }
-  ctx.beginPath(); ctx.moveTo(ab.x+hx*8.5,ab.y+hy*8.5); ctx.lineTo(hd.x,hd.y); ctx.stroke(); ctx.beginPath(); ctx.arc(hd.x,hd.y,4.6,0,Math.PI*2); ctx.fill();
+  if(LV>=1){ ctx.lineWidth=1; ctx.strokeStyle=rgba(pal.body,.5); ctx.strokeRect(-11,-4.2,17,8.4); }
+  if(LV>=2){ ctx.strokeStyle=rgba(pal.leg); ctx.lineWidth=1.2; for(const s of [-1,1]){ ctx.beginPath(); ctx.moveTo(17+nod,s*3); ctx.lineTo(28+nod,s*8); ctx.stroke(); ctx.fillStyle=rgba(pal.joint); ctx.beginPath(); ctx.arc(28+nod,s*8,1.6,0,7); ctx.fill(); } }
+  if(LV>=3){ ctx.setLineDash([2,3]); ctx.strokeStyle=rgba(pal.body,.6); ctx.lineWidth=.9; ctx.strokeRect(-22,-12.5,44,25); ctx.setLineDash([]); }
+  if(LV>=4){ ctx.fillStyle=rgba(pal.joint); for(let i=0;i<3;i++){ ctx.beginPath(); ctx.arc(-24,(i-1)*6,1.3,0,7); ctx.fill(); } }
+  const core=webs.some(w=>!w.out)?pal.joint:pal.leg;
+  ctx.fillStyle=rgba(core); ctx.shadowColor=rgba(core); ctx.shadowBlur=12; ctx.beginPath(); ctx.arc(-2,0,3.6+Math.sin(t*5)*.6,0,7); ctx.fill(); ctx.shadowBlur=0;
+  ctx.fillStyle=rgba(pal.joint); ctx.beginPath(); ctx.arc(13+nod*.5,-3.4,1.6,0,7); ctx.arc(13+nod*.5,3.4,1.6,0,7); ctx.fill();
+  ctx.restore();
 }
 let last=performance.now();
 function frame(now){ const dt=Math.min(.05,(now-last)/1000); last=now; update(dt,now/1000); draw(now/1000); requestAnimationFrame(frame); }
@@ -1053,7 +1143,7 @@ function curiosea(){
   const tiles=[...document.querySelectorAll('#pager .tile[data-app]')].filter(t=>{ const r=t.getBoundingClientRect(); return r.width&&r.left>=0&&r.right<=W; });
   if(!tiles.length) return;
   const t=pick(tiles), a=appById(t.dataset.app); if(!a) return;
-  run(async()=>{ const c=center(t); await approach(c); const w=await web(c); await wait(380); release(w);
+  run(async()=>{ const c=center(t); await approach(c); S.scan=1.6; tagEl(t,a.name.toUpperCase()+' · '+(.1+Math.random()*.89).toFixed(2),pick(['cyan','pink','green'])); await wait(700); const w=await web(c); await wait(380); release(w);
     if(roll(.6)) say(pick(CURIO_TALK)+' '+a.name+'.',2600); else happy(); });
 }
 function hideAtEdge(){ S.hidden=true; S.face=null; S.travelFloat=false; S.tx=S.x<W/2?8:W-8; S.ty=clampY(S.y); }

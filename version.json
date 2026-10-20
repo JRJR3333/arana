@@ -1,13 +1,13 @@
 {
-  "version": "0.17.0",
+  "version": "0.18.0",
   "date": "2026-10-20",
   "notes": [
+    "Ya camino como la araña del vídeo: patas largas que pisan los iconos, mi red y colores según lo que hago.",
+    "Ya tengo la pantalla nueva que eligió usted: rejilla, brillos y cristal oscuro.",
     "Ya sigo el hilo de la conversación y recuerdo lo que me cuenta de usted (en mi app).",
     "Ya le escucho con mi propio micrófono.",
     "Ya pongo temporizadores y alarmas.",
     "Ya tejo mi telaraña con cada orden cumplida.",
-    "Ya le digo cómo suena mi voz y la cambio cuando me lo pide.",
-    "Ya miro una captura de su pantalla si me la da.",
-    "Ya sé qué sé de usted, y me intereso por sus gustos."
+    "Ya le digo cómo suena mi voz y la cambio cuando me lo pide."
   ]
 }

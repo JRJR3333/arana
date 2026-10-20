@@ -1,5 +1,25 @@
 [
  {
+  "v": "0.18.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.18.0-1",
+    "tipo": "diseño",
+    "titulo": "Araña nueva de puntos y líneas",
+    "detalle": "Petición de Juan en el chat (vídeo de referencia): cuerpo rectangular, ocho patas largas de dos tramos que se apoyan en las esquinas de los iconos y widgets, marcas de luz donde pisa, antenas de lectura y etiquetas sobre lo que lee o pulsa. Rosa al caminar, cian al leer o pensar, naranja al lanzar la red. Mismo dibujo en la app nativa.",
+    "probar": "Espere unos segundos sin tocar: verá cómo curiosea un icono y le pone su etiqueta. Luego pídale «abre notas»."
+   },
+   {
+    "id": "0.18.0-2",
+    "tipo": "diseño",
+    "titulo": "La pantalla del prototipo",
+    "detalle": "Fondo de rejilla fina con brillos violeta y verde azulado, widgets de cristal (el de Ajustes con la hora), Bolsillo como una nota, dock de cristal y bocadillo en letra de máquina con borde rosa. También el fondo de la app nativa.",
+    "probar": "Abra la app y mire la pantalla de inicio."
+   }
+  ]
+ },
+ {
   "v": "0.17.0",
   "fecha": "2026-10-20",
   "mejoras": [
