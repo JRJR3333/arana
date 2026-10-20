@@ -1,10 +1,9 @@
 {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "date": "2026-10-20",
   "notes": [
-    "Tengo una meta: salir de la web y vivir en su iPhone. Mire mi progreso en Evolución.",
-    "Ya le contesto en voz alta y respondo a sus preguntas, como un asistente.",
-    "Cada hora Claude me mejora. Valore cada cambio de 1 a 5 y así sabrá qué seguir.",
-    "Cada hito que consigo hacia la meta me da puntos y me sube de nivel."
+    "Ahora tengo un dado: varío mis frases, curioseo por sus apps y a veces le propongo algo inesperado.",
+    "En Ajustes → Sorpresa elige cuánto: baja, media o alta (viene en alta).",
+    "Claude también tira un dado cada hora y me trae mejoras sorpresa con condiciones nuevas."
   ]
 }

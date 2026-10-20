@@ -778,7 +778,9 @@ function update(dt,t){
   if(carry.on){ const tx=S.x-Math.cos(S.h)*36, ty=S.y-Math.sin(S.h)*36; carry.x+=(tx-carry.x)*Math.min(1,dt*6); carry.y+=(ty-carry.y)*Math.min(1,dt*6); }
   hit.style.transform=`translate(${S.x}px,${S.y}px)`;
   placeSay();
-  if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&performance.now()-lastActive>8000) hideAtEdge();
+  const idle=performance.now()-lastActive;
+  if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&!editing&&idle>3000&&idle<7500&&Math.random()<dt*.18*surprise()) curiosea();
+  if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&idle>8000) hideAtEdge();
 }
 function ik(hx,hy,fx,fy,L1,L2){
   const dx=fx-hx, dy=fy-hy, len=Math.hypot(dx,dy)||1, d=Math.max(4,Math.min(L1+L2-.5,len)), ux=dx/len, uy=dy/len;
@@ -838,9 +840,23 @@ const faceTo=p=>{ S.face=Math.atan2(p.y-S.y,p.x-S.x); };
 async function approach(p){ const dy=p.y>H*.62?-70:66; await moveTo(p.x,p.y+dy); faceTo(p); await wait(200); }
 async function web(p){ const w={to:p,p:0,ten:0,b:0}; webs.push(w); await until(()=>w.ten>=1); return w; }
 const release=w=>{ if(w){ w.out=true; w.pulse=false; } };
-const happy=()=>{ S.hop=1; S.nod=1; }, sad=()=>{ S.sag=.7; };
+const happy=()=>{ S.hop=1; S.nod=1; if(roll(.3)) setTimeout(()=>{ S.hop=1; },650); }, sad=()=>{ S.sag=.7; };
 
 let sayTimer=null;
+/* ===== Sorpresa: un dado que da variedad a sus frases, curiosea y propone cosas nuevas ===== */
+const SURP={baja:.2,media:.45,alta:.75};
+const surprise=()=>SURP[prefs.surp||'alta'];
+const roll=k=>Math.random()<surprise()*(k||1);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const PH={
+  ok:['Enseguida.','Ahora mismo.','Marchando.','Hecho en un periquete.','Como usted mande.','A la orden.','Voy volando. Bueno, caminando.','Considérelo hecho.'],
+  no:['Como prefiera.','Entendido, lo dejo.','Usted manda.','Quedo a la espera.','Sin problema. Otra vez será.'],
+  hola:['A su servicio.','Buenas. Aquí sigo, tejiendo.','¿Qué se le ofrece hoy?','De vuelta. Le he echado de menos, discretamente.','Lista para trabajar.','Todo en orden por aquí.'],
+  gracias:['Gracias.','Un placer.','Para eso estoy.','Anotado con hilo fino.']
+};
+const vary=k=>roll()?pick(PH[k]):PH[k][0];
+const CURIOS=['Las arañas no se pegan a su propia tela: caminan por los hilos que no tienen pegamento.','Hay arañas que viajan cientos de kilómetros volando con un hilo, como cometas.','La seda de araña es, a igual grosor, más resistente que el acero.','Muchas arañas se comen su tela vieja para reciclar la seda.','Las arañas saltadoras ven en color y calculan distancias antes de saltar.','Una tela de araña puede tener hasta 20 metros de hilo.','Algunas arañas decoran su tela con zigzags que reflejan la luz ultravioleta.','Las arañas tienen el esqueleto por fuera y mudan de piel para crecer.'];
+const CURIO_TALK=['Curiosa, esta app de','Le estaba echando un ojo a','Siempre me ha intrigado','Me pregunto qué guarda dentro'];
 /* Voz: contesta en voz alta como un asistente (iOS la permite después del primer toque) */
 function speak(text){ if(prefs.voice===false||!window.speechSynthesis||!text) return;
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='es-ES'; u.rate=1.03;
@@ -907,7 +923,7 @@ async function askFeedback(p){
   const v=await chips('¿Lo hice bien?',[['Bien','ok','yes'],['Mal','ko'],['Luego',null]],{x:S.x,y:S.y}).catch(()=>null);
   if(!v) return;
   st.forEach(a=>{ const k=keyOf(a); stats[k]=stats[k]||{ok:0,ko:0}; stats[k][v]++; });
-  if(v==='ok'){ learn(p.phrase,st,2); happy(); say(p.phrase?'Gracias. Lo recordaré así.':'Gracias.'); }
+  if(v==='ok'){ learn(p.phrase,st,2); happy(); say(p.phrase?'Gracias. Lo recordaré así.':vary('gracias')); }
   else { learn(p.phrase,st,-3); sad(); if(p.phrase&&planCache[p.phrase]){ delete planCache[p.phrase]; store.set('plans',planCache); }
     if(p.phrase) convo.push({role:'user',content:'(Nota: lo que hiciste para «'+p.phrase+'» salió mal según Juan.)'},{role:'assistant',content:'(Entendido, lo tendré en cuenta.)'});
     say(st.some(a=>a.t==='set')?'Anotado. Revise que el atajo «Araña» tenga ese paso.':brainReady()?'Anotado. Dígame qué esperaba y lo corrijo.':'Anotado. Lo haré con más cuidado.',3800); }
@@ -939,13 +955,13 @@ async function doAction(a,phrase,opt={}){
   if(mustAsk){
     const q=a.t==='carry'?`¿Lo copio y abro ${nm}?`:a.t==='wa'?'¿Abro WhatsApp con el texto?':`¿${label(a)}?`;
     const v=await chips(q,[['Sí',true,'yes',go],['No',false]],c,w);
-    if(!v){ mark(el,false); release(w); carry.on=false; say('Como prefiera.'); if(phrase) learn(phrase,a,-1); logEv('cancel',a,phrase); throw CANCEL; }
+    if(!v){ mark(el,false); release(w); carry.on=false; say(vary('no')); if(phrase) learn(phrase,a,-1); logEv('cancel',a,phrase); throw CANCEL; }
     launched=true;
   } else { press(el); go(); launched=true; }
   press(el); mark(el,false); release(w);
   if(a.t==='carry'){ carry.on=false; }
   happy();
-  say(a.t==='carry'?'Copiado. Péguelo usted: iOS no me deja pegar dentro de otras apps.':a.t==='wa'?'Elija el contacto. Enviar lo pulsa usted.':a.t==='set'?'Hecho por Atajos.':'Enseguida.',3600);
+  say(a.t==='carry'?'Copiado. Péguelo usted: iOS no me deja pegar dentro de otras apps.':a.t==='wa'?'Elija el contacto. Enviar lo pulsa usted.':a.t==='set'?'Hecho por Atajos.':vary('ok'),3600);
   // Si el sistema bloqueó el salto, ofrecemos un toque para continuar
   await wait(1300);
   if(launched&&!wentAway&&!document.hidden&&pending){
@@ -985,6 +1001,13 @@ async function run(fn){
   try{ if(S.hidden){ S.hidden=false; await moveTo(S.x<W/2?64:W-64,S.y); } await fn(); }
   catch(e){ cleanup(); if(e===ABORT) say('Me detengo.'); else if(e!==CANCEL) console.error(e); }
   finally{ busy=false; abortFlag=false; S.face=null; lastActive=performance.now(); }
+}
+function curiosea(){
+  const tiles=[...document.querySelectorAll('#pager .tile[data-app]')].filter(t=>{ const r=t.getBoundingClientRect(); return r.width&&r.left>=0&&r.right<=W; });
+  if(!tiles.length) return;
+  const t=pick(tiles), a=appById(t.dataset.app); if(!a) return;
+  run(async()=>{ const c=center(t); await approach(c); const w=await web(c); await wait(380); release(w);
+    if(roll(.6)) say(pick(CURIO_TALK)+' '+a.name+'.',2600); else happy(); });
 }
 function hideAtEdge(){ S.hidden=true; S.face=null; S.travelFloat=false; S.tx=S.x<W/2?8:W-8; S.ty=clampY(S.y); }
 
@@ -1147,7 +1170,7 @@ async function think(raw){
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctl.signal,headers:{
       'x-api-key':brain.key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,system:brainSystem(),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...(Date.now()-convoAt<10*60e3?convo.slice(-4):[]),{role:'user',content:raw}]})});
+      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,temperature:Math.min(1,.5+surprise()*.6),system:brainSystem()+(roll(.5)?'\nEsta vez, sorpréndale: añada en "say" un toque inesperado (una ocurrencia, una idea nueva que podría probar, humor seco de mayordomo) sin dejar de cumplir la orden.':''),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...(Date.now()-convoAt<10*60e3?convo.slice(-4):[]),{role:'user',content:raw}]})});
     if(!r.ok){ const e=await r.text().catch(()=>''); throw new Error(r.status+' '+e.slice(0,160)); }
     const j=await r.json();
     const ti=(j.usage&&j.usage.input_tokens)||0, to2=(j.usage&&j.usage.output_tokens)||0;
@@ -1197,7 +1220,7 @@ async function planFlow(plan,phrase){
   if(ask){
     await wait(900);
     const v=await chips('¿Hago esto? '+acts.map((a,i)=>(i+1)+'. '+label(a)).join(' · '),[['Sí',true,'yes'],['No',false]],{x:S.x,y:S.y});
-    if(!v){ say('Como prefiera.'); logEv('cancel',{t:'plan',steps:acts},phrase); learn(phrase,acts,-1); return; }
+    if(!v){ say(vary('no')); logEv('cancel',{t:'plan',steps:acts},phrase); learn(phrase,acts,-1); return; }
   }
   for(let i=0;i<acts.length;i++){
     const a=acts[i]; if(abortFlag) throw ABORT;
@@ -1284,6 +1307,8 @@ function openSettings(){
     <div><span class="lbl">Pedir permiso</span>${seg('perm',[['siempre','Siempre'],['aprendido','Según lo aprendido'],['nunca','Nunca']],prefs.perm)}
       <p class="note" style="margin-top:6px">«Según lo aprendido»: pregunta hasta que algo le ha salido bien varias veces.</p></div>
     <div><span class="lbl">Desplazamiento</span>${seg('mv',[['auto','Auto'],['walk','Patas'],['float','Flotar']],prefs.mv)}</div>
+    <div><span class="lbl">Sorpresa</span>${seg('surp',[['baja','Baja'],['media','Media'],['alta','Alta']],prefs.surp||'alta')}
+      <p class="note" style="margin-top:6px">Cuanto más alta, más varía sus frases, más curiosea y más ideas nuevas le propone.</p></div>
     <div><span class="lbl">Voz</span>${seg('voz',[['1','Hablar'],['0','Callada']],prefs.voice===false?'0':'1')}</div>
     <div><span class="lbl">Cerebro</span>${seg('br',[['1','Pensar con Claude'],['0','Solo mis reglas']],brain.on?'1':'0')}
       <div class="row" style="margin-top:8px"><input id="apikey" type="password" autocomplete="off" placeholder="${brain.key?'Clave guardada · …'+escapeHTML(brain.key.slice(-4)):'Clave de API (sk-ant-…)'}" style="flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)"><button class="btn" type="button" id="keySave">Guardar</button></div>
@@ -1302,6 +1327,7 @@ function openSettings(){
     <div class="row"><button class="btn ghost" type="button" id="reset">Olvidar todo</button><button class="btn" type="button" id="close">Cerrar</button></div>`);
   document.querySelectorAll('#sheet input[name="perm"]').forEach(i=>i.onchange=()=>{ prefs.perm=i.value; saveAll(); });
   document.querySelectorAll('#sheet input[name="mv"]').forEach(i=>i.onchange=()=>{ prefs.mv=i.value; saveAll(); });
+  document.querySelectorAll('#sheet input[name="surp"]').forEach(i=>i.onchange=()=>{ prefs.surp=i.value; saveAll(); if(i.value==='alta') happy(); });
   document.querySelectorAll('#sheet input[name="voz"]').forEach(i=>i.onchange=()=>{ prefs.voice=i.value==='1'; saveAll(); if(prefs.voice) speak('A su servicio.'); });
   document.querySelectorAll('#sheet input[name="cap"]').forEach(i=>i.onchange=()=>{ prefs.cap=+i.value; capWarned=false; saveAll(); });
   document.querySelectorAll('#sheet input[name="br"]').forEach(i=>i.onchange=()=>{ brain.on=i.value==='1'; saveBrain(); });
@@ -1443,10 +1469,26 @@ function spiderMenu(){
 /* ================= Arranque ================= */
 resize(); S.x=S.tx=W*.68; S.y=S.ty=H*.62; initLegs(); requestAnimationFrame(frame);
 const first=!store.get('seen',false); store.set('seen',true);
-setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':'A su servicio.',first?4200:2200),700);
+setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':vary('hola'),first?4200:2600),700);
 setTimeout(()=>{ if(!first) proposeRoutine(); },5200);
 setTimeout(()=>resolveIcons(false),1500);
 loadRepoData();
+setTimeout(async()=>{
+  if(first||busy||overlayOpen()||pending||!roll(.7)) return;
+  const sd=store.get('surpDay',''), td=new Date().toISOString().slice(0,10); if(sd===td&&!roll(.3)) return;
+  const ideas=[
+    ()=>({q:'¿Quiere un dato curioso sobre arañas?',go:()=>{ const c=pick(CURIOS); say(c,6000); speak(c); }}),
+    ()=>({q:'Se me ha ocurrido una rutina nueva para usted. ¿La invento?',go:()=>interpret('invéntate una rutina útil para mí con lo que sabes de mí, bautízala con un nombre original y propónmela'),brain:true}),
+    ()=>({q:'Reto del día: pídame algo que nunca me haya pedido. ¿Acepta?',go:()=>{ say('Le escucho. Sorpréndame usted a mí.',3600); $('#cmd').focus(); }}),
+    ()=>({q:'¿Le cuento qué he aprendido de usted hasta ahora?',go:()=>openEvolution()}),
+    ()=>({q:'¿Me deja reordenar su primera página a mi gusto? Lo puede deshacer.',go:()=>{ say('Mejor no toco nada sin un plan. Mantenga pulsado un icono y lo hacemos juntos.',4200); }}),
+    ()=>({q:'Tengo una pregunta para conocerle mejor. ¿Me la contesta?',go:()=>interpret('hazme una pregunta corta y original para conocerme mejor y recordar la respuesta'),brain:true})
+  ].map(f=>f()).filter(i=>!i.brain||(brainReady()&&!capReached()));
+  if(!ideas.length) return;
+  const it=pick(ideas); store.set('surpDay',td);
+  const v=await chips(it.q,[['Sí','y','yes'],['Ahora no',null]],{x:S.x,y:S.y}).catch(()=>null);
+  logEv('idea',null,it.q.slice(0,60)); if(v==='y') it.go();
+},16000);
 setTimeout(async()=>{ if(first||busy||overlayOpen()) return; const n=unrated().length; if(!n||sessionStorage.getItem('askedRate')) return;
   try{ sessionStorage.setItem('askedRate','1'); }catch(e){}
   const v=await chips('Claude me ha mejorado: '+n+' cambio'+(n===1?'':'s')+' nuevo'+(n===1?'':'s')+'. ¿Los valora?',[['Valorar','go','yes'],['Luego',null]],{x:S.x,y:S.y}).catch(()=>null);

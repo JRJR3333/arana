@@ -1,5 +1,33 @@
 [
  {
+  "v": "0.8.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.8.0-1",
+    "tipo": "sorpresa",
+    "titulo": "Frases variadas y curioseo",
+    "detalle": "Cambia sus respuestas al azar y, cuando no hace nada, se acerca a alguna app y la comenta.",
+    "probar": "Déjela quieta unos segundos."
+   },
+   {
+    "id": "0.8.0-2",
+    "tipo": "iniciativa",
+    "titulo": "Ideas inesperadas al abrir",
+    "detalle": "Datos curiosos, retos, rutinas inventadas o preguntas para conocerle. Las de cerebro, como mucho una al día.",
+    "probar": "Ábrala varias veces."
+   },
+   {
+    "id": "0.8.0-3",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Respuestas más vivas",
+    "detalle": "El cerebro varía más y a veces añade una ocurrencia o una idea, sin dejar de cumplir.",
+    "probar": "Pregúntele algo con el cerebro activado."
+   }
+  ]
+ },
+ {
   "v": "0.7.0",
   "fecha": "2026-10-20",
   "mejoras": [

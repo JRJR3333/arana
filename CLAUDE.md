@@ -103,3 +103,22 @@ Una tarea programada ejecuta a Claude cada hora, use Juan la araña o no. Cada e
 - Si las dos últimas valoraciones tienen nota media menor que 3, la siguiente versión solo arregla y pule. Nada nuevo.
 - Si hay 6 versiones seguidas sin ninguna valoración de Juan, publicar como mucho una mejora por hora, priorizando el objetivo.
 - No sumar más de unas 600 líneas por versión. Si `index.html` pasa de unas 3000 líneas, la mejora de esa hora es dividirlo en `js/*.js`, sin compilación.
+
+### Sorpresa: el dado de cada hora
+
+Juan quiere sorpresas y condiciones nuevas. Al empezar cada ejecución, tirar el dado con `python3 -c "import random;print(random.random(),random.random())"`. El primer número decide la mejora sorpresa y el segundo, la condición.
+
+- **Mejora sorpresa (primer número < 0,5):** una de las mejoras de la versión es algo que nadie ha pedido y que no sigue la línea anterior. Va con `"tipo": "sorpresa"`. Debe poder quitarse sin romper nada, y si Juan le pone 1–2 se quita en la siguiente hora.
+- **Condición de la hora (segundo número < 0,6):** elegir al azar una de esta lista y aplicarla a toda la versión.
+  1. Una mejora visual atrevida en la araña o en la pantalla.
+  2. Un rasgo nuevo de personalidad: costumbres, manías, una historia propia.
+  3. Una gráfica nueva en Evolución con datos que ya existen.
+  4. Quitar o simplificar algo que sobre; al menos una mejora consiste en restar.
+  5. Una idea traída de otro campo: juegos, música, deporte, cocina.
+  6. Un minijuego o un momento de juego con la araña.
+  7. Accesibilidad: tamaño, contraste, voz o uso con una mano.
+  8. Una iniciativa nueva que la araña proponga por su cuenta, siempre preguntando.
+  9. Velocidad o ahorro: que algo vaya más rápido o gaste menos API.
+  10. Una mejora pensada para usar la araña de noche o a oscuras.
+- **Lo que el dado no cambia:** las reglas de calidad, el freno, la seguridad, ni la obligación de incluir una mejora hacia el objetivo y otra de asistente. Una mejora puede cumplir varias cosas a la vez.
+- **Apuntarlo:** el resultado del dado va en `evolucion/diario.md`, y la condición elegida en el `detalle` de alguna mejora de `cambios.json`.
