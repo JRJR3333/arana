@@ -1,7 +1,8 @@
 {
-  "version": "0.14.0",
+  "version": "0.14.1",
   "date": "2026-10-20",
   "notes": [
+    "Ya le digo exactamente qué contesta Anthropic cuando algo falla con la clave.",
     "Ya le aviso a la hora de sus rutinas aunque esté cerrada, siempre preguntando.",
     "Ya le enseño a qué horas me usa.",
     "Ya me pongo en su pantalla de inicio con el widget de Atajos, sin instalar nada."

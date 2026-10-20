@@ -1205,7 +1205,7 @@ async function interpret(raw){
     await run(async()=>{
       let plan=null;
       try{ thinking=true; plan=await think(raw); }
-      catch(e){ failed=true; console.warn(e); say(/401|authentication/i.test(String(e))?'Mi clave no funciona. Revísela en Ajustes.':'No puedo pensar ahora. Uso mis reglas.',3200); }
+      catch(e){ failed=true; console.warn(e); say(/401|authentication/i.test(String(e))?'Mi clave no funciona. Revísela en Ajustes.':/^Error: 4\d\d/.test(String(e))?'Anthropic dice: '+String(e).replace(/^Error: /,'').slice(0,160):'No puedo pensar ahora. Uso mis reglas.',/^Error: 4\d\d/.test(String(e))?7000:3200); }
       finally{ thinking=false; }
       if(abortFlag) throw ABORT;
       if(plan){ if((plan.steps||[]).length&&!plan.cannot){ planCache[l]={plan,ts:Date.now()}; const ks=Object.keys(planCache); if(ks.length>60) delete planCache[ks.sort((x,y)=>planCache[x].ts-planCache[y].ts)[0]]; store.set('plans',planCache); } await planFlow(plan,l); }
@@ -1295,7 +1295,7 @@ async function think(raw){
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctl.signal,headers:{
       'x-api-key':brain.key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,temperature:Math.min(1,.5+surprise()*.6),system:brainSystem()+(roll(.5)?'\nEsta vez, sorpréndale: añada en "say" un toque inesperado (una ocurrencia, una idea nueva que podría probar, humor seco de mayordomo) sin dejar de cumplir la orden.':''),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...(Date.now()-convoAt<10*60e3?convo.slice(-4):[]),{role:'user',content:raw}]})});
-    if(!r.ok){ const e=await r.text().catch(()=>''); throw new Error(r.status+' '+e.slice(0,160)); }
+    if(!r.ok){ const e=await r.text().catch(()=>''); let m=e; try{ const j=JSON.parse(e); m=(j.error&&j.error.message)||e; }catch(_){} throw new Error(r.status+' '+String(m).slice(0,240)); }
     const j=await r.json();
     const ti=(j.usage&&j.usage.input_tokens)||0, to2=(j.usage&&j.usage.output_tokens)||0;
     usage.calls++; usage.in+=ti; usage.out+=to2; const dd=dayNow(); dd.n++; dd.in+=ti; dd.out+=to2; store.set('day',dd); saveBrain(); convoAt=Date.now();
@@ -1525,7 +1525,7 @@ function openSettings(){
   $('#keySave').onclick=()=>{ const k=$('#apikey').value.trim(); if(!k) return; brain.key=k; brain.on=true; saveBrain(); openSettings(); say('Clave guardada. Ya puedo pensar.',3000); };
   if($('#keyDel')) $('#keyDel').onclick=()=>{ brain.key=''; saveBrain(); openSettings(); say('Clave borrada.'); };
   $('#keyTest').onclick=()=>{ if(!brain.key){ say('Primero guarde una clave.'); return; } closeSheet(); thinking=true;
-    think('Preséntate en una frase y dime qué sabes de mí.').then(p=>{ say(p.say||'Funciona.',4200); happy(); }).catch(e=>say(/401/.test(String(e))?'La clave no es válida.':'No consigo conectar: '+String(e).slice(0,60),4200)).finally(()=>{ thinking=false; }); };
+    think('Preséntate en una frase y dime qué sabes de mí.').then(p=>{ say(p.say||'Funciona.',4200); happy(); }).catch(e=>say(/401/.test(String(e))?'La clave no es válida.':'No consigo conectar: '+String(e).replace(/^Error: /,'').slice(0,200),8000)).finally(()=>{ thinking=false; }); };
   document.querySelectorAll('#sheet [data-del]').forEach(b=>b.onclick=()=>{ delete mem[b.dataset.del]; saveAll(); openSettings(); });
   $('#test').onclick=()=>{ launch(scURL('test','1')); };
   $('#testMulti').onclick=()=>{ launch(scRaw('test|1;test|2')); };

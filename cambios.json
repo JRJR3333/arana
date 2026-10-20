@@ -1,5 +1,18 @@
 [
  {
+  "v": "0.14.1",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.14.1-1",
+    "tipo": "arreglo",
+    "titulo": "Le enseño el error real de Anthropic",
+    "detalle": "Antes cortaba el error a 60 caracteres y solo se veía «400 {\"type\":\"error\"…». Ahora saco el mensaje de Anthropic y se lo muestro entero, en la prueba de la clave y al pensar.",
+    "probar": "Ajustes → probar la clave. Si falla, lea el motivo que aparece."
+   }
+  ]
+ },
+ {
   "v": "0.14.0",
   "fecha": "2026-10-20",
   "mejoras": [
