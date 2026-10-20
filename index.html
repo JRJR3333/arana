@@ -1114,14 +1114,15 @@ resize(); S.x=S.tx=W*.68; S.y=S.ty=H*.62; initLegs(); requestAnimationFrame(fram
 const first=!store.get('seen',false); store.set('seen',true);
 setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':'A su servicio.',first?4200:2200),700);
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
-// Al volver a la app, mira si Claude ha publicado algo nuevo y se recarga
-let lastCheck=Date.now();
+// Al volver a la app se recarga para traer siempre la última versión.
+// No se recarga si acaba de abrir otra app (para poder preguntar si salió bien) ni si está trabajando.
+let hiddenAt=0, skipReload=false;
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden||Date.now()-lastCheck<5*60e3) return; lastCheck=Date.now();
-  fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
-    if(v&&v.version&&v.version!==VERSION.version&&!busy&&!pending){ say('Hay una versión nueva. Me actualizo.',2000); setTimeout(()=>location.reload(),2200); }
-  }).catch(()=>{});
+  if(document.hidden){ hiddenAt=Date.now(); skipReload=!!pending||busy; return; }
+  if(!hiddenAt||skipReload||busy||pending||Date.now()-hiddenAt<3000) return;
+  location.reload();
 });
+window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
 window.__arana={rules:(t)=>rules(norm(t),t),norm,apps:()=>APPS,home:()=>home};
 })();
