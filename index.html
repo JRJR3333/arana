@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Araña">
+<meta name="theme-color" content="#101317">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Araña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&display=swap">
+<style>
+/* Layout: una sola pantalla fija. Arriba la marca, en medio las "estaciones" (apps, ajustes, bolsillo) por las que camina la araña, abajo la barra de órdenes. */
+:root{
+  --bg:#eef0f3; --fg:#14171b; --muted:#5d6572; --line:#d4d9e0; --panel:#ffffff; --accent:#2e5a78; --accent-fg:#fff;
+  --say-bg:rgba(16,18,22,.86); --say-ink:#f3f1ec; --ring:#e3b866;
+  --f-display:"Instrument Serif", Georgia, "Times New Roman", serif;
+  --f-body:"Geist", -apple-system, system-ui, "Segoe UI", sans-serif;
+  --app-1:#35698c; --app-2:#c4893a; --app-3:#557a52; --app-4:#8c4c5b; --app-5:#4a4f7d; --app-6:#776654; --set:#3a414b;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f1216; --fg:#e8eaed; --muted:#98a0ab; --line:#262b33; --panel:#171b20; --accent:#8fb7d4; --accent-fg:#0c1014; --set:#2a3039; color-scheme:dark }
+}
+*{box-sizing:border-box}
+html,body{height:100%; margin:0}
+body{background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size:15px; line-height:1.4; overflow:hidden;
+  -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; overscroll-behavior:none}
+#app{position:fixed; inset:0; display:flex; flex-direction:column;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) max(16px, env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(16px, env(safe-area-inset-left,0px))}
+.top{display:flex; align-items:baseline; justify-content:space-between; padding:4px 2px 10px}
+.brand{font-family:var(--f-display); font-size:34px; line-height:1}
+.brand small{font-style:italic; font-size:15px; color:var(--muted); margin-left:6px}
+.iconbtn{border:1px solid var(--line); background:transparent; color:var(--fg); font:inherit; font-size:13px; padding:7px 12px; border-radius:999px}
+.field{flex:1; min-height:0; display:flex; flex-direction:column; gap:14px; overflow:hidden}
+.lbl{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:0 2px 8px}
+.grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px 6px}
+.tile{display:flex; flex-direction:column; align-items:center; gap:5px; border:0; background:none; padding:0; color:var(--fg); font:inherit; min-width:0}
+.tile .sq{width:54px; height:54px; border-radius:15px; display:grid; place-items:center; background:var(--c); color:#fff; transition:box-shadow .2s}
+.tile .sq b{font-family:var(--f-display); font-weight:400; font-size:28px}
+.tile .sq svg{width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.tile .nm{font-size:11px; font-weight:500; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.webbed{box-shadow:0 0 0 2px var(--ring), 0 0 0 7px rgba(227,184,102,.25)}
+.pocket{width:100%; display:flex; align-items:center; gap:12px; border:1px dashed var(--line); background:var(--panel); color:var(--fg); border-radius:16px; padding:12px 14px; font:inherit; text-align:left}
+.pocket .dot{width:30px; height:30px; flex:none; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center}
+.pocket .dot i{width:8px; height:8px; background:currentColor; transform:rotate(45deg)}
+.pocket span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted)}
+.pocket.full span{color:var(--fg)}
+#bar{display:flex; gap:8px; padding-top:10px}
+#cmd{flex:1; min-width:0; font:inherit; font-size:16px; padding:12px 14px; border-radius:14px; border:1px solid var(--line); background:var(--panel); color:var(--fg); -webkit-user-select:text; user-select:text}
+#cmd:focus{outline:2px solid var(--accent); outline-offset:1px}
+.btn{font:inherit; font-weight:500; border:0; border-radius:14px; padding:12px 16px; background:var(--accent); color:var(--accent-fg)}
+.btn.ghost{background:var(--panel); color:var(--fg); border:1px solid var(--line); padding:12px}
+button:focus-visible{outline:2px solid var(--ring); outline-offset:2px}
+
+#spider{position:fixed; inset:0; pointer-events:none; mix-blend-mode:difference; z-index:20}
+#hit{position:fixed; left:0; top:0; width:66px; height:66px; margin:-33px 0 0 -33px; border-radius:50%; z-index:21; touch-action:none}
+#ui{position:fixed; inset:0; pointer-events:none; z-index:22}
+.say{position:absolute; left:0; top:0; max-width:230px; padding:7px 12px 8px; border-radius:12px; background:var(--say-bg); color:var(--say-ink);
+  font-family:var(--f-display); font-style:italic; font-size:18px; line-height:1.15; opacity:0; transition:opacity .25s}
+.say.on{opacity:1}
+.chipbox{position:absolute; pointer-events:auto; display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px; border-radius:14px; background:var(--say-bg); color:var(--say-ink);
+  max-width:calc(100vw - 24px); animation:pop .22s ease-out}
+.chipbox p{margin:0 6px; font-family:var(--f-display); font-style:italic; font-size:17px}
+.chipbox button{font:inherit; font-size:13px; font-weight:500; border:0; border-radius:10px; padding:8px 12px; background:rgba(255,255,255,.14); color:var(--say-ink)}
+.chipbox button.yes{background:var(--ring); color:#1d1a14}
+@keyframes pop{from{opacity:0; transform:translateY(6px)}}
+
+#sheet{position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.35); display:flex; align-items:flex-end}
+#sheet .card{width:100%; max-height:82%; overflow:auto; background:var(--panel); color:var(--fg); border-radius:22px 22px 0 0;
+  padding:18px max(18px, env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(18px, env(safe-area-inset-left,0px)); display:flex; flex-direction:column; gap:16px; -webkit-user-select:text; user-select:text}
+#sheet h2{margin:0; font-family:var(--f-display); font-weight:400; font-size:28px}
+.seg{display:flex; border:1px solid var(--line); border-radius:12px; padding:3px; gap:3px}
+.seg input{position:absolute; opacity:0; pointer-events:none}
+.seg label{flex:1; text-align:center; font-size:13px; padding:8px 4px; border-radius:9px; color:var(--muted)}
+.seg input:checked + label{background:var(--accent); color:var(--accent-fg)}
+.note{margin:0; font-size:12.5px; color:var(--muted)}
+.learned{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
+.learned li{display:flex; align-items:center; gap:10px; padding:9px 10px; border:1px solid var(--line); border-radius:12px}
+.learned .ph{flex:1; min-width:0}
+.learned .ph b{display:block; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.learned .ph small{color:var(--muted)}
+.learned .sc{font-variant-numeric:tabular-nums; font-size:13px; color:var(--muted)}
+.learned button{border:0; background:none; color:var(--muted); font:inherit; font-size:18px; padding:2px 6px}
+textarea{width:100%; min-height:90px; font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--fg); resize:vertical}
+.row{display:flex; gap:8px; flex-wrap:wrap}
+@media (max-height:700px){ .tile .sq{width:48px; height:48px} .grid{gap:8px 6px} .field{gap:10px} }
+@media (prefers-reduced-motion: reduce){ .chipbox{animation:none} }
+</style>
+</head>
+<body>
+<main id="app">
+  <header class="top">
+    <div class="brand">Araña <small>a su servicio</small></div>
+    <button class="iconbtn" id="gear" type="button">Ajustes</button>
+  </header>
+  <section class="field">
+    <div><span class="lbl">Apps</span><div class="grid" id="appsGrid"></div></div>
+    <div><span class="lbl">Ajustes del iPhone</span><div class="grid" id="setsGrid"></div></div>
+    <div><span class="lbl">Bolsillo</span>
+      <button class="pocket" id="pocket" type="button"><span class="dot"><i></i></span><span id="pocketTxt">Vacío. Tóquelo para guardar un texto.</span></button>
+    </div>
+  </section>
+  <form id="bar" autocomplete="off">
+    <input id="cmd" type="text" placeholder="Dígale qué hacer…" enterkeyhint="go">
+    <button class="btn ghost" type="button" id="mic" aria-label="Voz"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2"/></svg></button>
+    <button class="btn" type="submit">Ir</button>
+  </form>
+</main>
+
+<canvas id="spider"></canvas>
+<div id="hit" role="button" aria-label="Araña" tabindex="0"></div>
+<div id="ui"><div class="say" id="say"></div></div>
+
+<div id="sheet" hidden>
+  <div class="card" id="sheetCard"></div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const cv=$('#spider'), ctx=cv.getContext('2d'), sayEl=$('#say'), hit=$('#hit'), ui=$('#ui');
+let W=innerWidth, H=innerHeight;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SHORTCUT='Araña';
+
+/* ================= Datos ================= */
+const APPS=[
+  {id:'notas',name:'Notas',url:'mobilenotes://',c:2,al:['notas','nota']},
+  {id:'mapas',name:'Mapas',url:'maps://',c:3,al:['mapas','mapa','maps']},
+  {id:'musica',name:'Música',url:'music://',c:4,al:['musica','music']},
+  {id:'fotos',name:'Fotos',url:'photos-redirect://',c:5,al:['fotos','galeria','foto']},
+  {id:'calendario',name:'Calendario',url:'calshow://',c:4,al:['calendario','agenda']},
+  {id:'correo',name:'Correo',url:'message://',c:1,al:['correo','mail','email','emails']},
+  {id:'recordatorios',name:'Recordatorios',url:'x-apple-reminderkit://',c:6,al:['recordatorios','recordatorio']},
+  {id:'whatsapp',name:'WhatsApp',url:'whatsapp://',c:3,al:['whatsapp','wasap','whats','wassap','guasap']},
+];
+const IC={
+  wifi:'<path d="M3 9a13 13 0 0 1 18 0M6 12.5a8.5 8.5 0 0 1 12 0M9 16a4 4 0 0 1 6 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/>',
+  bt:'<path d="M7 7l10 10-5 4V3l5 4L7 17"/>',
+  brillo:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  foco:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  oscuro:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
+  linterna:'<path d="M8 3h8l-1 6H9zM9 9h6v11a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/><path d="M12 13v3"/>',
+  bajo:'<rect x="3" y="7" width="16" height="10" rx="2"/><path d="M21 10v4"/><rect x="5" y="9" width="4" height="6" fill="currentColor" stroke="none"/>',
+  datos:'<path d="M5 18v-3M10 18v-6M15 18V9M20 18V6"/>'
+};
+const SETS=[
+  {id:'wifi',name:'Wi-Fi',sc:'wifi',kind:'onoff',al:['wifi','wi-fi','wi fi','wify']},
+  {id:'bt',name:'Bluetooth',sc:'bluetooth',kind:'onoff',al:['bluetooth','bluetooh','bt']},
+  {id:'brillo',name:'Brillo',sc:'brillo',kind:'level',al:['brillo','pantalla']},
+  {id:'foco',name:'No molestar',sc:'nomolestar',kind:'onoff',al:['no molestar','concentracion','silencio']},
+  {id:'oscuro',name:'Modo oscuro',sc:'oscuro',kind:'onoff',al:['modo oscuro','oscuro','tema oscuro']},
+  {id:'linterna',name:'Linterna',sc:'linterna',kind:'onoff',al:['linterna','luz']},
+  {id:'bajo',name:'Bajo consumo',sc:'bajoconsumo',kind:'onoff',al:['bajo consumo','ahorro','ahorro de bateria','bateria']},
+  {id:'datos',name:'Datos',sc:'datos',kind:'onoff',al:['datos moviles','datos']},
+];
+const appById=id=>APPS.find(a=>a.id===id), setById=id=>SETS.find(s=>s.id===id);
+
+/* ================= Memoria (aprendizaje) ================= */
+const store={
+  get(k,d){ try{ const v=localStorage.getItem('arana.'+k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem('arana.'+k,JSON.stringify(v)); }catch(e){} }
+};
+let mem=store.get('mem',{});      // frase -> {act, score}
+let stats=store.get('stats',{});  // acción -> {ok, ko}
+let prefs=store.get('prefs',{perm:'aprendido',mv:'auto'});
+let pocket=store.get('pocket','');
+const saveAll=()=>{ store.set('mem',mem); store.set('stats',stats); store.set('prefs',prefs); store.set('pocket',pocket); };
+
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[¿?¡!.,;:]/g,' ').replace(/\s+/g,' ').trim();
+const keyOf=a=>[a.t,a.id||'',a.v||''].join(':');
+function label(a){
+  if(a.t==='open') return 'Abrir '+appById(a.id).name;
+  if(a.t==='set'){ const s=setById(a.id); return s.name+': '+(a.v==='on'?'activar':a.v==='off'?'desactivar':a.v+' %'); }
+  if(a.t==='wa') return 'Preparar un WhatsApp';
+  if(a.t==='carry') return 'Llevar el bolsillo a '+appById(a.id).name;
+  if(a.t==='pocket') return 'Guardar en el bolsillo';
+  return '?';
+}
+
+/* ================= Pantalla ================= */
+function tileHTML(inner,c){ return `<span class="sq" style="--c:${c}">${inner}</span>`; }
+APPS.forEach(a=>{
+  const b=document.createElement('button'); b.className='tile'; b.type='button'; b.dataset.app=a.id;
+  b.innerHTML=tileHTML(`<b>${a.name[0]}</b>`,`var(--app-${a.c})`)+`<span class="nm">${a.name}</span>`;
+  b.onclick=()=>{ if(!busy) run(()=>doAction({t:'open',id:a.id},null)); };
+  $('#appsGrid').appendChild(b); a.el=b;
+});
+SETS.forEach(s=>{
+  const b=document.createElement('button'); b.className='tile'; b.type='button'; b.dataset.set=s.id;
+  b.innerHTML=tileHTML(`<svg viewBox="0 0 24 24">${IC[s.id]}</svg>`,'var(--set)')+`<span class="nm">${s.name}</span>`;
+  b.onclick=()=>{ if(!busy) pickSetting(s); };
+  $('#setsGrid').appendChild(b); s.el=b;
+});
+function renderPocket(){ const p=$('#pocket'); p.classList.toggle('full',!!pocket); $('#pocketTxt').textContent=pocket||'Vacío. Tóquelo para guardar un texto.'; }
+renderPocket();
+function center(el){ const r=(el.querySelector('.sq')||el.querySelector('.dot')||el).getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; }
+function press(el){ (el.querySelector('.sq')||el).animate([{transform:'scale(1)'},{transform:'scale(.86)'},{transform:'scale(1)'}],{duration:260,easing:'ease-out'}); }
+function mark(el,on){ (el.querySelector('.sq')||el).classList.toggle('webbed',on); }
+
+/* ================= Araña: cuerpo ================= */
+const S={x:W*.7,y:H*.55,vx:0,vy:0,h:-Math.PI/2,tx:W*.7,ty:H*.55,face:null,fl:0,tuck:0,nod:0,hop:0,sag:0,travelFloat:false,hidden:false,user:false};
+const LA=[.5,1.12,1.82,2.45], LR=[40,36,35,41], legs=[];
+[1,-1].forEach(side=>LA.forEach((a,k)=>legs.push({a:a*side,r:LR[k],g:(k+(side>0?0:1))%2,fx:0,fy:0,st:null})));
+let webs=[]; const carry={on:false,x:0,y:0};
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const lerpAng=(a,b,k)=>{ const d=((b-a+Math.PI*3)%(Math.PI*2))-Math.PI; return a+d*k; };
+function initLegs(){ legs.forEach(L=>{ const a=S.h+L.a; L.fx=S.x+Math.cos(a)*L.r; L.fy=S.y+Math.sin(a)*L.r; }); }
+const topSafe=()=>parseFloat(getComputedStyle($('#app')).paddingTop)||20;
+const clampX=x=>Math.max(28,Math.min(W-28,x)), clampY=y=>Math.max(topSafe()+30,Math.min(H-40,y));
+
+function resize(){
+  W=innerWidth; H=innerHeight; const dpr=Math.min(3,devicePixelRatio||1);
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0); S.tx=clampX(S.tx); S.ty=clampY(S.ty);
+}
+addEventListener('resize',resize);
+
+function update(dt,t){
+  if(!S.user){
+    const dx=S.tx-S.x, dy=S.ty-S.y, d=Math.hypot(dx,dy);
+    const mode=prefs.mv==='auto'?(S.travelFloat?'float':'walk'):prefs.mv;
+    const max=mode==='float'?330:140;
+    let dvx=0,dvy=0; if(d>.5){ const sp=Math.min(max,d*3.2); dvx=dx/d*sp; dvy=dy/d*sp; }
+    const k=Math.min(1,dt*5); S.vx+=(dvx-S.vx)*k; S.vy+=(dvy-S.vy)*k; S.x+=S.vx*dt; S.y+=S.vy*dt;
+    S.fl+=((((mode==='float'&&d>4)||S.hop>0)?1:0)-S.fl)*Math.min(1,dt*4);
+  }
+  const sp=Math.hypot(S.vx,S.vy), target=sp>12?Math.atan2(S.vy,S.vx):S.face;
+  if(target!=null) S.h=lerpAng(S.h,target,Math.min(1,dt*(sp>12?5:3)));
+  S.tuck+=((S.hidden?1:S.sag)-S.tuck)*Math.min(1,dt*3);
+  S.nod=Math.max(0,S.nod-dt*1.4); S.hop=Math.max(0,S.hop-dt*1.1); S.sag=Math.max(0,S.sag-dt*.35);
+  if(S.hop>0) S.h+=dt*7*Math.sin(S.hop*Math.PI);
+  const shrink=1-.42*Math.max(S.fl,S.tuck);
+  for(const L of legs){
+    const a=S.h+L.a, r=L.r*shrink, ix=S.x+Math.cos(a)*r, iy=S.y+Math.sin(a)*r;
+    if(S.fl>.35){ L.st=null; const kk=Math.min(1,dt*14); L.fx+=(ix-L.fx)*kk; L.fy+=(iy-L.fy)*kk; continue; }
+    if(L.st){ L.st.t+=dt/.12; const e=ease(Math.min(1,L.st.t)); L.fx=L.st.x0+(L.st.x1-L.st.x0)*e; L.fy=L.st.y0+(L.st.y1-L.st.y0)*e; if(L.st.t>=1) L.st=null; continue; }
+    const off=Math.hypot(L.fx-ix,L.fy-iy), thr=sp>15?13:4, other=legs.some(o=>o.st&&o.g!==L.g);
+    if(off>thr&&(!other||off>34)) L.st={t:0,x0:L.fx,y0:L.fy,x1:ix+S.vx*.11,y1:iy+S.vy*.11};
+  }
+  for(const w of webs){
+    if(w.out){ w.p-=dt*3.2; if(w.p<=0) w.dead=true; continue; }
+    if(w.p<1) w.p=Math.min(1,w.p+dt/.3); else { w.ten=Math.min(1,w.ten+dt/.22); w.b=Math.min(1,w.b+dt/.3); }
+  }
+  webs=webs.filter(w=>!w.dead);
+  if(carry.on){ const tx=S.x-Math.cos(S.h)*36, ty=S.y-Math.sin(S.h)*36; carry.x+=(tx-carry.x)*Math.min(1,dt*6); carry.y+=(ty-carry.y)*Math.min(1,dt*6); }
+  hit.style.transform=`translate(${S.x}px,${S.y}px)`;
+  placeSay();
+  if(!busy&&!S.user&&!S.hidden&&!overlayOpen()&&performance.now()-lastActive>8000) hideAtEdge();
+}
+function ik(hx,hy,fx,fy,L1,L2){
+  const dx=fx-hx, dy=fy-hy, len=Math.hypot(dx,dy)||1, d=Math.max(4,Math.min(L1+L2-.5,len)), ux=dx/len, uy=dy/len;
+  const a=(L1*L1-L2*L2+d*d)/(2*d), h=Math.sqrt(Math.max(0,L1*L1-a*a)), bx=hx+ux*a, by=hy+uy*a;
+  const k1={x:bx-uy*h,y:by+ux*h}, k2={x:bx+uy*h,y:by-ux*h};
+  return Math.hypot(k1.x-S.x,k1.y-S.y)>Math.hypot(k2.x-S.x,k2.y-S.y)?k1:k2;
+}
+function draw(t){
+  ctx.clearRect(0,0,W,H); ctx.strokeStyle=ctx.fillStyle='#fff'; ctx.lineCap='round'; ctx.lineJoin='round';
+  const bob=Math.sin(t*3.2)*1.8*S.fl-Math.sin(S.hop*Math.PI)*6, hx=Math.cos(S.h), hy=Math.sin(S.h), nod=Math.sin(S.nod*Math.PI*2)*2.4;
+  const mouth={x:S.x+hx*(12+nod),y:S.y+hy*(12+nod)+bob};
+  for(const w of webs){
+    const e=ease(Math.max(0,w.p)), to=w.to, cx=mouth.x+(to.x-mouth.x)*e, cy=mouth.y+(to.y-mouth.y)*e;
+    const mx=(mouth.x+cx)/2, my=(mouth.y+cy)/2, len=Math.hypot(cx-mouth.x,cy-mouth.y)||1;
+    const sag=(1-w.ten)*Math.min(26,len*.18), px=-(cy-mouth.y)/len, py=(cx-mouth.x)/len, pulse=w.pulse?(.6+.4*Math.sin(t*7)):1;
+    ctx.globalAlpha=pulse; ctx.lineWidth=1.25; ctx.beginPath(); ctx.moveTo(mouth.x,mouth.y); ctx.quadraticCurveTo(mx+px*sag,my+py*sag+sag*.4,cx,cy); ctx.stroke();
+    ctx.globalAlpha=.35*pulse; ctx.lineWidth=.8; ctx.beginPath(); ctx.moveTo(mouth.x,mouth.y); ctx.quadraticCurveTo(mx+px*(sag+5),my+py*(sag+5),cx,cy); ctx.stroke();
+    if(w.b>0&&!w.out){
+      ctx.globalAlpha=pulse; ctx.lineWidth=1;
+      for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+.3; ctx.beginPath(); ctx.moveTo(to.x,to.y); ctx.lineTo(to.x+Math.cos(a)*10*w.b,to.y+Math.sin(a)*10*w.b); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(to.x,to.y,6.5*w.b,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(to.x,to.y,1.8,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+  if(carry.on){
+    const tail={x:S.x-hx*18,y:S.y-hy*18+bob};
+    ctx.lineWidth=1; ctx.globalAlpha=.8; ctx.beginPath(); ctx.moveTo(tail.x,tail.y); ctx.lineTo(carry.x,carry.y); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.save(); ctx.translate(carry.x,carry.y); ctx.rotate(Math.PI/4); ctx.fillRect(-4,-4,8,8); ctx.restore();
+  }
+  ctx.lineWidth=1.5;
+  for(const L of legs){
+    const a=S.h+L.a, hipx=S.x+hx+Math.cos(a)*4, hipy=S.y+hy+Math.sin(a)*4+bob, fx=L.fx, fy=L.fy+bob*.5, k=ik(hipx,hipy,fx,fy,23,23);
+    ctx.beginPath(); ctx.moveTo(hipx,hipy); ctx.lineTo(k.x,k.y); ctx.lineTo(fx,fy); ctx.stroke();
+    ctx.beginPath(); ctx.arc(k.x,k.y,1.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(fx,fy,1.3,0,Math.PI*2); ctx.fill();
+  }
+  const ab={x:S.x-hx*10,y:S.y-hy*10+bob}, hd={x:S.x+hx*(6+nod),y:S.y+hy*(6+nod)+bob};
+  ctx.beginPath(); ctx.arc(ab.x,ab.y,8.5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(ab.x,ab.y,2.2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(ab.x+hx*8.5,ab.y+hy*8.5); ctx.lineTo(hd.x,hd.y); ctx.stroke(); ctx.beginPath(); ctx.arc(hd.x,hd.y,4.6,0,Math.PI*2); ctx.fill();
+}
+let last=performance.now();
+function frame(now){ const dt=Math.min(.05,(now-last)/1000); last=now; update(dt,now/1000); draw(now/1000); requestAnimationFrame(frame); }
+
+/* ================= Araña: acciones básicas ================= */
+const ABORT={abort:1}, CANCEL={cancel:1};
+let abortFlag=false, busy=false, lastActive=performance.now(), pendingChip=null;
+const until=c=>new Promise((res,rej)=>{ const f=()=>{ if(abortFlag) return rej(ABORT); if(c()) return res(); requestAnimationFrame(f); }; f(); });
+const wait=ms=>{ const e=performance.now()+ms; return until(()=>performance.now()>=e); };
+async function moveTo(x,y){ x=clampX(x); y=clampY(y); S.face=null; S.travelFloat=Math.hypot(x-S.x,y-S.y)>170; S.tx=x; S.ty=y; await until(()=>Math.hypot(S.tx-S.x,S.ty-S.y)<3&&Math.hypot(S.vx,S.vy)<10); }
+const faceTo=p=>{ S.face=Math.atan2(p.y-S.y,p.x-S.x); };
+async function approach(p){ const dy=p.y>H*.62?-70:66; await moveTo(p.x,p.y+dy); faceTo(p); await wait(200); }
+async function web(p){ const w={to:p,p:0,ten:0,b:0}; webs.push(w); await until(()=>w.ten>=1); return w; }
+const release=w=>{ if(w){ w.out=true; w.pulse=false; } };
+const happy=()=>{ S.hop=1; S.nod=1; }, sad=()=>{ S.sag=.7; };
+
+let sayTimer=null;
+function say(text,ms=2600){
+  clearTimeout(sayTimer); sayEl.classList.add('on');
+  if(reduce) sayEl.textContent=text; else { let i=0; const f=()=>{ sayEl.textContent=text.slice(0,++i); if(i<text.length) setTimeout(f,20); }; f(); }
+  sayTimer=setTimeout(()=>sayEl.classList.remove('on'),ms);
+}
+function placeSay(){
+  const bw=sayEl.offsetWidth||120, bh=sayEl.offsetHeight||30;
+  const x=Math.max(10,Math.min(W-bw-10,S.x-bw/2)); let y=S.y-62-bh; if(y<topSafe()) y=S.y+50;
+  sayEl.style.transform=`translate(${x}px,${y}px)`;
+}
+/* Caja de opciones junto a un punto. Cada opción: [texto, valor, clase, alPulsar]. alPulsar corre dentro del toque (necesario para abrir apps y portapapeles). */
+function chips(text,opts,anchor,w){
+  return new Promise((res,rej)=>{
+    closeChip();
+    if(w) w.pulse=true;
+    const box=document.createElement('div'); box.className='chipbox';
+    if(text){ const p=document.createElement('p'); p.textContent=text; box.appendChild(p); }
+    opts.forEach(([t,v,cls,fn])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=t; if(cls) b.className=cls;
+      b.onclick=()=>{ try{ fn&&fn(); }catch(e){} done(v); }; box.appendChild(b); });
+    ui.appendChild(box);
+    const a=anchor||{x:S.x,y:S.y}, bw=box.offsetWidth, bh=box.offsetHeight;
+    const x=Math.max(12,Math.min(W-bw-12,a.x-bw/2)); let y=a.y-bh-28; if(y<topSafe()+4) y=a.y+34;
+    box.style.left=x+'px'; box.style.top=y+'px';
+    const done=v=>{ box.remove(); if(w) w.pulse=false; if(pendingChip&&pendingChip.box===box) pendingChip=null; v===ABORT?rej(ABORT):res(v); };
+    pendingChip={box,done};
+  });
+}
+function closeChip(){ if(pendingChip){ const d=pendingChip.done; pendingChip=null; d(null); } }
+const overlayOpen=()=>!!pendingChip||!$('#sheet').hidden;
+
+/* ================= Puente con iOS ================= */
+const scURL=(cmd,val)=>`shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT)}&input=text&text=${encodeURIComponent(cmd+'|'+val)}`;
+function urlFor(a){
+  if(a.t==='open'||a.t==='carry') return appById(a.id).url;
+  if(a.t==='set') return scURL(setById(a.id).sc,a.v);
+  if(a.t==='wa') return 'whatsapp://send?text='+encodeURIComponent(a.text||'');
+  return null;
+}
+let pending=null, wentAway=false;
+function launch(url){ wentAway=false; try{ location.href=url; }catch(e){} }
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ wentAway=true; return; }
+  if(pending&&wentAway){ const p=pending; pending=null; setTimeout(()=>askFeedback(p),500); }
+});
+
+/* ================= Aprendizaje ================= */
+function trust(a,phrase){
+  const st=stats[keyOf(a)]||{ok:0,ko:0}, m=phrase&&mem[phrase];
+  return {st, sure:(m&&m.act&&keyOf(m.act)===keyOf(a)&&m.score>=4)||(st.ok>=3&&st.ko===0), doubtful:st.ko>=2&&st.ko>st.ok};
+}
+function learn(phrase,a,delta){
+  if(!phrase) return;
+  const m=mem[phrase]&&keyOf(mem[phrase].act)===keyOf(a)?mem[phrase]:{act:a,score:0};
+  m.score+=delta; if(m.score<=-2) delete mem[phrase]; else mem[phrase]=m; saveAll();
+}
+async function askFeedback(p){
+  const v=await chips('¿Lo hice bien?',[['Bien','ok','yes'],['Mal','ko'],['Luego',null]],{x:S.x,y:S.y}).catch(()=>null);
+  if(!v) return;
+  const k=keyOf(p.act); stats[k]=stats[k]||{ok:0,ko:0};
+  if(v==='ok'){ stats[k].ok++; learn(p.phrase,p.act,2); happy(); say(p.phrase?'Gracias. Lo recordaré así.':'Gracias.'); }
+  else { stats[k].ko++; learn(p.phrase,p.act,-3); sad();
+    say(p.act.t==='set'?'Anotado. Revise que el atajo «Araña» tenga ese paso.':'Anotado. Lo haré con más cuidado.',3800); }
+  saveAll();
+}
+
+/* ================= Tareas ================= */
+function elFor(a){ if(a.t==='open'||a.t==='carry') return appById(a.id).el; if(a.t==='set') return setById(a.id).el; if(a.t==='wa') return appById('whatsapp').el; return $('#pocket'); }
+async function doAction(a,phrase){
+  const el=elFor(a), c=center(el), url=urlFor(a), t=trust(a,phrase);
+  if(a.t==='carry'&&!pocket){ say('El bolsillo está vacío. Primero guarde algo en él.',3200); return; }
+  if(t.doubtful) say('La última vez esto no salió bien.',2400);
+  if(a.t==='carry'){ carry.x=center($('#pocket')).x; carry.y=center($('#pocket')).y; await approach(center($('#pocket'))); const wp=await web(center($('#pocket'))); release(wp); carry.on=true; await wait(300); }
+  await approach(c);
+  const w=await web(c); mark(el,true);
+  const go=()=>{ if(a.t==='carry'){ try{ navigator.clipboard&&navigator.clipboard.writeText(pocket); }catch(e){} } pending={act:a,phrase}; launch(url); };
+  const mustAsk=a.t==='carry'||prefs.perm==='siempre'||(prefs.perm==='aprendido'&&!t.sure)||t.doubtful;
+  let launched=false;
+  if(mustAsk){
+    const q=a.t==='carry'?`¿Lo copio y abro ${appById(a.id).name}?`:a.t==='wa'?'¿Abro WhatsApp con el texto?':`¿${label(a)}?`;
+    const v=await chips(q,[['Sí',true,'yes',go],['No',false]],c,w);
+    if(!v){ mark(el,false); release(w); carry.on=false; say('Como prefiera.'); if(phrase) learn(phrase,a,-1); throw CANCEL; }
+    launched=true;
+  } else { press(el); go(); launched=true; }
+  press(el); mark(el,false); release(w);
+  if(a.t==='carry'){ carry.on=false; }
+  happy();
+  say(a.t==='carry'?'Copiado. Péguelo usted: iOS no me deja pegar dentro de otras apps.':a.t==='wa'?'Elija el contacto. Enviar lo pulsa usted.':a.t==='set'?'Hecho por Atajos.':'Enseguida.',3600);
+  // Si el sistema bloqueó el salto, ofrecemos un toque para continuar
+  await wait(1300);
+  if(launched&&!wentAway&&!document.hidden&&pending){
+    const v=await chips('iOS necesita un toque suyo.',[['Continuar',true,'yes',()=>launch(url)],['Cancelar',false]],{x:S.x,y:S.y});
+    if(!v) pending=null;
+  }
+}
+function pickSetting(s){
+  lastActive=performance.now();
+  const opts=s.kind==='level'?[['25 %','25'],['50 %','50'],['75 %','75'],['100 %','100']]:[['Activar','on','yes'],['Desactivar','off']];
+  chips(s.name,[...opts,['×',null]],center(s.el)).then(v=>{ if(v) run(()=>doAction({t:'set',id:s.id,v},null)); }).catch(()=>{});
+}
+async function fillPocket(){
+  closeMenus();
+  openSheet(`<h2>Bolsillo</h2>
+    <p class="note">Lo que guarde aquí lo puedo llevar a otra app: lo copio y la abro, y usted pega.</p>
+    <div class="row"><button class="btn" type="button" id="pPaste">Pegar del portapapeles</button><button class="btn ghost" type="button" id="pClear">Vaciar</button></div>
+    <textarea id="pText" placeholder="O escríbalo aquí…">${escapeHTML(pocket)}</textarea>
+    <div class="row"><button class="btn" type="button" id="pSave">Guardar</button><button class="btn ghost" type="button" id="pClose">Cerrar</button></div>`);
+  $('#pPaste').onclick=async()=>{ try{ const t=await navigator.clipboard.readText(); $('#pText').value=t; }catch(e){ $('#pText').focus(); say('No puedo leer el portapapeles. Mantenga pulsado y pegue.',3500); } };
+  $('#pClear').onclick=()=>{ $('#pText').value=''; };
+  $('#pClose').onclick=closeSheet;
+  $('#pSave').onclick=()=>{ pocket=$('#pText').value.trim(); saveAll(); renderPocket(); closeSheet();
+    run(async()=>{ const c=center($('#pocket')); await approach(c); const w=await web(c); await wait(250); release(w); happy(); say(pocket?'Guardado en el bolsillo.':'Bolsillo vacío.'); }); };
+}
+$('#pocket').onclick=()=>{ if(!busy) fillPocket(); };
+function cleanup(){ webs.forEach(release); carry.on=false; document.querySelectorAll('.webbed').forEach(e=>e.classList.remove('webbed')); }
+async function run(fn){
+  if(busy){ say('Un momento, termino lo anterior.'); return; }
+  closeMenus(); busy=true; abortFlag=false;
+  try{ if(S.hidden){ S.hidden=false; await moveTo(S.x<W/2?64:W-64,S.y); } await fn(); }
+  catch(e){ cleanup(); if(e===ABORT) say('Me detengo.'); else if(e!==CANCEL) console.error(e); }
+  finally{ busy=false; abortFlag=false; S.face=null; lastActive=performance.now(); }
+}
+function hideAtEdge(){ S.hidden=true; S.face=null; S.travelFloat=false; S.tx=S.x<W/2?8:W-8; S.ty=clampY(S.y); }
+
+/* ================= Entender órdenes ================= */
+const CANT=[
+  [/(pulsa|toca|dale|clic|click).*(en|dentro|boton)/,'No puedo tocar dentro de otras apps: iOS no lo permite a ninguna app.'],
+  [/(mueve|ordena|coloca|recoloca).*(icono|apps|aplicaciones)/,'No puedo mover iconos: Apple no deja que ninguna app toque la pantalla de inicio.'],
+  [/(borra|elimina|desinstala|instala)\b/,'Instalar o borrar apps solo puede hacerlo usted.'],
+  [/(lee|leeme|que dice|mira|revisa).*(pantalla|notificacion|mensajes|correo)/,'No puedo ver lo que hay en otras apps. Si me pega el texto en el bolsillo, lo uso.'],
+  [/(llama|llamar)\b/,'Llamar todavía no lo sé hacer. Se puede añadir con un atajo.'],
+  [/(alarma|despierta|temporizador)/,'Las alarmas aún no están en mi atajo. Se pueden añadir.'],
+];
+const ALL_ACTS=()=>[
+  ...APPS.map(a=>({act:{t:'open',id:a.id},words:a.al.concat(['abre','abrir'])})),
+  ...SETS.flatMap(s=>s.kind==='level'?[{act:{t:'set',id:s.id,v:'50'},words:s.al.concat(['sube','baja'])}]:[{act:{t:'set',id:s.id,v:'on'},words:s.al.concat(['activa','enciende','pon'])},{act:{t:'set',id:s.id,v:'off'},words:s.al.concat(['apaga','desactiva','quita'])}]),
+];
+const findApp=l=>APPS.find(a=>a.al.some(x=>new RegExp('\\b'+x+'\\b').test(l)));
+const findSet=l=>SETS.find(s=>s.al.some(x=>new RegExp('\\b'+x+'\\b').test(l)));
+function rules(l,raw){
+  const OFF=/\b(apaga|apagar|desactiva|desactivar|quita|quitar|off|cierra|sin)\b/, ON=/\b(enciende|encender|activa|activar|pon|poner|on|con|abre)\b/;
+  if(/\b(whatsapp|wasap|whats|guasap)\b/.test(l)&&/\b(envia|manda|escribe|mensaje|dile)\b/.test(l)){
+    const text=raw.includes(':')?raw.split(':').slice(1).join(':').trim():'';
+    return {act:{t:'wa',text}};
+  }
+  if(/\b(lleva|llevar|pasa|pasalo|pega|pegalo|copia)\b/.test(l)&&/\b(bolsillo|esto|lo)\b|\ba\b/.test(l)){ const a=findApp(l); if(a) return {act:{t:'carry',id:a.id}}; }
+  if(/\b(guarda|bolsillo)\b/.test(l)) return {pocket:true};
+  for(const [re,msg] of CANT) if(re.test(l)) return {cant:msg};
+  const s=findSet(l);
+  if(s){
+    if(s.kind==='level'){
+      const n=l.match(/\d{1,3}/); let v=n?Math.max(1,Math.min(100,+n[0])):/\b(sube|mas|maximo|max|tope)\b/.test(l)?(/max|tope/.test(l)?100:75):/\b(baja|menos|minimo|min)\b/.test(l)?(/min/.test(l)?10:25):null;
+      if(v!=null) return {act:{t:'set',id:s.id,v:String(v)}};
+      return {suggestSet:s};
+    }
+    if(OFF.test(l)) return {act:{t:'set',id:s.id,v:'off'}};
+    if(ON.test(l)) return {act:{t:'set',id:s.id,v:'on'}};
+    return {suggestSet:s};
+  }
+  const a=findApp(l); if(a) return {act:{t:'open',id:a.id}};
+  if(/^(abre|abrir|abra|lanza|entra)\b/.test(l)) return {cant:'Esa app aún no está entre mis estaciones. Se puede añadir a la lista de apps.'};
+  return null;
+}
+function similar(a,b){ const A=new Set(a.split(' ')), B=new Set(b.split(' ')); let i=0; A.forEach(x=>{ if(B.has(x)) i++; }); return i/(A.size+B.size-i||1); }
+function guesses(l){
+  const toks=l.split(' ');
+  return ALL_ACTS().map(o=>({act:o.act,s:o.words.reduce((n,w)=>n+(toks.some(t=>t.length>2&&(w.startsWith(t)||t.startsWith(w)))?1:0),0)}))
+    .filter(o=>o.s>0).sort((x,y)=>y.s-x.s).slice(0,3).map(o=>o.act);
+}
+async function interpret(raw){
+  const l=norm(raw); if(!l) return; lastActive=performance.now();
+  // 1) Lo aprendido manda
+  let m=mem[l]; if(!m){ let best=null,bs=0; for(const k in mem){ const s=similar(k,l); if(s>bs){ bs=s; best=k; } } if(bs>=.75&&mem[best].score>=1) m=mem[best]; }
+  if(m&&m.score>=1) return run(()=>doAction(m.act,l));
+  // 2) Reglas
+  const r=rules(l,raw);
+  if(r&&r.act) return run(()=>doAction(r.act,l));
+  if(r&&r.pocket) return fillPocket();
+  if(r&&r.cant){ sad(); return say(r.cant,4200); }
+  if(r&&r.suggestSet) return pickSetting(r.suggestSet);
+  // 3) No lo entiendo: pregunto y aprendo de su elección
+  const g=guesses(l);
+  if(!g.length){ say('No le entiendo todavía. Pruebe: «abre Notas», «apaga el wifi», «brillo al 30».',4200); return; }
+  const v=await chips('¿Quería decir…?',[...g.map(a=>[label(a),a]),['Ninguna',null]],{x:S.x,y:S.y}).catch(()=>null);
+  if(v){ learn(l,v,1); run(()=>doAction(v,l)); } else say('Entendido. Me lo puede enseñar eligiendo una opción la próxima vez.',3600);
+}
+
+/* ================= Controles ================= */
+$('#bar').addEventListener('submit',e=>{ e.preventDefault(); const v=$('#cmd').value; $('#cmd').value=''; $('#cmd').blur(); interpret(v); });
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+$('#mic').onclick=()=>{
+  if(!SR){ say('Aquí no tengo micrófono propio. Use el dictado del teclado (el micro junto a la barra espaciadora).',4500); $('#cmd').focus(); return; }
+  try{ const r=new SR(); r.lang='es-ES'; r.interimResults=false; r.onresult=e=>interpret(e.results[0][0].transcript); r.onerror=()=>say('No le he oído bien.'); r.start(); say('Le escucho.'); }
+  catch(e){ say('El micrófono no está disponible.'); }
+};
+function escapeHTML(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function openSheet(html){ $('#sheetCard').innerHTML=html; $('#sheet').hidden=false; }
+function closeSheet(){ $('#sheet').hidden=true; $('#sheetCard').innerHTML=''; lastActive=performance.now(); }
+$('#sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') closeSheet(); });
+function closeMenus(){ closeChip(); }
+function openSettings(){
+  closeMenus();
+  const items=Object.entries(mem).sort((a,b)=>b[1].score-a[1].score);
+  const seg=(name,opts,val)=>`<div class="seg">${opts.map(([v,t],i)=>`<input type="radio" name="${name}" id="${name}${i}" value="${v}" ${v===val?'checked':''}><label for="${name}${i}">${t}</label>`).join('')}</div>`;
+  openSheet(`<h2>Ajustes</h2>
+    <div><span class="lbl">Pedir permiso</span>${seg('perm',[['siempre','Siempre'],['aprendido','Según lo aprendido'],['nunca','Nunca']],prefs.perm)}
+      <p class="note" style="margin-top:6px">«Según lo aprendido»: pregunta hasta que algo le ha salido bien varias veces.</p></div>
+    <div><span class="lbl">Desplazamiento</span>${seg('mv',[['auto','Auto'],['walk','Patas'],['float','Flotar']],prefs.mv)}</div>
+    <div><span class="lbl">Lo que he aprendido</span>
+      ${items.length?`<ul class="learned">${items.map(([k,m])=>`<li><div class="ph"><b>«${escapeHTML(k)}»</b><small>${escapeHTML(label(m.act))}</small></div><span class="sc">${m.score>0?'+':''}${m.score}</span><button type="button" data-del="${escapeHTML(k)}" aria-label="Olvidar">×</button></li>`).join('')}</ul>`:'<p class="note">Nada todavía. Cada vez que me diga «Bien» o elija una opción, aprendo.</p>'}</div>
+    <div><span class="lbl">Conexión con Atajos</span>
+      <div class="row"><button class="btn ghost" type="button" id="test">Probar el atajo «Araña»</button></div>
+      <p class="note" style="margin-top:6px">Si no pasa nada, el atajo no existe o tiene otro nombre.</p></div>
+    <div class="row"><button class="btn ghost" type="button" id="reset">Olvidar todo</button><button class="btn" type="button" id="close">Cerrar</button></div>`);
+  document.querySelectorAll('#sheet input[name="perm"]').forEach(i=>i.onchange=()=>{ prefs.perm=i.value; saveAll(); });
+  document.querySelectorAll('#sheet input[name="mv"]').forEach(i=>i.onchange=()=>{ prefs.mv=i.value; saveAll(); });
+  document.querySelectorAll('#sheet [data-del]').forEach(b=>b.onclick=()=>{ delete mem[b.dataset.del]; saveAll(); openSettings(); });
+  $('#test').onclick=()=>{ launch(scURL('test','1')); };
+  $('#reset').onclick=()=>{ mem={}; stats={}; saveAll(); openSettings(); say('Memoria borrada. Empezamos de cero.'); };
+  $('#close').onclick=closeSheet;
+}
+$('#gear').onclick=openSettings;
+
+/* ================= Tocar y arrastrar la araña ================= */
+let pd=null;
+hit.addEventListener('pointerdown',e=>{ hit.setPointerCapture(e.pointerId); pd={x:e.clientX,y:e.clientY,moved:false,t:performance.now()}; });
+hit.addEventListener('pointermove',e=>{
+  if(!pd) return;
+  if(!pd.moved&&Math.hypot(e.clientX-pd.x,e.clientY-pd.y)>7&&!busy){ pd.moved=true; S.user=true; S.hidden=false; S.fl=0; closeMenus(); }
+  if(pd.moved){ const nx=clampX(e.clientX), ny=clampY(e.clientY), now=performance.now(), dt=Math.max(.008,(now-pd.t)/1000); pd.t=now;
+    S.vx=S.vx*.6+((nx-S.x)/dt)*.4; S.vy=S.vy*.6+((ny-S.y)/dt)*.4; S.x=S.tx=nx; S.y=S.ty=ny; }
+});
+hit.addEventListener('pointerup',()=>{
+  if(!pd) return; const drag=pd.moved; pd=null; lastActive=performance.now();
+  if(drag){ S.user=false; S.vx=S.vy=0; S.tx=S.x; S.ty=S.y; return; }
+  if(busy){ abortFlag=true; if(pendingChip) pendingChip.done(ABORT); return; }
+  if(S.hidden){ S.hidden=false; S.tx=S.x<W/2?64:W-64; say('¿Sí?'); setTimeout(spiderMenu,600); return; }
+  pendingChip?closeChip():spiderMenu();
+});
+hit.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); spiderMenu(); } });
+function spiderMenu(){
+  if(busy) return;
+  const opts=[['Bolsillo','pocket'],['Lo aprendido','settings']];
+  if(pocket) opts.unshift(['Llevar bolsillo a…','carry']);
+  chips(null,[...opts,['×',null]],{x:S.x,y:S.y}).then(v=>{
+    if(v==='pocket') fillPocket();
+    else if(v==='settings') openSettings();
+    else if(v==='carry') chips('¿A dónde?',[...APPS.filter(a=>a.id!=='fotos'&&a.id!=='musica').map(a=>[a.name,a.id]),['×',null]],{x:S.x,y:S.y}).then(id=>{ if(id) run(()=>doAction({t:'carry',id},null)); }).catch(()=>{});
+  }).catch(()=>{});
+}
+
+/* ================= Arranque ================= */
+resize(); S.x=S.tx=W*.68; S.y=S.ty=H*.62; initLegs(); requestAnimationFrame(frame);
+const first=!store.get('seen',false); store.set('seen',true);
+setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':'A su servicio.',first?4200:2200),700);
+if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+// Para pruebas: window.__arana
+window.__arana={rules:(t)=>rules(norm(t),t),norm};
+})();
+</script>
+</body>
+</html>
