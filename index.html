@@ -54,6 +54,12 @@ body{background:var(--home); -webkit-touch-callout:none}
 .dots i.on{background:#fff}
 #app .tile{color:#fff; width:100%; position:relative}
 #app .tile .sq{width:var(--ic); height:var(--ic); border-radius:calc(var(--ic)*.23); color:var(--fg2,#fff); box-shadow:0 1px 3px rgba(0,0,0,.18)}
+#app .tile .sq.img{background:transparent; overflow:hidden}
+#app .tile .sq.img img{width:100%; height:100%; display:block; object-fit:cover; border-radius:inherit; pointer-events:none}
+.ipick{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+.ipick button{border:1px solid var(--line); background:transparent; border-radius:14px; padding:8px 4px; display:flex; flex-direction:column; align-items:center; gap:5px; font:inherit; font-size:11px; color:var(--fg)}
+.ipick img{width:48px; height:48px; border-radius:11px}
+.ipick span{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 #app .tile .sq b{font-family:var(--f-body); font-weight:600; font-size:calc(var(--ic)*.36); letter-spacing:-.02em}
 #app .tile .nm{font-size:11.5px; font-weight:500; text-shadow:0 1px 2px rgba(0,0,0,.35); max-width:calc(var(--ic) + 22px)}
 .tile .x{display:none; position:absolute; top:-6px; left:calc(50% - var(--ic)/2 - 6px); width:22px; height:22px; border-radius:50%; background:#d9d6d0; color:#222; font-size:15px; line-height:22px; text-align:center; z-index:2}
@@ -510,15 +516,17 @@ function tileFor(id){
   if(id.startsWith('f:')){
     const f=home.folders[id.slice(2)]; if(!f) return null;
     b.classList.add('folder'); b.dataset.folder=id;
-    b.innerHTML=`<span class="sq">${f.apps.slice(0,9).map(x=>`<i style="background:${(appInfo(x)||{bg:'#888'}).bg}"></i>`).join('')}</span><span class="nm">${escapeHTML(f.name)}</span>`;
+    b.innerHTML=`<span class="sq">${f.apps.slice(0,9).map(x=>{ const u=iconURL(x,60); return `<i style="background:${u?`url('${u}') center/cover`:(appInfo(x)||{bg:'#888'}).bg}"></i>`; }).join('')}</span><span class="nm">${escapeHTML(f.name)}</span>`;
     b.onclick=()=>{ if(!busy) openFolder(id.slice(2)); };
     APPS.forEach(a=>{ if(a.folder===id) a.el=b; });
     return b;
   }
   const a=appById(id); if(!a) return null;
   b.dataset.app=id;
-  b.innerHTML=`<span class="x" aria-label="Quitar">−</span>`+tileHTML(`<b>${escapeHTML(initials(a.name))}</b>`,a.bg).replace('style="','style="--fg2:'+inkFor(a.bg)+';')+`<span class="nm">${escapeHTML(a.name)}</span>`;
+  const iu=iconURL(id,180);
+  b.innerHTML=`<span class="x" aria-label="Quitar">−</span>`+(iu?`<span class="sq img"><img src="${iu}" alt="" loading="lazy" decoding="async"></span>`:tileHTML(`<b>${escapeHTML(initials(a.name))}</b>`,a.bg).replace('style="','style="--fg2:'+inkFor(a.bg)+';'))+`<span class="nm">${escapeHTML(a.name)}</span>`;
   b.querySelector('.x').onclick=e=>{ e.stopPropagation(); removeApp(id); };
+  const im=b.querySelector('.sq.img img'); if(im) im.onerror=()=>{ const sq=im.parentNode; sq.classList.remove('img'); sq.style.cssText='--fg2:'+inkFor(a.bg)+';--c:'+a.bg+';background:'+a.bg; sq.innerHTML=`<b>${escapeHTML(initials(a.name))}</b>`; };
   b.onclick=()=>{ if(editing) return editApp(id); if(!busy) run(()=>doAction({t:'open',id},null)); };
   a.el=b; return b;
 }
@@ -599,6 +607,57 @@ let lp=null;
 });
 document.addEventListener('click',e=>{ if(longFired){ longFired=false; e.stopPropagation(); e.preventDefault(); } },true);
 document.addEventListener('contextmenu',e=>{ if(e.target.closest('#pager,#dock')) e.preventDefault(); });
+/* ================= Iconos reales =================
+   Los pide una sola vez a la App Store (API pública de búsqueda de Apple) y guarda el enlace.
+   Las apps de Apple que no están en la tienda (Ajustes, Cámara, Fotos…) se quedan dibujadas. */
+let icons=store.get('icons',{});   // id -> {u: enlace a la imagen o '', ts}
+const NO_STORE=new Set(['ajustesapp','camara','fotos','mensajes','telefono','safari','appstore','cartera','salud']);
+const APPLE_BUNDLE={facetime:'com.apple.facetime',notas:'com.apple.mobilenotes',calendario:'com.apple.mobilecal',correo:'com.apple.mobilemail',recordatorios:'com.apple.reminders',tv:'com.apple.tv',mapas:'com.apple.Maps',tiempo:'com.apple.weather',bolsa:'com.apple.stocks',buscar:'com.apple.findmy',casa:'com.apple.Home',podcasts:'com.apple.podcasts',libros:'com.apple.iBooks',fitness:'com.apple.Fitness',watch:'com.apple.Bridge',contactos:'com.apple.MobileAddressBook',archivos:'com.apple.DocumentsApp',itunes:'com.apple.MobileStore',traducir:'com.apple.Translate',freeform:'com.apple.freeform',diario:'com.apple.journal',consejos:'com.apple.tips',applestore:'com.apple.store.Jolly',imovie:'com.apple.iMovie',keynote:'com.apple.Keynote',numbers:'com.apple.Numbers',pages:'com.apple.Pages',musica:'com.apple.Music',notasvoz:'com.apple.VoiceMemos',brujula:'com.apple.compass',medir:'com.apple.measure',lupa:'com.apple.Magnifier',calculadora:'com.apple.calculator',atajos:'is.workflow.my.app',reloj:'com.apple.mobiletimer',contrasenas:'com.apple.Passwords',juegos:'com.apple.games'};
+function iconURL(id,px){ const c=icons[id]; return c&&c.u?c.u.replace(/\d+x\d+bb/,px+'x'+px+'bb'):''; }
+function jsonp(url){ if(window.__jsonpMock) return window.__jsonpMock(url); return new Promise((res,rej)=>{ const cb='__it'+Math.random().toString(36).slice(2), sc=document.createElement('script');
+  const end=()=>{ clearTimeout(t); try{ delete window[cb]; }catch(e){ window[cb]=undefined; } sc.remove(); };
+  const t=setTimeout(()=>{ end(); rej(new Error('tiempo')); },8000);
+  window[cb]=d=>{ end(); res(d); }; sc.onerror=()=>{ end(); rej(new Error('red')); };
+  sc.src=url+(url.includes('?')?'&':'?')+'callback='+cb; document.head.appendChild(sc); }); }
+const tidyName=n=>norm(n.replace(/[…®™]/g,' ').replace(/[^\p{L}\p{N} ]/gu,' '));
+async function storeSearch(term,n){ const d=await jsonp('https://itunes.apple.com/search?entity=software&country=es&limit='+(n||8)+'&term='+encodeURIComponent(term)); return (d&&d.results)||[]; }
+async function findIcon(id){
+  const a=appInfo(id); if(!a||NO_STORE.has(id)) return '';
+  if(APPLE_BUNDLE[id]){ const d=await jsonp('https://itunes.apple.com/lookup?country=es&bundleId='+encodeURIComponent(APPLE_BUNDLE[id])); const r=d&&d.results&&d.results[0]; return r?(r.artworkUrl512||r.artworkUrl100||''):''; }
+  const want=tidyName(CATALOG[id]?CATALOG[id].name:a.name); if(!want) return '';
+  const rs=await storeSearch(want);
+  const ok=r=>{ const t=tidyName(r.trackName||''), ts=t.replace(/ /g,''), ws=want.replace(/ /g,''); return t===want||ts.startsWith(ws)||t.startsWith(want+' ')||t.startsWith(want)||(want.length>5&&t.includes(want))||(t.length>3&&want.startsWith(t)); };
+  const hit=rs.find(ok); return hit?(hit.artworkUrl512||hit.artworkUrl100||''):'';
+}
+let iconRun=false;
+async function resolveIcons(force){
+  if(iconRun||navigator.onLine===false) return; iconRun=true;
+  const ids=[...new Set([...home.pages.flat(),...home.dock].flatMap(x=>x.startsWith('f:')?((home.folders[x.slice(2)]||{apps:[]}).apps):[x]))];
+  const old=Date.now()-30*864e5; let changed=0;
+  for(const id of ids){
+    const c=icons[id]; if(!force&&c&&(c.u||c.ts>old)) continue; if(c&&c.manual) continue;
+    try{ const u=await findIcon(id); icons[id]={u,ts:Date.now()}; if(u) changed++; }catch(e){ if(String(e).includes('red')) break; }
+    store.set('icons',icons);
+    if(changed&&changed%8===0&&!editing&&!overlayOpen()) renderHome();
+    await new Promise(r=>setTimeout(r,180));
+  }
+  iconRun=false; if(changed&&!editing) renderHome();
+}
+async function pickIcon(id){
+  const a=appById(id)||appInfo(id); if(!a) return;
+  openSheet(`<h2>Icono de ${escapeHTML(a.name)}</h2><p class="note">Busco en la App Store. Toque el bueno.</p>
+    <div class="row"><input class="inp" id="iq" value="${escapeHTML(a.name)}" style="flex:1;min-width:0"><button class="btn" type="button" id="iGo">Buscar</button></div>
+    <div class="ipick" id="iRes"><p class="note">Buscando…</p></div>
+    <div class="row"><button class="btn ghost" type="button" id="iNone">Sin icono (dibujado)</button><button class="btn ghost" type="button" id="iClose">Cerrar</button></div>`);
+  const go=async()=>{ const box=$('#iRes'); box.innerHTML='<p class="note">Buscando…</p>';
+    try{ const rs=await storeSearch($('#iq').value.trim()||a.name,8);
+      box.innerHTML=rs.length?rs.map((r,i)=>`<button type="button" data-i="${i}"><img src="${(r.artworkUrl100||'').replace(/\d+x\d+bb/,'120x120bb')}" alt=""><span>${escapeHTML(r.trackName||'')}</span></button>`).join(''):'<p class="note">Nada. Pruebe con otro nombre.</p>';
+      box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{ const r=rs[+b.dataset.i]; icons[id]={u:r.artworkUrl512||r.artworkUrl100,ts:Date.now(),manual:true}; store.set('icons',icons); closeSheet(); renderHome(); say('Icono cambiado.'); });
+    }catch(e){ box.innerHTML='<p class="note">No llego a la App Store ahora mismo.</p>'; } };
+  $('#iGo').onclick=go; $('#iClose').onclick=closeSheet;
+  $('#iNone').onclick=()=>{ icons[id]={u:'',ts:Date.now(),manual:true}; store.set('icons',icons); closeSheet(); renderHome(); };
+  go();
+}
 function editApp(id){
   const a=appById(id)||appInfo(id); if(!a) return; const L=locate(id);
   const inFolder=L&&L.p===-2, inDock=L&&L.p===-1;
@@ -607,11 +666,12 @@ function editApp(id){
     <div><span class="lbl">Enlace para abrirla</span><input class="inp" id="eUrl" value="${escapeHTML(a.url||'')}" placeholder="por ejemplo spotify://" autocapitalize="off" autocorrect="off" spellcheck="false">
       <p class="note" style="margin-top:6px">Es el «URL scheme» de la app. Si no lo conoce, pídaselo a Claude desde la araña.</p></div>
     <div class="row">${inFolder?'<button class="btn ghost" type="button" id="eOut">Sacar de la carpeta</button>':`<button class="btn ghost" type="button" id="eL">← Mover</button><button class="btn ghost" type="button" id="eR">Mover →</button><button class="btn ghost" type="button" id="eDock">${inDock?'Sacar del dock':'Al dock'}</button>`}</div>
-    <div class="row"><button class="btn" type="button" id="eSave">Guardar</button><button class="btn ghost" type="button" id="eRm">Quitar</button><button class="btn ghost" type="button" id="eClose">Cerrar</button></div>`);
+    <div class="row"><button class="btn" type="button" id="eSave">Guardar</button><button class="btn ghost" type="button" id="eIcon">Icono</button><button class="btn ghost" type="button" id="eRm">Quitar</button><button class="btn ghost" type="button" id="eClose">Cerrar</button></div>`);
   $('#eSave').onclick=()=>{ const n=$('#eName').value.trim(), u=$('#eUrl').value.trim(), base=CATALOG[id]||home.custom[id], o={};
     if(n&&n!==base.name) o.name=n; if(u!==base.url) o.url=u; if(Object.keys(o).length) home.over[id]=o; else delete home.over[id];
     closeSheet(); commit(); say('Anotado.'); };
   $('#eRm').onclick=()=>{ closeSheet(); removeApp(id); };
+  $('#eIcon').onclick=()=>pickIcon(id);
   $('#eClose').onclick=closeSheet;
   if(inFolder) $('#eOut').onclick=()=>{ L.list.splice(L.i,1); placeAtEnd(id); closeSheet(); commit(); };
   else {
@@ -829,7 +889,7 @@ async function askFeedback(p){
   if(!v) return;
   st.forEach(a=>{ const k=keyOf(a); stats[k]=stats[k]||{ok:0,ko:0}; stats[k][v]++; });
   if(v==='ok'){ learn(p.phrase,st,2); happy(); say(p.phrase?'Gracias. Lo recordaré así.':'Gracias.'); }
-  else { learn(p.phrase,st,-3); sad();
+  else { learn(p.phrase,st,-3); sad(); if(p.phrase&&planCache[p.phrase]){ delete planCache[p.phrase]; store.set('plans',planCache); }
     if(p.phrase) convo.push({role:'user',content:'(Nota: lo que hiciste para «'+p.phrase+'» salió mal según Juan.)'},{role:'assistant',content:'(Entendido, lo tendré en cuenta.)'});
     say(st.some(a=>a.t==='set')?'Anotado. Revise que el atajo «Araña» tenga ese paso.':brainReady()?'Anotado. Dígame qué esperaba y lo corrijo.':'Anotado. Lo haré con más cuidado.',3800); }
   logEv(v,one,p.phrase); saveAll(); checkLevel();
@@ -968,8 +1028,13 @@ async function interpret(raw){
   if(r&&r.edit) return enterEdit();
   if(r&&'follow' in r) return setFollow(r.follow);
   if(r&&r.pocket&&!brainReady()) return fillPocket();
-  // 3) El cerebro piensa
-  if(brainReady()){
+  // 3) Si mis reglas lo tienen claro y la orden es simple, lo hago yo: no gasto consulta
+  const complex=/\b(y|luego|despues|tambien|ademas|antes|mientras|si|cuando|como siempre)\b|,/.test(l)||l.split(' ').length>9;
+  if(!complex&&r&&(r.act||r.cant)) return rulesFlow(l,raw,r);
+  // 4) Un plan que ya pensé hace poco para la misma frase: lo reutilizo gratis
+  const pc=planCache[l]; if(pc&&Date.now()-pc.ts<7*864e5&&brain.on) return run(()=>planFlow({...pc.plan,remember:[],forget:[],routine:null},l));
+  // 5) El cerebro piensa (con tope diario)
+  if(brainReady()&&!capReached()){
     let failed=false;
     await run(async()=>{
       let plan=null;
@@ -977,11 +1042,12 @@ async function interpret(raw){
       catch(e){ failed=true; console.warn(e); say(/401|authentication/i.test(String(e))?'Mi clave no funciona. Revísela en Ajustes.':'No puedo pensar ahora. Uso mis reglas.',3200); }
       finally{ thinking=false; }
       if(abortFlag) throw ABORT;
-      if(plan) await planFlow(plan,l);
+      if(plan){ if((plan.steps||[]).length&&!plan.cannot){ planCache[l]={plan,ts:Date.now()}; const ks=Object.keys(planCache); if(ks.length>60) delete planCache[ks.sort((x,y)=>planCache[x].ts-planCache[y].ts)[0]]; store.set('plans',planCache); } await planFlow(plan,l); }
     });
     if(!failed) return;
     await new Promise(r=>setTimeout(r,900));
   }
+  else if(brainReady()&&capReached()&&!capWarned){ capWarned=true; say('Hoy ya he pensado mucho. Hasta mañana uso mis reglas.',3600); await new Promise(r=>setTimeout(r,1200)); }
   return rulesFlow(l,raw,r);
 }
 async function rulesFlow(l,raw,r){
@@ -1004,7 +1070,14 @@ const BRAIN_MODEL='claude-haiku-5-5';
 let brain=store.get('brain',{key:'',on:true});
 let facts=store.get('facts',[]);              // lo que sabe de Juan: [{t, ts}]
 let usage=store.get('usage',{in:0,out:0,calls:0});
-let convo=[], thinking=false;
+let day=store.get('day',{d:'',n:0,in:0,out:0});           // gasto de hoy
+let planCache=store.get('plans',{});                       // frase -> {plan, ts}
+let convo=[], convoAt=0, thinking=false, capWarned=false;
+const CAP_DEF=40;
+const dayNow=()=>{ const d=new Date().toISOString().slice(0,10); if(day.d!==d) day={d,n:0,in:0,out:0}; return day; };
+const capReached=()=>dayNow().n>=(prefs.cap||CAP_DEF);
+// Precio aproximado de Haiku 5.5 (prompts de menos de 100k tokens): 0,10 $ entrada y 0,50 $ salida por millón
+const costUSD=(i,o)=>(i*0.10+o*0.50)/1e6;
 const brainReady=()=>!!(brain.on&&brain.key)&&navigator.onLine!==false;
 const saveBrain=()=>{ store.set('brain',brain); store.set('facts',facts); store.set('usage',usage); };
 const nowText=()=>new Date().toLocaleString('es-ES',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
@@ -1012,9 +1085,9 @@ function brainSystem(){
   const apps=APPS.filter(a=>a.url).map(a=>a.id+' ('+a.name+')').join(', ');
   const noUrl=APPS.filter(a=>!a.url).map(a=>a.name).join(', ');
   const sets=SETS.map(x=>x.id+' ('+x.name+'; '+(x.kind==='level'?'valor 1-100':'on/off')+')').join(', ');
-  const recent=log.slice(-15).map(e=>fmtT(e.ts)+' '+e.r+' '+(e.a||'')+(e.p?' «'+e.p+'»':'')).join('\n');
+  const recent=log.filter(e=>e.r!=='update'&&e.r!=='up').slice(-6).map(e=>fmtT(e.ts)+' '+e.r+' '+(e.a||'')+(e.p?' «'+e.p+'»':'')).join('\n');
   const fails=Object.entries(stats).filter(([k,x])=>x.ko>=2&&x.ko>x.ok).map(([k])=>k).join(', ');
-  const routines=Object.entries(mem).filter(([k,m])=>m.score>=1&&stepsOf(m).length>1).map(([k,m])=>'«'+k+'» → '+labelSteps(stepsOf(m))).join('\n');
+  const routines=Object.entries(mem).filter(([k,m])=>m.score>=1&&stepsOf(m).length>1).sort((a,b)=>b[1].score-a[1].score).slice(0,10).map(([k,m])=>'«'+k+'» → '+labelSteps(stepsOf(m))).join('\n');
   return `Eres Araña, la asistente personal de Juan en su iPhone: una araña de puntos y líneas con personalidad de mayordomo serio. Hablas en español, tratas de usted y dices frases cortas (máximo 20 palabras).
 Vives en una web app de la pantalla de inicio. Solo actúas con estos pasos:
 - open: abrir una app. app = id de: ${apps}.${noUrl?' Sin enlace (no se pueden abrir): '+noUrl+'.':''}
@@ -1026,7 +1099,7 @@ Límites de iOS: no puedes tocar dentro de otras apps ni leerlas, mover iconos, 
 Piensa por ti misma: combina pasos para tareas nuevas («modo cine», «me voy a dormir»), usa lo que sabes de Juan y lo que ha pasado antes. Si Juan define o bautiza una rutina, rellena "routine". Si cuenta algo duradero de sí mismo o de sus gustos, añádelo a "remember" en tercera persona. Si es charla, contesta en "say" sin pasos. Si la orden es ambigua, pregunta en "say" sin pasos. Pon "confirm" a true si un paso desconecta algo (wifi, datos, bluetooth), si hay 3 pasos o más o si no estás segura.
 Ahora: ${nowText()}.
 Lo que sabes de Juan:
-${facts.length?facts.map(f=>'- '+f.t).join('\n'):'(nada todavía)'}
+${facts.length?facts.slice(-25).map(f=>'- '+f.t).join('\n'):'(nada todavía)'}
 Rutinas aprendidas:
 ${routines||'(ninguna)'}
 Bolsillo: ${pocket?'«'+pocket.slice(0,200)+'»':'vacío'}
@@ -1055,10 +1128,11 @@ async function think(raw){
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctl.signal,headers:{
       'x-api-key':brain.key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:800,system:brainSystem(),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...convo.slice(-10),{role:'user',content:raw}]})});
+      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,system:brainSystem(),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...(Date.now()-convoAt<10*60e3?convo.slice(-4):[]),{role:'user',content:raw}]})});
     if(!r.ok){ const e=await r.text().catch(()=>''); throw new Error(r.status+' '+e.slice(0,160)); }
     const j=await r.json();
-    usage.calls++; usage.in+=(j.usage&&j.usage.input_tokens)||0; usage.out+=(j.usage&&j.usage.output_tokens)||0; saveBrain();
+    const ti=(j.usage&&j.usage.input_tokens)||0, to2=(j.usage&&j.usage.output_tokens)||0;
+    usage.calls++; usage.in+=ti; usage.out+=to2; const dd=dayNow(); dd.n++; dd.in+=ti; dd.out+=to2; store.set('day',dd); saveBrain(); convoAt=Date.now();
     const tu=(j.content||[]).find(c=>c.type==='tool_use'); if(!tu) throw new Error('sin plan');
     const plan=tu.input||{};
     const did=(plan.steps||[]).map(x=>x.type+(x.app?':'+x.app:'')+(x.setting?':'+x.setting+'='+x.value:'')).join(', ')||'ninguno';
@@ -1194,11 +1268,13 @@ function openSettings(){
     <div><span class="lbl">Cerebro</span>${seg('br',[['1','Pensar con Claude'],['0','Solo mis reglas']],brain.on?'1':'0')}
       <div class="row" style="margin-top:8px"><input id="apikey" type="password" autocomplete="off" placeholder="${brain.key?'Clave guardada · …'+escapeHTML(brain.key.slice(-4)):'Clave de API (sk-ant-…)'}" style="flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)"><button class="btn" type="button" id="keySave">Guardar</button></div>
       <div class="row" style="margin-top:8px"><button class="btn ghost" type="button" id="keyTest">Probar</button>${brain.key?'<button class="btn ghost" type="button" id="keyDel">Borrar clave</button>':''}</div>
-      <p class="note" style="margin-top:6px">La clave se guarda solo en este iPhone y va directa a Anthropic. Póngale un límite de gasto en console.anthropic.com. Uso: ${usage.calls} consultas · ${Math.round((usage.in+usage.out)/1000)} mil tokens.</p></div>
+      <p class="note" style="margin-top:6px">La clave se guarda solo en este iPhone y va directa a Anthropic. Póngale un límite de gasto en console.anthropic.com. Hoy: ${dayNow().n} de ${prefs.cap||CAP_DEF} consultas (≈ ${costUSD(dayNow().in,dayNow().out).toFixed(4)} $). En total: ${usage.calls} consultas, ≈ ${costUSD(usage.in,usage.out).toFixed(3)} $.</p>
+      <span class="lbl" style="margin-top:12px">Tope diario de consultas</span>${seg('cap',[['15','15'],['40','40'],['100','100']],String(prefs.cap||CAP_DEF))}
+      <p class="note" style="margin-top:6px">Lo que sé hacer sola no gasta nada: órdenes simples, rutinas aprendidas y planes repetidos. Solo pienso con Claude cuando hace falta.</p></div>
     <div><span class="lbl">Lo que he aprendido</span>
       ${items.length?`<ul class="learned">${items.map(([k,m])=>`<li><div class="ph"><b>«${escapeHTML(k)}»</b><small>${escapeHTML(labelSteps(stepsOf(m)))}</small></div><span class="sc">${m.score>0?'+':''}${m.score}</span><button type="button" data-del="${escapeHTML(k)}" aria-label="Olvidar">×</button></li>`).join('')}</ul>`:'<p class="note">Nada todavía. Cada vez que me diga «Bien» o elija una opción, aprendo.</p>'}</div>
     <div><span class="lbl">Pantalla</span>
-      <div class="row"><button class="btn ghost" type="button" id="hEdit">Organizar apps</button><button class="btn ghost" type="button" id="hReset">Volver a la original</button></div>
+      <div class="row"><button class="btn ghost" type="button" id="hEdit">Organizar apps</button><button class="btn ghost" type="button" id="hIcons">Actualizar iconos</button><button class="btn ghost" type="button" id="hReset">Volver a la original</button></div>
       <p class="note" style="margin-top:6px">iOS no me deja ver qué apps tiene instaladas. Si instala o borra una, póngala o quítela aquí (o mantenga pulsado un icono).</p></div>
     <div><span class="lbl">Conexión con Atajos</span>
       <div class="row"><button class="btn ghost" type="button" id="test">Probar el atajo «Araña»</button></div>
@@ -1206,6 +1282,7 @@ function openSettings(){
     <div class="row"><button class="btn ghost" type="button" id="reset">Olvidar todo</button><button class="btn" type="button" id="close">Cerrar</button></div>`);
   document.querySelectorAll('#sheet input[name="perm"]').forEach(i=>i.onchange=()=>{ prefs.perm=i.value; saveAll(); });
   document.querySelectorAll('#sheet input[name="mv"]').forEach(i=>i.onchange=()=>{ prefs.mv=i.value; saveAll(); });
+  document.querySelectorAll('#sheet input[name="cap"]').forEach(i=>i.onchange=()=>{ prefs.cap=+i.value; capWarned=false; saveAll(); });
   document.querySelectorAll('#sheet input[name="br"]').forEach(i=>i.onchange=()=>{ brain.on=i.value==='1'; saveBrain(); });
   $('#keySave').onclick=()=>{ const k=$('#apikey').value.trim(); if(!k) return; brain.key=k; brain.on=true; saveBrain(); openSettings(); say('Clave guardada. Ya puedo pensar.',3000); };
   if($('#keyDel')) $('#keyDel').onclick=()=>{ brain.key=''; saveBrain(); openSettings(); say('Clave borrada.'); };
@@ -1214,6 +1291,7 @@ function openSettings(){
   document.querySelectorAll('#sheet [data-del]').forEach(b=>b.onclick=()=>{ delete mem[b.dataset.del]; saveAll(); openSettings(); });
   $('#test').onclick=()=>{ launch(scURL('test','1')); };
   $('#hEdit').onclick=()=>{ closeSheet(); enterEdit(); };
+  $('#hIcons').onclick=()=>{ closeSheet(); Object.keys(icons).forEach(k=>{ if(!icons[k].manual) delete icons[k]; }); store.set('icons',icons); say('Busco los iconos en la App Store.',2600); resolveIcons(true); };
   $('#hReset').onclick=()=>{ if(!confirm('¿Volver a la pantalla original? Se pierden sus cambios de iconos.')) return; home=JSON.parse(JSON.stringify(DEF_HOME)); saveHome(); closeSheet(); renderHome(); goPage(0); say('Como el primer día.'); };
   $('#reset').onclick=()=>{ mem={}; stats={}; saveAll(); openSettings(); say('Memoria borrada. Empezamos de cero.'); };
   $('#close').onclick=closeSheet;
@@ -1306,6 +1384,7 @@ resize(); S.x=S.tx=W*.68; S.y=S.ty=H*.62; initLegs(); requestAnimationFrame(fram
 const first=!store.get('seen',false); store.set('seen',true);
 setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':'A su servicio.',first?4200:2200),700);
 setTimeout(()=>{ if(!first) proposeRoutine(); },5200);
+setTimeout(()=>resolveIcons(false),1500);
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 // Al volver a la app se recarga para traer siempre la última versión.
 // No se recarga si acaba de abrir otra app (para poder preguntar si salió bien) ni si está trabajando.
@@ -1317,7 +1396,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>

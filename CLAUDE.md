@@ -61,3 +61,14 @@ Al añadir una habilidad nueva:
 - **Apps y ajustes:** lo que se añade a `APPS` o a `SETS` le llega al cerebro sin más.
 - **Un tipo de paso nuevo** hay que añadirlo en cuatro sitios: el `enum` de `PLAN_TOOL`, la lista de pasos de `brainSystem()`, `toActs()` y `doAction()`/`urlFor()`.
 - **Las reglas** (`rules()`) siguen siendo el plan B, para cuando no hay conexión ni clave.
+- **Gastar poco** es un requisito de diseño:
+  - lo que se pueda resolver en local (reglas, `mem`, `planCache`) no debe llamar a la API;
+  - no se sube `max_tokens` ni se añade contexto a `brainSystem()` sin necesidad;
+  - se respeta el tope diario (`capReached()`).
+
+## Iconos
+
+- Los iconos reales salen de la API pública de búsqueda de la App Store, por JSONP. Las apps de Apple se buscan por `bundleId` (`APPLE_BUNDLE`) y las demás por nombre.
+- El enlace se guarda en `localStorage` (`arana.icons`).
+- No se suben imágenes de iconos al repo.
+- Las apps que no están en la tienda (`NO_STORE`) se quedan dibujadas.
