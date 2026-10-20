@@ -1125,6 +1125,28 @@ function azar(l){
   if(m){ const a=Math.min(+m[1],+m[2]), b=Math.max(+m[1],+m[2]); return 'El '+(a+Math.floor(Math.random()*(b-a+1)))+'.'; }
   return null;
 }
+/* Condición 0.11.0 (cocina): tiempos de cocción al instante, en local y sin gastar consulta */
+const COCINA=[
+  [/\bhuevos? (pasados? por agua|tibios?)\b/,'Huevo pasado por agua: 3 minutos desde que hierve el agua.'],
+  [/\bhuevos? (mollets?|mollet)\b/,'Huevo mollet: 6 minutos en agua hirviendo y luego a agua fría.'],
+  [/\bhuevos? (duros?|cocidos?)\b/,'Huevo duro: 10 minutos desde que hierve. Luego, agua fría para pelarlo bien.'],
+  [/\bhuevos? fritos?\b/,'Huevo frito: 1 o 2 minutos en aceite bien caliente.'],
+  [/\bhuevos?\b/,'Huevo: 3 minutos pasado por agua, 6 mollet y 10 duro, desde que hierve el agua.'],
+  [/\b(espaguetis|spaghetti|macarrones|pasta|tallarines|fideos)\b/,'Pasta: de 8 a 12 minutos en agua hirviendo con sal. Mire el paquete y pruébela un minuto antes.'],
+  [/\barroz\b/,'Arroz blanco: 18 minutos a fuego medio y 5 de reposo tapado. Paella: unos 20.'],
+  [/\b(patatas?|papas?)\b/,'Patatas cocidas: de 20 a 25 minutos, hasta que el cuchillo entre sin esfuerzo.'],
+  [/\blentejas?\b/,'Lentejas: de 40 a 50 minutos en cazuela, unos 12 en olla exprés.'],
+  [/\bgarbanzos?\b/,'Garbanzos remojados: unas 2 horas en cazuela, de 20 a 25 minutos en olla exprés.'],
+  [/\b(brocoli|coliflor|judias verdes)\b/,'Verdura al vapor: de 5 a 7 minutos, que quede firme.'],
+  [/\bsalmon\b/,'Salmón: 12 a 15 minutos al horno a 200 °C, o 4 por lado a la plancha.'],
+  [/\b(pechugas?|pollo)\b/,'Pechuga a la plancha: unos 5 minutos por lado. Pollo entero al horno: 1 hora a 200 °C.'],
+  [/\b(filete|entrecot|ternera|chuleton)\b/,'Filete de ternera: 2 o 3 minutos por lado; poco hecho, 1 y medio.'],
+];
+function cocina(l){
+  if(!/\b(cuanto|cuantos|tiempo|minutos)\b/.test(l)||!/\b(cuec\w*|cocer\w*|coccion|hierv\w*|herv\w*|tarda\w*|hacer|hace|horno|hornear|plancha|freir|fri\w*|se hace)\b/.test(l)) return null;
+  for(const [re,t] of COCINA) if(re.test(l)) return t+(roll(.4)?' Si quiere, pídame «abre el reloj» para el temporizador.':'');
+  return null;
+}
 /* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
 let myName=store.get('name','Juan');
 const cap1=w=>w.replace(/(^|\s)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
@@ -1150,6 +1172,8 @@ function quickAnswer(l,raw){
   const cv=convert(raw); if(cv) return cv;
   // Sorpresa 0.10.0: cara o cruz, dado y número al azar (se puede quitar sin romper nada)
   const az=azar(l); if(az) return az;
+  // Cocina 0.11.0: «cuánto tarda en cocerse un huevo duro», «tiempo del arroz»
+  const co=cocina(l); if(co) return co;
   // Cuentas: «cuánto es 12 por 7», «15 % de 80», «3,5 + 2»
   const c=calc(raw); if(c!=null) return c;
   return null;
@@ -1366,6 +1390,25 @@ async function proposeRoutine(){
   else if(v==='mute'){ muted[b.k]=1; store.set('muted',muted); say('Entendido. No se lo vuelvo a proponer.',3000); }
 }
 
+/* Hito h3: recetario de rutinas para Automatización personal de iOS.
+   Junta las rutinas con nombre (mem) y las costumbres por hora (log, 3+ días en 3 semanas)
+   y prepara el enlace ?q= y, si solo son ajustes, el texto para el atajo «Araña». */
+const SITE='https://jrjr3333.github.io/arana/';
+function exportRoutines(){
+  const out=[], seen=new Set();
+  const scText=st=>st.length&&st.every(a=>a.t==='set'&&setById(a.id))?st.map(a=>setById(a.id).sc+'|'+a.v).join(';'):'';
+  const hourOf=k=>{ const c={}; for(const e of log) if(e.r==='ok'&&e.x&&keyOfSteps(e.x.steps||[e.x])===k){ const h=new Date(e.ts).getHours(); c[h]=(c[h]||0)+1; } const b=Object.entries(c).sort((x,y)=>y[1]-x[1])[0]; return b?+b[0]:null; };
+  for(const [k,m] of Object.entries(mem)){ const st=stepsOf(m); if(m.score<1||st.length<2||!st.every(actOK)) continue; const key=keyOfSteps(st); if(seen.has(key)) continue; seen.add(key);
+    out.push({name:k,steps:labelSteps(st),q:SITE+'?q='+encodeURIComponent(k),sc:scText(st),hour:hourOf(key),kind:'rutina'}); }
+  const since=Date.now()-21*864e5, g={};
+  for(const e of log){ if(e.r!=='ok'||!e.x||!e.p||e.ts<since) continue; const st=e.x.steps||[e.x]; if(!st.length||!st.every(actOK)||st.some(a=>a.t==='carry'||a.t==='wa')) continue;
+    const k=keyOfSteps(st); (g[k]=g[k]||{st,days:new Set(),p:e.p}).days.add(new Date(e.ts).toISOString().slice(0,10)); g[k].p=e.p; }
+  for(const [k,x] of Object.entries(g)){ if(x.days.size<3||seen.has(k)) continue; seen.add(k);
+    out.push({name:x.p,steps:labelSteps(x.st),q:SITE+'?q='+encodeURIComponent(x.p),sc:scText(x.st),hour:hourOf(k),kind:'costumbre'}); }
+  return out.slice(0,8);
+}
+function copyText(t,ok){ const p=navigator.clipboard&&navigator.clipboard.writeText(t); if(p&&p.then) p.then(()=>say(ok,3200)).catch(()=>say('No he podido copiarlo.')); else say('No he podido copiarlo.'); }
+
 /* Modo «sígame»: la araña camina hasta donde se apoya el dedo. Se apaga tocándola o diciéndole «quieta». */
 function setFollow(on){
   const was=follow; follow=on; lastActive=performance.now(); S.hidden=false;
@@ -1483,6 +1526,7 @@ function openEvolution(){
     ${GOAL?`<div><span class="lbl">Objetivo: ${escapeHTML(GOAL.meta||'salir de la web')}</span>
       <div class="lvl"><b>${gm?Math.round(gp/gm*100):0} %</b><small>${gp} de ${gm} puntos de hito</small></div><div class="xp"><i style="width:${gm?Math.round(gp/gm*100):0}%"></i></div>
       <ul class="events" style="margin-top:8px">${GOAL.hitos.map(h=>{ const t=ST[h.estado]||[h.estado,'']; return `<li><span class="tag ${t[1]}">${t[0]}</span><span class="tx" style="white-space:normal">${escapeHTML(h.nombre)} · ${h.pts} pts${h.estado==='listo_para_juan'&&h.juan?`<br><small style="color:var(--muted)">${escapeHTML(h.juan)}</small>${h.guia?` <a href="${escapeHTML(h.guia)}" target="_blank" rel="noopener">Ver pasos</a>`:''}<br><button type="button" class="iconbtn" data-gok="${escapeHTML(h.id)}" style="margin-top:4px">${goalOK[h.id]==='si'?'Confirmado ✓':'Ya funciona'}</button> <button type="button" class="iconbtn" data-gko="${escapeHTML(h.id)}" style="margin-top:4px">No me funciona</button>`:''}</span></li>`; }).join('')}</ul></div>`:''}
+    ${(()=>{ const rx=exportRoutines(); return `<div><span class="lbl">Recetario de rutinas · para Automatización</span>${rx.length?`<ul class="events">${rx.map((r,i)=>`<li><span class="tag ${r.kind==='rutina'?'ok':''}">${r.hour!=null?String(r.hour).padStart(2,'0')+':00':'—'}</span><span class="tx" style="white-space:normal"><b>«${escapeHTML(r.name)}»</b><br><small style="color:var(--muted)">${escapeHTML(r.steps)}</small><br><button type="button" class="iconbtn" data-rxq="${i}" style="margin-top:4px">Copiar enlace</button>${r.sc?` <button type="button" class="iconbtn" data-rxs="${i}" style="margin-top:4px">Copiar texto del atajo</button>`:''}</span></li>`).join('')}</ul>`:'<p class="note">Aún no tengo recetas. Cuando repita algo 3 días a la misma hora, o bautice una rutina, aparecerá aquí.</p>'}<p class="note" style="margin-top:6px">Péguelo en Atajos → Automatización. <a href="https://github.com/JRJR3333/arana/blob/master/nativo/h3/LEEME.md" target="_blank" rel="noopener">Ver pasos</a></p></div>`; })()}
     <div class="row"><button class="btn${nUn?'':' ghost'}" type="button" id="evRate">${nUn?'Valorar '+nUn+' mejora'+(nUn===1?'':'s')+' nuevas':'Ver mejoras valoradas'}</button></div>
     <div><div class="lvl"><b>${L.name}</b><small>${x} XP${L.to?' · siguiente nivel a '+L.to:' · nivel máximo'}</small></div><div class="xp"><i style="width:${prog}%"></i></div></div>
     <div class="kpis"><div><b>${tot}</b><small>tareas valoradas</small></div><div><b>${pct}</b><small>aciertos</small></div><div><b>${learned}</b><small>frases aprendidas</small></div></div>
@@ -1498,6 +1542,9 @@ function openEvolution(){
   document.querySelectorAll('#sheet [data-ask]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ask; askClaude(k,wishes[k]&&wishes[k].why); b.textContent='Pedido'; b.classList.add('sent'); });
   $('#diary').onclick=()=>{ const d=JSON.stringify({version:VERSION.version,xp:xpNow(),nivel:levelOf(xpNow()).name,stats,mem,wishes,facts,log:log.slice(-200)},null,1);
     const p=navigator.clipboard&&navigator.clipboard.writeText(d); if(p&&p.then) p.then(()=>say('Diario copiado. Péguelo en el chat con Claude.',3600)).catch(()=>say('No he podido copiarlo.')); };
+  { const rx=exportRoutines();
+    document.querySelectorAll('#sheet [data-rxq]').forEach(b=>b.onclick=()=>copyText(rx[+b.dataset.rxq].q,'Enlace copiado. Péguelo en «Abrir URL» de su automatización.'));
+    document.querySelectorAll('#sheet [data-rxs]').forEach(b=>b.onclick=()=>copyText(rx[+b.dataset.rxs].sc,'Texto copiado. Péguelo como entrada de «Ejecutar atajo Araña».')); }
   $('#evClose').onclick=closeSheet;
   $('#evRate').onclick=openRatings;
   document.querySelectorAll('#sheet [data-gok]').forEach(b=>b.onclick=()=>{ goalOK[b.dataset.gok]='si'; store.set('goalOK',goalOK); b.textContent='Confirmado ✓'; say('Gracias. Se lo diré a Claude al enviar las valoraciones.',3200); });
@@ -1624,7 +1671,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>

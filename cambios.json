@@ -1,5 +1,27 @@
 [
  {
+  "v": "0.11.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.11.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h3",
+    "titulo": "Recetario de rutinas para Automatización",
+    "detalle": "En Evolución reúno sus rutinas con nombre y sus costumbres por hora, con su hora habitual. Copio el enlace o el texto para el atajo y usted lo pega en una automatización de iOS. Condición de la hora (5, idea de otro campo): la cocina; cada rutina es una receta.",
+    "probar": "Evolución → Recetario de rutinas → Copiar enlace. Pasos en «Ver pasos»."
+   },
+   {
+    "id": "0.11.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Tiempos de cocina al instante",
+    "detalle": "Huevos, pasta, arroz, patatas, legumbres, verdura, pollo, ternera y salmón. En local, sin gastar consulta. Condición de la hora: idea traída de la cocina.",
+    "probar": "Escriba «cuánto tarda en cocerse un huevo duro» o «cuánto tiempo se cuece el arroz»."
+   }
+  ]
+ },
+ {
   "v": "0.10.0",
   "fecha": "2026-10-20",
   "mejoras": [
