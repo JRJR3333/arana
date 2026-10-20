@@ -1059,9 +1059,24 @@ function guesses(l){
   return ALL_ACTS().map(o=>({act:o.act,s:o.words.reduce((n,w)=>n+(toks.some(t=>t.length>2&&(w.startsWith(t)||t.startsWith(w)))?1:0),0)}))
     .filter(o=>o.s>0).sort((x,y)=>y.s-x.s).slice(0,3).map(o=>o.act);
 }
+/* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
+let myName=store.get('name','Juan');
+const cap1=w=>w.replace(/(^|\s)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
+function quickAnswer(l,raw){
+  const nm=l.match(/^(?:pues |oye )?(?:me llamo|mi nombre es|llamame|llameme|puedes llamarme) ([a-zñ ]{2,30})$/);
+  if(nm){ const n=cap1(nm[1].trim()); myName=n; store.set('name',n);
+    const t='Prefiere que le llamen '+n+'.'; if(!facts.some(f=>f.t===t)){ facts=facts.filter(f=>!/^Prefiere que le llamen /.test(f.t)); facts.push({t,ts:Date.now()}); saveBrain(); }
+    return 'Anotado. A su servicio, '+n+'.'; }
+  if(/\b(como me llamo|cual es mi nombre|sabes (como me llamo|mi nombre)|quien soy( yo)?|mi nombre)\b/.test(l)&&l.split(' ').length<=7)
+    return roll(.6)?pick(['Se llama usted '+myName+'. No lo olvido.','Usted es '+myName+', mi jefe.',''+myName+'. Lo llevo tejido en la memoria.']):'Usted es '+myName+'.';
+  return null;
+}
+function answer(text,phrase){ say(text,Math.max(3600,text.length*75)); speak(text); happy(); logEv('answer',null,phrase); }
 async function interpret(raw){
   const l=norm(raw); if(!l) return; lastActive=performance.now();
   if(thinking){ say('Un momento, estoy pensando.'); return; }
+  // 0) Respuestas al instante (hora, cuentas, su nombre…): gratis y sin cerebro
+  const qa=quickAnswer(l,raw); if(qa) return answer(qa,l);
   // 1) Lo aprendido manda (gratis y al instante)
   let m=mem[l]; if(!m){ let best=null,bs=0; for(const k in mem){ const s=similar(k,l); if(s>bs){ bs=s; best=k; } } if(bs>=.75&&mem[best].score>=1) m=mem[best]; }
   if(m&&m.score>=1){ const st=stepsOf(m); if(st.length&&st.every(actOK)) return st.length===1?run(()=>doAction(st[0],l)):run(()=>planFlow({acts:st,say:'Enseguida.'},l)); }
@@ -1346,7 +1361,7 @@ function openSettings(){
 $('#gear').onclick=openSettings;
 
 /* ================= Evolución ================= */
-const TAG={fact:['Sé','ok'],idea:['Propuse','up'],ok:['Bien','ok'],ko:['Mal','ko'],cancel:['No',''],cant:['No puedo',''],unknown:['No sé',''],learned:['Aprendí','ok'],req:['Pedido',''],up:['Nivel','up'],update:['Versión','up']};
+const TAG={fact:['Sé','ok'],idea:['Propuse','up'],ok:['Bien','ok'],ko:['Mal','ko'],cancel:['No',''],cant:['No puedo',''],unknown:['No sé',''],learned:['Aprendí','ok'],req:['Pedido',''],up:['Nivel','up'],update:['Versión','up'],answer:['Respondí','ok']};
 function fmtT(ts){ const d=new Date(ts), n=new Date(), p=x=>String(x).padStart(2,'0');
   return d.toDateString()===n.toDateString()?p(d.getHours())+':'+p(d.getMinutes()):p(d.getDate())+'/'+p(d.getMonth()+1); }
 function chartSVG(){
@@ -1504,7 +1519,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>
