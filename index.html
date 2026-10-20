@@ -90,6 +90,28 @@ button:focus-visible{outline:2px solid var(--ring); outline-offset:2px}
 .learned button{border:0; background:none; color:var(--muted); font:inherit; font-size:18px; padding:2px 6px}
 textarea{width:100%; min-height:90px; font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--fg); resize:vertical}
 .row{display:flex; gap:8px; flex-wrap:wrap}
+.top .row{gap:6px; flex-wrap:nowrap}
+.lvl{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
+.lvl b{font-family:var(--f-display); font-weight:400; font-size:24px}
+.lvl small{color:var(--muted); font-variant-numeric:tabular-nums}
+.xp{height:6px; border-radius:3px; background:var(--line); overflow:hidden; margin-top:6px}
+.xp i{display:block; height:100%; background:var(--ring); border-radius:3px}
+.kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.kpis div{border:1px solid var(--line); border-radius:12px; padding:10px}
+.kpis b{display:block; font-size:22px; font-weight:500; font-variant-numeric:tabular-nums}
+.kpis small{color:var(--muted); font-size:11.5px}
+.chart{width:100%; height:auto; display:block}
+.chart text{fill:var(--muted); font-size:9px; font-family:var(--f-body)}
+.legend{display:flex; gap:14px; font-size:12px; color:var(--muted)}
+.legend i{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:-1px}
+.events{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; font-size:13.5px}
+.events li{display:flex; gap:8px; align-items:baseline}
+.events .tag{flex:none; font-size:11px; font-weight:600; padding:1px 7px; border-radius:6px; background:var(--line); color:var(--fg)}
+.events .tag.ok{background:rgba(85,122,82,.22)} .events .tag.ko{background:rgba(140,76,91,.22)} .events .tag.up{background:rgba(227,184,102,.3)}
+.events span.tx{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.events time{margin-left:auto; flex:none; color:var(--muted); font-size:11.5px; font-variant-numeric:tabular-nums}
+.wish button{font:inherit; font-size:12.5px; border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:9px; padding:6px 9px; white-space:nowrap}
+.wish button.sent{color:var(--muted); border-style:dashed}
 @media (max-height:700px){ .tile .sq{width:48px; height:48px} .grid{gap:8px 6px} .field{gap:10px} }
 @media (prefers-reduced-motion: reduce){ .chipbox{animation:none} }
 </style>
@@ -98,7 +120,7 @@ textarea{width:100%; min-height:90px; font:inherit; font-size:16px; padding:10px
 <main id="app">
   <header class="top">
     <div class="brand">Araña <small>a su servicio</small></div>
-    <button class="iconbtn" id="gear" type="button">Ajustes</button>
+    <div class="row"><button class="iconbtn" id="evo" type="button">Evolución</button><button class="iconbtn" id="gear" type="button">Ajustes</button></div>
   </header>
   <section class="field">
     <div><span class="lbl">Apps</span><div class="grid" id="appsGrid"></div></div>
@@ -173,6 +195,38 @@ let mem=store.get('mem',{});      // frase -> {act, score}
 let stats=store.get('stats',{});  // acción -> {ok, ko}
 let prefs=store.get('prefs',{perm:'aprendido',mv:'auto'});
 let pocket=store.get('pocket','');
+let log=store.get('log',[]);       // diario: {k, r, a, p, ts}
+let wishes=store.get('wishes',{}); // frase -> {n, why, sent}
+const REPO='JRJR3333/arana';
+let VERSION=store.get('ver',{version:'0.1.0',notes:[]});
+function logEv(r,a,p,extra){ log.push({r,a:a?label(a):'',p:p||'',ts:Date.now(),...(extra||{})}); if(log.length>800) log=log.slice(-800); store.set('log',log); }
+function addWish(phrase,why){ const w=wishes[phrase]||{n:0,why,sent:false}; w.n++; w.why=why; wishes[phrase]=w; store.set('wishes',wishes); }
+/* Nivel: se gana con aciertos y con frases aprendidas; los fallos restan algo */
+const LEVELS=[[0,'Aprendiz'],[10,'Ayudante'],[30,'Mayordomo'],[70,'Jefe de servicio'],[140,'Gran mayordomo']];
+function xpNow(){ let x=0; for(const e of log){ if(e.r==='ok') x+=2; else if(e.r==='ko') x-=1; else if(e.r==='learned') x+=1; } return Math.max(0,x); }
+function levelOf(x){ let i=0; while(i+1<LEVELS.length&&x>=LEVELS[i+1][0]) i++; return {i,name:LEVELS[i][1],from:LEVELS[i][0],to:LEVELS[i+1]?LEVELS[i+1][0]:null}; }
+let LV=levelOf(xpNow()).i;
+function checkLevel(){ const L=levelOf(xpNow()); if(L.i>LV){ LV=L.i; logEv('up',null,'',{name:L.name}); setTimeout(()=>{ happy(); say('Subo de nivel: '+L.name+'.',3600); },2800); } else LV=L.i; }
+function issueURL(phrase,why){
+  const w=wishes[phrase]||{n:1};
+  const st=Object.values(stats).reduce((o,s)=>({ok:o.ok+s.ok,ko:o.ko+s.ko}),{ok:0,ko:0});
+  const body=[
+    '**Lo que pidió Juan:** «'+phrase+'»',
+    '**Lo que respondió la araña:** '+(why||'No lo entendió.'),
+    '**Veces pedido:** '+w.n,
+    '',
+    '**Contexto**',
+    '- Versión: '+VERSION.version,
+    '- Nivel: '+levelOf(xpNow()).name+' ('+xpNow()+' XP)',
+    '- Aciertos/fallos: '+st.ok+'/'+st.ko,
+    '- Dispositivo: '+navigator.userAgent,
+    '',
+    '_Petición creada desde la app. Si iOS no lo permite, explicarlo y cerrar con la etiqueta `no-posible`._'
+  ].join('\n');
+  return `https://github.com/${REPO}/issues/new?labels=nueva-habilidad&title=${encodeURIComponent('Araña quiere aprender: '+phrase)}&body=${encodeURIComponent(body)}`;
+}
+function askClaude(phrase,why){ try{ window.open(issueURL(phrase,why),'_blank'); }catch(e){ location.href=issueURL(phrase,why); }
+  if(wishes[phrase]){ wishes[phrase].sent=true; store.set('wishes',wishes); } logEv('req',null,phrase); }
 const saveAll=()=>{ store.set('mem',mem); store.set('stats',stats); store.set('prefs',prefs); store.set('pocket',pocket); };
 
 const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[¿?¡!.,;:]/g,' ').replace(/\s+/g,' ').trim();
@@ -292,6 +346,11 @@ function draw(t){
   }
   const ab={x:S.x-hx*10,y:S.y-hy*10+bob}, hd={x:S.x+hx*(6+nod),y:S.y+hy*(6+nod)+bob};
   ctx.beginPath(); ctx.arc(ab.x,ab.y,8.5,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(ab.x,ab.y,2.2,0,Math.PI*2); ctx.fill();
+  // Evolución visible: cada nivel añade un rasgo
+  if(LV>=1){ ctx.lineWidth=.8; ctx.beginPath(); ctx.arc(ab.x,ab.y,5.2,0,Math.PI*2); ctx.stroke(); ctx.lineWidth=1.5; }
+  if(LV>=2){ for(const s of [-1,1]){ const a=S.h+s*.42; ctx.beginPath(); ctx.moveTo(hd.x,hd.y); ctx.lineTo(hd.x+Math.cos(a)*11,hd.y+Math.sin(a)*11); ctx.stroke(); ctx.beginPath(); ctx.arc(hd.x+Math.cos(a)*11,hd.y+Math.sin(a)*11,1.4,0,Math.PI*2); ctx.fill(); } }
+  if(LV>=3){ ctx.lineWidth=.8; ctx.setLineDash([1.5,3]); ctx.beginPath(); ctx.arc(ab.x,ab.y,12.5,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth=1.5; }
+  if(LV>=4){ for(let i=0;i<3;i++){ const a=S.h+Math.PI+(i-1)*.5; ctx.beginPath(); ctx.arc(ab.x+Math.cos(a)*16,ab.y+Math.sin(a)*16,1.1,0,Math.PI*2); ctx.fill(); } }
   ctx.beginPath(); ctx.moveTo(ab.x+hx*8.5,ab.y+hy*8.5); ctx.lineTo(hd.x,hd.y); ctx.stroke(); ctx.beginPath(); ctx.arc(hd.x,hd.y,4.6,0,Math.PI*2); ctx.fill();
 }
 let last=performance.now();
@@ -372,7 +431,7 @@ async function askFeedback(p){
   if(v==='ok'){ stats[k].ok++; learn(p.phrase,p.act,2); happy(); say(p.phrase?'Gracias. Lo recordaré así.':'Gracias.'); }
   else { stats[k].ko++; learn(p.phrase,p.act,-3); sad();
     say(p.act.t==='set'?'Anotado. Revise que el atajo «Araña» tenga ese paso.':'Anotado. Lo haré con más cuidado.',3800); }
-  saveAll();
+  logEv(v,p.act,p.phrase); saveAll(); checkLevel();
 }
 
 /* ================= Tareas ================= */
@@ -390,7 +449,7 @@ async function doAction(a,phrase){
   if(mustAsk){
     const q=a.t==='carry'?`¿Lo copio y abro ${appById(a.id).name}?`:a.t==='wa'?'¿Abro WhatsApp con el texto?':`¿${label(a)}?`;
     const v=await chips(q,[['Sí',true,'yes',go],['No',false]],c,w);
-    if(!v){ mark(el,false); release(w); carry.on=false; say('Como prefiera.'); if(phrase) learn(phrase,a,-1); throw CANCEL; }
+    if(!v){ mark(el,false); release(w); carry.on=false; say('Como prefiera.'); if(phrase) learn(phrase,a,-1); logEv('cancel',a,phrase); throw CANCEL; }
     launched=true;
   } else { press(el); go(); launched=true; }
   press(el); mark(el,false); release(w);
@@ -487,13 +546,21 @@ async function interpret(raw){
   const r=rules(l,raw);
   if(r&&r.act) return run(()=>doAction(r.act,l));
   if(r&&r.pocket) return fillPocket();
-  if(r&&r.cant){ sad(); return say(r.cant,4200); }
+  if(r&&r.cant){ sad(); say(r.cant,4200); logEv('cant',null,l); addWish(l,r.cant); return offerClaude(l,r.cant); }
   if(r&&r.suggestSet) return pickSetting(r.suggestSet);
   // 3) No lo entiendo: pregunto y aprendo de su elección
   const g=guesses(l);
-  if(!g.length){ say('No le entiendo todavía. Pruebe: «abre Notas», «apaga el wifi», «brillo al 30».',4200); return; }
+  if(!g.length){ say('Eso aún no lo sé hacer.',3000); logEv('unknown',null,l); addWish(l,'No lo entendió.'); return offerClaude(l,'No lo entendió.'); }
   const v=await chips('¿Quería decir…?',[...g.map(a=>[label(a),a]),['Ninguna',null]],{x:S.x,y:S.y}).catch(()=>null);
-  if(v){ learn(l,v,1); run(()=>doAction(v,l)); } else say('Entendido. Me lo puede enseñar eligiendo una opción la próxima vez.',3600);
+  if(v){ learn(l,v,1); logEv('learned',v,l); checkLevel(); run(()=>doAction(v,l)); }
+  else { logEv('unknown',null,l); addWish(l,'No lo entendió; ninguna sugerencia valía.'); offerClaude(l,'No lo entendió; ninguna sugerencia valía.'); }
+}
+/* Cuando no sabe algo, ofrece pedírselo a Claude: abre una petición en GitHub que Claude programa */
+async function offerClaude(l,why){
+  await new Promise(r=>setTimeout(r,1400));
+  if(busy) return;
+  const v=await chips('¿Se lo pido a Claude?',[['Sí, que me enseñe','go','yes',()=>askClaude(l,why)],['No',null]],{x:S.x,y:S.y}).catch(()=>null);
+  if(v==='go'){ happy(); say('Le dejo la petición en GitHub. Pulse «Create» y Claude se pondrá con ello.',4200); }
 }
 
 /* ================= Controles ================= */
@@ -532,6 +599,55 @@ function openSettings(){
 }
 $('#gear').onclick=openSettings;
 
+/* ================= Evolución ================= */
+const TAG={ok:['Bien','ok'],ko:['Mal','ko'],cancel:['No',''],cant:['No puedo',''],unknown:['No sé',''],learned:['Aprendí','ok'],req:['Pedido',''],up:['Nivel','up'],update:['Versión','up']};
+function fmtT(ts){ const d=new Date(ts), n=new Date(), p=x=>String(x).padStart(2,'0');
+  return d.toDateString()===n.toDateString()?p(d.getHours())+':'+p(d.getMinutes()):p(d.getDate())+'/'+p(d.getMonth()+1); }
+function chartSVG(){
+  const days=14, now=new Date(); now.setHours(0,0,0,0);
+  const rows=[...Array(days)].map((_,i)=>{ const d=new Date(now); d.setDate(d.getDate()-(days-1-i)); return {d,ok:0,ko:0}; });
+  for(const e of log){ if(e.r!=='ok'&&e.r!=='ko') continue; const d=new Date(e.ts); d.setHours(0,0,0,0); const i=Math.round((d-rows[0].d)/864e5); if(i>=0&&i<days) rows[i][e.r]++; }
+  const max=Math.max(3,...rows.map(r=>r.ok+r.ko)), Wc=320, Hc=96, top=8, bot=16, bw=Wc/days, h=Hc-top-bot;
+  let s=`<svg class="chart" viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Aciertos y fallos de los últimos 14 días">`;
+  for(const g of [0,.5,1]){ const y=top+h*(1-g); s+=`<line x1="0" x2="${Wc}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`; }
+  s+=`<text x="${Wc-2}" y="${top-1}" text-anchor="end">${max}</text>`;
+  rows.forEach((r,i)=>{ const x=i*bw+bw*.2, w=bw*.6, ho=h*r.ok/max, hk=h*r.ko/max;
+    if(r.ok) s+=`<rect x="${x}" y="${top+h-ho}" width="${w}" height="${ho}" rx="2" fill="var(--app-3)"/>`;
+    if(r.ko) s+=`<rect x="${x}" y="${top+h-ho-hk}" width="${w}" height="${hk}" rx="2" fill="var(--app-4)"/>`;
+    if(i%2===(days-1)%2) s+=`<text x="${x+w/2}" y="${Hc-3}" text-anchor="middle">${r.d.getDate()}</text>`; });
+  return s+'</svg>';
+}
+function openEvolution(){
+  closeMenus();
+  const x=xpNow(), L=levelOf(x), st={ok:log.filter(e=>e.r==='ok').length,ko:log.filter(e=>e.r==='ko').length};
+  const tot=st.ok+st.ko, pct=tot?Math.round(st.ok/tot*100)+' %':'—', learned=Object.values(mem).filter(m=>m.score>=1).length;
+  const prog=L.to?Math.min(100,Math.round((x-L.from)/(L.to-L.from)*100)):100;
+  const ev=log.slice(-10).reverse();
+  const ws=Object.entries(wishes).sort((a,b)=>b[1].n-a[1].n).slice(0,8);
+  openSheet(`<h2>Evolución</h2>
+    <div><div class="lvl"><b>${L.name}</b><small>${x} XP${L.to?' · siguiente nivel a '+L.to:' · nivel máximo'}</small></div><div class="xp"><i style="width:${prog}%"></i></div></div>
+    <div class="kpis"><div><b>${tot}</b><small>tareas valoradas</small></div><div><b>${pct}</b><small>aciertos</small></div><div><b>${learned}</b><small>frases aprendidas</small></div></div>
+    <div><span class="lbl">Últimos 14 días</span>${chartSVG()}
+      <div class="legend"><span><i style="background:var(--app-3)"></i>Bien</span><span><i style="background:var(--app-4)"></i>Mal</span></div></div>
+    <div><span class="lbl">Lo último</span>${ev.length?`<ul class="events">${ev.map(e=>{ const t=TAG[e.r]||[e.r,'']; const tx=e.r==='up'?'Ahora es '+e.name:e.r==='update'?'Versión '+e.v:(e.a||'')+(e.p?(e.a?' · ':'')+'«'+e.p+'»':''); return `<li><span class="tag ${t[1]}">${t[0]}</span><span class="tx">${escapeHTML(tx)}</span><time>${fmtT(e.ts)}</time></li>`; }).join('')}</ul>`:'<p class="note">Aún no hay nada. Pídale una tarea y valórela al volver.</p>'}</div>
+    <div><span class="lbl">Lo que aún no sé hacer</span>${ws.length?`<ul class="learned wish">${ws.map(([k,w])=>`<li><div class="ph"><b>«${escapeHTML(k)}»</b><small>${w.n} ${w.n===1?'vez':'veces'}</small></div><button type="button" data-ask="${escapeHTML(k)}" class="${w.sent?'sent':''}">${w.sent?'Pedido':'Pedir a Claude'}</button></li>`).join('')}</ul>`:'<p class="note">Nada pendiente.</p>'}
+      <p class="note" style="margin-top:6px">«Pedir a Claude» abre una petición en GitHub. Claude la programa, la publica y la araña se actualiza sola.</p></div>
+    <div><span class="lbl">Versión ${escapeHTML(VERSION.version)}</span>${(VERSION.notes||[]).length?`<ul class="events">${VERSION.notes.map(n=>`<li><span class="tx" style="white-space:normal">· ${escapeHTML(n)}</span></li>`).join('')}</ul>`:''}</div>
+    <div class="row"><button class="btn ghost" type="button" id="diary">Copiar mi diario</button><button class="btn" type="button" id="evClose">Cerrar</button></div>`);
+  document.querySelectorAll('#sheet [data-ask]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ask; askClaude(k,wishes[k]&&wishes[k].why); b.textContent='Pedido'; b.classList.add('sent'); });
+  $('#diary').onclick=()=>{ const d=JSON.stringify({version:VERSION.version,xp:xpNow(),nivel:levelOf(xpNow()).name,stats,mem,wishes,log:log.slice(-200)},null,1);
+    const p=navigator.clipboard&&navigator.clipboard.writeText(d); if(p&&p.then) p.then(()=>say('Diario copiado. Péguelo en el chat con Claude.',3600)).catch(()=>say('No he podido copiarlo.')); };
+  $('#evClose').onclick=closeSheet;
+}
+$('#evo').onclick=openEvolution;
+/* Novedades: si Claude ha publicado una versión nueva, la araña lo cuenta */
+fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
+  if(!v||!v.version) return;
+  const prev=VERSION.version, isNew=v.version!==prev && !first;
+  VERSION=v; store.set('ver',v);
+  if(isNew){ logEv('update',null,'',{v:v.version}); setTimeout(()=>{ happy(); say('Me han actualizado a la '+v.version+'. '+((v.notes&&v.notes[0])||''),5200); },3200); }
+}).catch(()=>{});
+
 /* ================= Tocar y arrastrar la araña ================= */
 let pd=null;
 hit.addEventListener('pointerdown',e=>{ hit.setPointerCapture(e.pointerId); pd={x:e.clientX,y:e.clientY,moved:false,t:performance.now()}; });
@@ -551,10 +667,11 @@ hit.addEventListener('pointerup',()=>{
 hit.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); spiderMenu(); } });
 function spiderMenu(){
   if(busy) return;
-  const opts=[['Bolsillo','pocket'],['Lo aprendido','settings']];
+  const opts=[['Evolución','evo'],['Bolsillo','pocket'],['Ajustes','settings']];
   if(pocket) opts.unshift(['Llevar bolsillo a…','carry']);
   chips(null,[...opts,['×',null]],{x:S.x,y:S.y}).then(v=>{
-    if(v==='pocket') fillPocket();
+    if(v==='evo') openEvolution();
+    else if(v==='pocket') fillPocket();
     else if(v==='settings') openSettings();
     else if(v==='carry') chips('¿A dónde?',[...APPS.filter(a=>a.id!=='fotos'&&a.id!=='musica').map(a=>[a.name,a.id]),['×',null]],{x:S.x,y:S.y}).then(id=>{ if(id) run(()=>doAction({t:'carry',id},null)); }).catch(()=>{});
   }).catch(()=>{});
@@ -565,6 +682,14 @@ resize(); S.x=S.tx=W*.68; S.y=S.ty=H*.62; initLegs(); requestAnimationFrame(fram
 const first=!store.get('seen',false); store.set('seen',true);
 setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':'A su servicio.',first?4200:2200),700);
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+// Al volver a la app, mira si Claude ha publicado algo nuevo y se recarga
+let lastCheck=Date.now();
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden||Date.now()-lastCheck<5*60e3) return; lastCheck=Date.now();
+  fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
+    if(v&&v.version&&v.version!==VERSION.version&&!busy&&!pending){ say('Hay una versión nueva. Me actualizo.',2000); setTimeout(()=>location.reload(),2200); }
+  }).catch(()=>{});
+});
 // Para pruebas: window.__arana
 window.__arana={rules:(t)=>rules(norm(t),t),norm};
 })();

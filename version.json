@@ -1,0 +1,10 @@
+{
+  "version": "0.2.0",
+  "date": "2026-10-20",
+  "notes": [
+    "Panel de Evolución: nivel, aciertos, gráfica de 14 días y diario.",
+    "Cuando no sé algo, puedo pedírselo a Claude en GitHub.",
+    "Me actualizo sola cuando Claude publica una versión nueva.",
+    "Cada nivel se me nota en el cuerpo."
+  ]
+}
