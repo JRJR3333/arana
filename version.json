@@ -1,7 +1,8 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "date": "2026-10-20",
   "notes": [
+    "Ahora me pongo al día cada vez que vuelve a abrirme.",
     "Ya sé seguirle el dedo: dígame «sígame» y toque donde quiera. Para que pare, tóqueme o dígame «quieta».",
     "Panel de Evolución: nivel, aciertos, gráfica de 14 días y diario.",
     "Cuando no sé algo, puedo pedírselo a Claude en GitHub.",
