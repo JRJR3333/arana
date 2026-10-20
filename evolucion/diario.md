@@ -10,3 +10,4 @@
 - 2026-10-20 07:35 · 0.14.0 · Dado: 0,471 / 0,581 → sorpresa sí, condición 3 (gráfica nueva con datos que ya existen). Sin valoraciones ni peticiones abiertas. Freno: 6 versiones sin valoración → una sola mejora, priorizando el objetivo; la sorpresa se queda fuera por el freno. h5 listo para Juan: gráfica de uso por hora en Evolución con las horas de las recetas marcadas, pregunta lista para «Elegir del menú» y guía en nativo/h5 (también cuenta como proactividad del asistente). Siguiente: h6 (cerebro en un atajo con «Obtener contenido de URL»), una mejora por hora mientras no haya valoraciones.
 
 - 2026-10-20 09:50 · 0.14.1 · Arreglo: mostrar el mensaje de error completo de la API (Juan tenía un 400 sin motivo visible). Siguiente: ver qué dice el error.
+- 2026-10-20 09:52 · 0.14.2 · Arreglo: quitar `temperature` de la petición (Haiku 5.5 la rechaza con 400). Siguiente: confirmar que el cerebro responde.

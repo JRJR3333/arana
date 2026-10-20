@@ -1294,7 +1294,7 @@ async function think(raw){
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctl.signal,headers:{
       'x-api-key':brain.key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,temperature:Math.min(1,.5+surprise()*.6),system:brainSystem()+(roll(.5)?'\nEsta vez, sorpréndale: añada en "say" un toque inesperado (una ocurrencia, una idea nueva que podría probar, humor seco de mayordomo) sin dejar de cumplir la orden.':''),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...(Date.now()-convoAt<10*60e3?convo.slice(-4):[]),{role:'user',content:raw}]})});
+      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,system:brainSystem()+(roll(.5)?'\nEsta vez, sorpréndale: añada en "say" un toque inesperado (una ocurrencia, una idea nueva que podría probar, humor seco de mayordomo) sin dejar de cumplir la orden.':''),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...(Date.now()-convoAt<10*60e3?convo.slice(-4):[]),{role:'user',content:raw}]})});
     if(!r.ok){ const e=await r.text().catch(()=>''); let m=e; try{ const j=JSON.parse(e); m=(j.error&&j.error.message)||e; }catch(_){} throw new Error(r.status+' '+String(m).slice(0,240)); }
     const j=await r.json();
     const ti=(j.usage&&j.usage.input_tokens)||0, to2=(j.usage&&j.usage.output_tokens)||0;

@@ -1,5 +1,18 @@
 [
  {
+  "v": "0.14.2",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.14.2-1",
+    "tipo": "arreglo",
+    "titulo": "Vuelvo a pensar con Claude",
+    "detalle": "La API respondía 400: «temperature is deprecated for this model». Quito ese parámetro; la sorpresa sigue llegando por la instrucción del sistema.",
+    "probar": "Ajustes → probar la clave: debería presentarse."
+   }
+  ]
+ },
+ {
   "v": "0.14.1",
   "fecha": "2026-10-20",
   "mejoras": [
