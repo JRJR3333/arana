@@ -2,23 +2,13 @@
   "meta": "Que la araña salga de la web y viva en el iPhone de Juan",
   "actualizado": "2026-10-20",
   "hitos": [
-    {"id": "h1", "nombre": "Varias órdenes en un solo salto a Atajos", "pts": 10, "estado": "listo_para_juan",
-     "desc": "El atajo «Araña» recibe una lista de órdenes y las ejecuta seguidas, sin volver a la web entre paso y paso.",
-     "juan": "Meta su atajo «Araña» dentro de un «Repetir con cada» (5 minutos) y active Ajustes → Varias órdenes en un salto.",
-     "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h1/LEEME.md"},
-    {"id": "h2", "nombre": "«Oye Siri, Araña»", "pts": 15, "estado": "pendiente",
-     "desc": "Un atajo de Siri que recoge la orden por voz y la ejecuta sin abrir la web."},
-    {"id": "h3", "nombre": "Automatizaciones de iOS", "pts": 15, "estado": "pendiente",
-     "desc": "Atajos que saltan solos por hora, lugar, Wi-Fi o al abrir una app y aplican las rutinas aprendidas."},
-    {"id": "h4", "nombre": "Widget en la pantalla de inicio y de bloqueo", "pts": 20, "estado": "pendiente",
-     "desc": "La araña como widget nativo con Scriptable: estado, sugerencias y acceso rápido."},
-    {"id": "h5", "nombre": "Avisos con la app cerrada", "pts": 20, "estado": "pendiente",
-     "desc": "Notificaciones locales que proponen rutinas aunque la web no esté abierta."},
-    {"id": "h6", "nombre": "Cerebro fuera de la web", "pts": 25, "estado": "pendiente",
-     "desc": "La araña piensa con Claude y actúa desde Atajos o Scriptable, sin pasar por Safari."},
-    {"id": "h7", "nombre": "App nativa en su iPhone", "pts": 40, "estado": "pendiente",
-     "desc": "App en Swift compilada en la nube (GitHub Actions, macOS) e instalada con AltStore o TestFlight, sin Mac propio."},
-    {"id": "h8", "nombre": "La araña en la Isla Dinámica", "pts": 30, "estado": "pendiente",
-     "desc": "Live Activity: la araña camina por la Isla Dinámica mientras trabaja."}
+    {"id": "h1", "nombre": "Varias órdenes en un solo salto a Atajos", "pts": 10, "estado": "listo_para_juan", "desc": "El atajo «Araña» recibe una lista de órdenes y las ejecuta seguidas, sin volver a la web entre paso y paso.", "juan": "Meta su atajo «Araña» dentro de un «Repetir con cada» (5 minutos) y active Ajustes → Varias órdenes en un salto.", "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h1/LEEME.md"},
+    {"id": "h2", "nombre": "«Oye Siri, Araña»", "pts": 15, "estado": "listo_para_juan", "desc": "Un atajo de Siri recoge la orden por voz y abre la araña con ella; la araña la ejecuta al cargar.", "juan": "Cree el atajo «Araña voz» (Dictar texto → abrir la web con ?q=) en 5 minutos y diga «Oye Siri, Araña voz».", "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h2/LEEME.md"},
+    {"id": "h3", "nombre": "Automatizaciones de iOS", "pts": 15, "estado": "pendiente", "desc": "Atajos que saltan solos por hora, lugar, Wi-Fi o al abrir una app y aplican las rutinas aprendidas."},
+    {"id": "h4", "nombre": "Widget en la pantalla de inicio y de bloqueo", "pts": 20, "estado": "pendiente", "desc": "La araña como widget nativo con Scriptable: estado, sugerencias y acceso rápido."},
+    {"id": "h5", "nombre": "Avisos con la app cerrada", "pts": 20, "estado": "pendiente", "desc": "Notificaciones locales que proponen rutinas aunque la web no esté abierta."},
+    {"id": "h6", "nombre": "Cerebro fuera de la web", "pts": 25, "estado": "pendiente", "desc": "La araña piensa con Claude y actúa desde Atajos o Scriptable, sin pasar por Safari."},
+    {"id": "h7", "nombre": "App nativa en su iPhone", "pts": 40, "estado": "pendiente", "desc": "App en Swift compilada en la nube (GitHub Actions, macOS) e instalada con AltStore o TestFlight, sin Mac propio."},
+    {"id": "h8", "nombre": "La araña en la Isla Dinámica", "pts": 30, "estado": "pendiente", "desc": "Live Activity: la araña camina por la Isla Dinámica mientras trabaja."}
   ]
 }

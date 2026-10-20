@@ -1094,6 +1094,37 @@ function calc(raw){
   if(typeof r!=='number'||!isFinite(r)) return 'Esa cuenta no tiene resultado.';
   return pick(['Son ','Da ','Resultado: '])+r.toLocaleString('es-ES',{maximumFractionDigits:4})+'.';
 }
+/* Conversiones de unidades, en local. Cada unidad: [grupo, factor a la base, palabras]. */
+const UNITS=[
+  ['len',1000,'km|kms|kilometro|kilometros'],['len',1,'m|metro|metros'],['len',.01,'cm|centimetro|centimetros'],['len',.001,'mm|milimetro|milimetros'],
+  ['len',1609.344,'milla|millas'],['len',.3048,'pie|pies'],['len',.0254,'pulgada|pulgadas'],['len',.9144,'yarda|yardas'],
+  ['mas',1000,'kg|kilo|kilos|kilogramo|kilogramos'],['mas',1,'g|gr|gramo|gramos'],['mas',453.59237,'libra|libras|lb|lbs'],['mas',28.349523,'onza|onzas|oz'],
+  ['vol',1,'l|litro|litros'],['vol',.001,'ml|mililitro|mililitros'],['vol',.01,'cl|centilitro|centilitros'],['vol',3.785412,'galon|galones'],['vol',.25,'taza|tazas'],
+  ['vel',1,'km/h|kmh|kilometros por hora'],['vel',1.609344,'mph|millas por hora'],['vel',3.6,'m/s|metros por segundo'],
+  ['tmp',0,'c|celsius|centigrados|grados celsius|grados centigrados|grados'],['tmp',1,'f|fahrenheit|grados fahrenheit']
+];
+function unitOf(w){ w=w.trim().replace(/^(de |los |las |el |la |en )/,''); for(const u of UNITS) if(u[2].split('|').includes(w)) return u; return null; }
+function convert(raw){
+  let t=String(raw).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[¿?¡!=º°]/g,' ').replace(/(\d),(\d)/g,'$1.$2').replace(/\s+/g,' ').trim();
+  t=t.replace(/^(oye |dime |y )?(convierte|convierteme|pasa|pasame|cambia)\s+/,'');
+  const NU='(-?\\d+(?:\\.\\d+)?)', UW='([a-z/ ]{1,24}?)';
+  let n,a,b,m=t.match(new RegExp('^'+NU+' ?'+UW+' (?:en|a|son en|cuant[oa]s? son en) '+UW+'$'));
+  if(m){ n=+m[1]; a=unitOf(m[2]); b=unitOf(m[3]); }
+  else if((m=t.match(new RegExp('^cuant[oa]s? '+UW+' (?:son|hay en|tiene|equivalen a) '+NU+' ?'+UW+'$')))){ n=+m[2]; a=unitOf(m[3]); b=unitOf(m[1]); }
+  else return null;
+  if(!a||!b||a[0]!==b[0]||a===b||!isFinite(n)) return null;
+  let r; if(a[0]==='tmp') r=a[1]===0?n*9/5+32:(n-32)*5/9; else r=n*a[1]/b[1];
+  const f=x=>x.toLocaleString('es-ES',{maximumFractionDigits:Math.abs(x)<10?2:1});
+  const nm=(u,x)=>{ const w=u[2].split('|'); const ACC={kilometro:'kilómetro',kilometros:'kilómetros',centimetro:'centímetro',centimetros:'centímetros',milimetro:'milímetro',milimetros:'milímetros',galon:'galón',kilogramo:'kilo',kilogramos:'kilos'}; if(u[0]==='tmp') return u[1]?'°F':'°C'; const z=w.find(z=>z.length>3&&!/ /.test(z)&&(x===1?!/s$/.test(z):/s$/.test(z)))||w[0]; return ACC[z]||z; };
+  return f(n)+' '+nm(a,n)+' son '+f(r)+' '+nm(b,r)+'.';
+}
+function azar(l){
+  if(/^(?:tira |lanza |echa )?(?:una )?(?:moneda|cara o cruz)$/.test(l)) return pick(['Cara.','Cruz.'])+pick([' Lo siento por la otra.',' No hay trampa.','']);
+  if(/^(?:tira|lanza|echa)(?: un| el)? dado$/.test(l)) return 'Ha salido un '+(1+Math.floor(Math.random()*6))+'.';
+  const m=l.match(/^(?:dime |elige |dame )?un numero (?:al azar )?(?:del|entre(?: el)?) (\d{1,6}) (?:al|y(?: el)?) (\d{1,6})$/);
+  if(m){ const a=Math.min(+m[1],+m[2]), b=Math.max(+m[1],+m[2]); return 'El '+(a+Math.floor(Math.random()*(b-a+1)))+'.'; }
+  return null;
+}
 /* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
 let myName=store.get('name','Juan');
 const cap1=w=>w.replace(/(^|\s)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
@@ -1115,6 +1146,10 @@ function quickAnswer(l,raw){
       const n=Math.round((d-now)/864e5), wd=d.toLocaleDateString('es-ES',{weekday:'long'});
       const up1=x=>x.charAt(0).toUpperCase()+x.slice(1); if(n===0) return '¡'+up1(t.name)+' es hoy!'; if(n===1) return up1(t.name)+' es mañana.';
       return 'Faltan '+n+' días para '+t.name+(n>14?', unas '+Math.round(n/7)+' semanas':'')+'. Cae en '+wd+'.'; } }
+  // Conversiones: «10 millas en km», «30 grados en fahrenheit», «cuántas libras son 5 kilos»
+  const cv=convert(raw); if(cv) return cv;
+  // Sorpresa 0.10.0: cara o cruz, dado y número al azar (se puede quitar sin romper nada)
+  const az=azar(l); if(az) return az;
   // Cuentas: «cuánto es 12 por 7», «15 % de 80», «3,5 + 2»
   const c=calc(raw); if(c!=null) return c;
   return null;
@@ -1418,7 +1453,7 @@ function openSettings(){
 $('#gear').onclick=openSettings;
 
 /* ================= Evolución ================= */
-const TAG={fact:['Sé','ok'],idea:['Propuse','up'],ok:['Bien','ok'],ko:['Mal','ko'],cancel:['No',''],cant:['No puedo',''],unknown:['No sé',''],learned:['Aprendí','ok'],req:['Pedido',''],up:['Nivel','up'],update:['Versión','up'],answer:['Respondí','ok']};
+const TAG={fact:['Sé','ok'],idea:['Propuse','up'],ok:['Bien','ok'],ko:['Mal','ko'],cancel:['No',''],cant:['No puedo',''],unknown:['No sé',''],learned:['Aprendí','ok'],req:['Pedido',''],up:['Nivel','up'],update:['Versión','up'],answer:['Respondí','ok'],voz:['Siri','up']};
 function fmtT(ts){ const d=new Date(ts), n=new Date(), p=x=>String(x).padStart(2,'0');
   return d.toDateString()===n.toDateString()?p(d.getHours())+':'+p(d.getMinutes()):p(d.getDate())+'/'+p(d.getMonth()+1); }
 function chartSVG(){
@@ -1550,12 +1585,16 @@ function spiderMenu(){
 /* ================= Arranque ================= */
 resize(); S.x=S.tx=W*.68; S.y=S.ty=H*.62; initLegs(); requestAnimationFrame(frame);
 const first=!store.get('seen',false); store.set('seen',true);
-setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':vary('hola'),first?4200:2600),700);
-setTimeout(()=>{ if(!first) proposeRoutine(); },5200);
+// h2 · «Oye Siri, Araña»: el atajo «Araña voz» abre la web con ?q=orden y la ejecuto al cargar.
+// Se borra de la dirección enseguida para que una recarga no la repita.
+let Q0=''; try{ const u=new URL(location.href); Q0=(u.searchParams.get('q')||'').trim().slice(0,200); if(u.searchParams.has('q')){ u.searchParams.delete('q'); history.replaceState(null,'',u.pathname+(u.search||'')+u.hash); } }catch(e){}
+if(Q0){ setTimeout(()=>{ say('«'+Q0+'». Voy.',1800); logEv('voz',null,Q0.slice(0,60)); setTimeout(()=>interpret(Q0),900); },500); }
+else { setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':vary('hola'),first?4200:2600),700);
+setTimeout(()=>{ if(!first) proposeRoutine(); },5200); }
 setTimeout(()=>resolveIcons(false),1500);
 loadRepoData();
 setTimeout(async()=>{
-  if(first||busy||overlayOpen()||pending||!roll(.7)) return;
+  if(first||Q0||busy||overlayOpen()||pending||!roll(.7)) return;
   const sd=store.get('surpDay',''), td=new Date().toISOString().slice(0,10); if(sd===td&&!roll(.3)) return;
   const ideas=[
     ()=>({q:'¿Quiere un dato curioso sobre arañas?',go:()=>{ const c=pick(CURIOS); say(c,6000); speak(c); }}),
@@ -1570,7 +1609,7 @@ setTimeout(async()=>{
   const v=await chips(it.q,[['Sí','y','yes'],['Ahora no',null]],{x:S.x,y:S.y}).catch(()=>null);
   logEv('idea',null,it.q.slice(0,60)); if(v==='y') it.go();
 },16000);
-setTimeout(async()=>{ if(first||busy||overlayOpen()) return; const n=unrated().length; if(!n||sessionStorage.getItem('askedRate')) return;
+setTimeout(async()=>{ if(first||Q0||busy||overlayOpen()) return; const n=unrated().length; if(!n||sessionStorage.getItem('askedRate')) return;
   try{ sessionStorage.setItem('askedRate','1'); }catch(e){}
   const v=await chips('Claude me ha mejorado: '+n+' cambio'+(n===1?'':'s')+' nuevo'+(n===1?'':'s')+'. ¿Los valora?',[['Valorar','go','yes'],['Luego',null]],{x:S.x,y:S.y}).catch(()=>null);
   if(v==='go') openRatings(); },11000);
@@ -1585,7 +1624,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>

@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.10.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.10.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h2",
+    "titulo": "«Oye Siri, Araña voz»",
+    "detalle": "Si me abren con ?q=orden, la ejecuto al cargar. Con un atajo de 4 acciones, Siri me dicta las órdenes.",
+    "probar": "Evolución → «Oye Siri, Araña» → Ver pasos. O abra jrjr3333.github.io/arana/?q=qué hora es"
+   },
+   {
+    "id": "0.10.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Conversiones al instante",
+    "detalle": "Kilómetros, millas, grados, kilos, libras, litros, tazas y velocidades. En local, sin gastar consulta.",
+    "probar": "Escriba «10 millas en km», «30 grados en fahrenheit» o «cuántas libras son 5 kilos»."
+   },
+   {
+    "id": "0.10.0-3",
+    "tipo": "sorpresa",
+    "titulo": "Cara o cruz y dados",
+    "detalle": "Nadie lo pidió. Dado de la hora: sorpresa sí (0,02), sin condición (0,78). Para decidir sin discutir.",
+    "probar": "Escriba «cara o cruz», «tira un dado» o «dime un número del 1 al 50»."
+   }
+  ]
+ },
+ {
   "v": "0.9.0",
   "fecha": "2026-10-20",
   "mejoras": [
