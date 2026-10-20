@@ -1,16 +1,30 @@
 [
  {
-  "v": "0.12.0",
+  "v": "0.13.0",
   "fecha": "2026-10-20",
   "mejoras": [
    {
-    "id": "0.12.0-1",
-    "tipo": "funcionalidad",
+    "id": "0.13.0-1",
+    "tipo": "arreglo",
     "hito": "h4",
-    "titulo": "La araña como widget (Scriptable)",
-    "detalle": "Un script para Scriptable me dibuja en su pantalla de inicio o de bloqueo, le saluda y le recuerda la rutina de esta hora. Un toque me abre con esa rutina pedida. En Evolución copio los datos para el widget.",
-    "probar": "Evolución → Widget · con la app Scriptable → Copiar datos del widget. Pasos en «Ver pasos»."
+    "titulo": "Widget sin instalar nada",
+    "detalle": "Fuera Scriptable, como usted pidió. El widget ahora es el de la app Atajos, que ya trae su iPhone: una carpeta «Araña» con «Araña voz» y una tecla por cada receta.",
+    "probar": "Evolución → Widget · con Atajos → Ver pasos."
    },
+   {
+    "id": "0.13.0-2",
+    "tipo": "arreglo",
+    "hito": "asistente",
+    "titulo": "Las recetas funcionan también en Safari",
+    "detalle": "El enlace de cada receta lleva ya los pasos. Si Safari no tiene mi memoria del icono, la rutina se hace igual.",
+    "probar": "Evolución → Recetario → Copiar enlace y ábralo en Safari."
+   }
+  ]
+ },
+ {
+  "v": "0.12.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
    {
     "id": "0.12.0-2",
     "tipo": "iniciativa",

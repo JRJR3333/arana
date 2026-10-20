@@ -31,11 +31,11 @@
     },
     {
       "id": "h4",
-      "nombre": "Widget en la pantalla de inicio y de bloqueo",
+      "nombre": "Widget en la pantalla de inicio (con Atajos)",
       "pts": 20,
       "estado": "listo_para_juan",
-      "desc": "La araña como widget nativo con Scriptable: estado, sugerencias y acceso rápido.",
-      "juan": "Instale Scriptable, pegue el script «Araña» y ponga el widget con los datos de Evolución (8 minutos).",
+      "desc": "Widget de la app Atajos con la carpeta «Araña»: hablarle y lanzar sus rutinas con un toque. Sin instalar nada.",
+      "juan": "Cree la carpeta «Araña» en Atajos con «Araña voz» y sus recetas, y ponga el widget de Atajos (6 minutos).",
       "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h4/LEEME.md"
     },
     {
@@ -43,28 +43,28 @@
       "nombre": "Avisos con la app cerrada",
       "pts": 20,
       "estado": "pendiente",
-      "desc": "Notificaciones locales que proponen rutinas aunque la web no esté abierta."
+      "desc": "Automatizaciones de Atajos que, a la hora de cada rutina, le muestran un aviso para lanzarla. Sin instalar nada."
     },
     {
       "id": "h6",
       "nombre": "Cerebro fuera de la web",
       "pts": 25,
       "estado": "pendiente",
-      "desc": "La araña piensa con Claude y actúa desde Atajos o Scriptable, sin pasar por Safari."
+      "desc": "Un atajo que pregunta a Claude con «Obtener contenido de URL» y ejecuta el plan, sin pasar por Safari."
     },
     {
       "id": "h7",
       "nombre": "App nativa en su iPhone",
       "pts": 40,
       "estado": "pendiente",
-      "desc": "App en Swift compilada en la nube (GitHub Actions, macOS) e instalada con AltStore o TestFlight, sin Mac propio."
+      "desc": "App en Swift compilada en la nube (GitHub Actions, macOS) e instalada con AltStore o TestFlight, sin Mac propio. En pausa: necesita instalar AltStore u otra app, y Juan no quiere instalar nada aparte."
     },
     {
       "id": "h8",
       "nombre": "La araña en la Isla Dinámica",
       "pts": 30,
       "estado": "pendiente",
-      "desc": "Live Activity: la araña camina por la Isla Dinámica mientras trabaja."
+      "desc": "Live Activity: la araña camina por la Isla Dinámica mientras trabaja. En pausa: necesita instalar AltStore u otra app, y Juan no quiere instalar nada aparte."
     }
   ]
 }
