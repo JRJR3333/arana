@@ -11,3 +11,4 @@
 
 - 2026-10-20 09:50 · 0.14.1 · Arreglo: mostrar el mensaje de error completo de la API (Juan tenía un 400 sin motivo visible). Siguiente: ver qué dice el error.
 - 2026-10-20 09:52 · 0.14.2 · Arreglo: quitar `temperature` de la petición (Haiku 5.5 la rechaza con 400). Siguiente: confirmar que el cerebro responde.
+- 2026-10-20 10:39 · 0.15.0 · Dado: 0,231 / 0,896 → sorpresa sí, sin condición. Valoración #6 (media 4,5; freno no aplica): widget de carpetas ★★ → h4 rehecho como un solo control («Araña voz» en Centro de control, pantalla bloqueada o botón de Acción). Peticiones #20 y #19: pastilla «Pensando/Analizando/Aprendiendo», radar al pensar y anillo al aprender (asistente). Sorpresa: reverencia al decir «gracias», sin API. Siguiente: cerrar #11 (cubierto por la 0.15.0), contestar #12 (widget real = no posible sin instalar) y h6 (cerebro en un atajo).
