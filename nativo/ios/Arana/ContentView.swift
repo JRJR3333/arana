@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var key = Keychain.load()
     @StateObject private var ear = Listener()
+    @ObservedObject private var metro = Metronomo.shared
     @AppStorage("arana.hilos") private var hilos = 0
 
     var body: some View {
@@ -29,6 +30,10 @@ struct ContentView: View {
                     Text(ear.heard.isEmpty ? "Escuchando…" : ear.heard)
                         .font(.callout).foregroundStyle(.white.opacity(0.85)).padding(.horizontal)
                 }
+                if metro.bpm > 0 {
+                    Button { metro.stop() } label: { Label("♩ \(metro.bpm) · Parar", systemImage: "metronome") }
+                        .buttonStyle(.bordered).tint(SpiderView.green)
+                }
                 Spacer()
                 HStack {
                     Button(action: toggleEar) {
@@ -44,6 +49,10 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showSettings) { settings }
+        .onOpenURL { u in
+            // h8: el widget abre la app escuchando (arana://escuchar).
+            if u.host == "escuchar", !ear.listening, !thinking { toggleEar() }
+        }
         .onChange(of: ear.done) { _, said in
             guard let said else { return }
             ear.done = nil; input = said; send()

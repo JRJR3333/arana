@@ -11,6 +11,7 @@ struct Step: Codable {
     var when: String?         // para "event": fecha local AAAA-MM-DDTHH:MM
     var duration: Int?        // para "event": minutos que dura (60 si no se dice)
     var days: Int?            // para "agenda": 0 hoy, 1 mañana
+    var action: String?       // para "music": play | pause | next | previous
 }
 
 struct Plan: Codable {
@@ -40,7 +41,8 @@ enum Brain {
     Pasos posibles: open (url con el enlace de la app, p. ej. spotify://, whatsapp://, instagram://, youtube://, maps://?q=lugar), \
     reminder (text y minutes), timer (minutes y/o seconds, text opcional: temporizador o alarma dentro de un rato), \
     call (phone), message (phone y text), event (text, when AAAA-MM-DDTHH:MM o minutes, duration: cita en el calendario), \
-    agenda (days 0 hoy, 1 mañana: leer el calendario). Si no hace falta ningún paso, steps vacío. \
+    agenda (days 0 hoy, 1 mañana: leer el calendario), \
+    music (action play|pause|next|previous; text opcional: canción, artista o disco de su biblioteca). Si no hace falta ningún paso, steps vacío. \
     Siga el hilo de la conversación. Si Juan le cuenta algo duradero de sí mismo (gustos, personas, costumbres), \
     póngalo en remember como frase corta en tercera persona.
     """
@@ -55,10 +57,10 @@ enum Brain {
                 "steps": ["type": "array", "items": [
                     "type": "object",
                     "properties": [
-                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda"]],
+                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda", "music"]],
                         "url": ["type": "string"], "text": ["type": "string"],
                         "minutes": ["type": "integer"], "seconds": ["type": "integer"], "phone": ["type": "string"],
-                        "when": ["type": "string"], "duration": ["type": "integer"], "days": ["type": "integer"]
+                        "when": ["type": "string"], "duration": ["type": "integer"], "days": ["type": "integer"], "action": ["type": "string"]
                     ],
                     "required": ["type"]
                 ]],
@@ -117,10 +119,16 @@ enum Brain {
         return try JSONDecoder().decode(Plan.self, from: planData)
     }
 
-    /// Lo que se resuelve en local, sin gastar API: la agenda de hoy o de mañana.
+    /// Lo que se resuelve en local, sin gastar API: música, metrónomo y la agenda de hoy o de mañana.
     @MainActor
     static func quick(_ text: String) async -> String? {
         let t = text.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
+            .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        let musica = await Musica.quick(t)
+        if let r = musica ?? Metronomo.shared.quick(t) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         let pide = ["que tengo", "mi agenda", "la agenda", "mi calendario", "tengo algo"].contains { t.contains($0) }
         guard pide, t.count < 40 else { return nil }
         let reply = await Actions.agenda(days: t.contains("manana") ? 1 : 0)

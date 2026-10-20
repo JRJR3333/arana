@@ -4,7 +4,10 @@ import WidgetKit
 
 @main
 struct AranaIslaBundle: WidgetBundle {
-    var body: some Widget { IslaWidget() }
+    var body: some Widget {
+        IslaWidget()
+        AranaWidget()
+    }
 }
 
 /// h8: la araña en la Isla Dinámica y en la pantalla bloqueada mientras cumple una orden.

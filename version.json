@@ -1,14 +1,16 @@
 {
-  "version": "0.19.0",
+  "version": "0.20.0",
   "date": "2026-10-20",
   "notes": [
+    "Ya tengo widget: un toque en la pantalla de inicio y le escucho (en mi app).",
+    "Ya pongo, pauso y busco su música (en mi app).",
+    "En Android ya sé dónde estoy, salir de la app y poner temporizadores y alarmas del reloj.",
+    "Ya marco el compás: pídame «metrónomo a 90» (en mi app).",
     "Ya salgo en la Isla Dinámica mientras trabajo (en mi app).",
     "Ya leo su agenda y apunto sus citas en el calendario (en mi app).",
     "Ya tengo app para Android: su hermano puede usarme y mandarme mejoras.",
     "Ya camino como la araña del vídeo: patas largas que pisan los iconos, mi red y colores según lo que hago.",
     "Ya tengo la pantalla nueva que eligió usted: rejilla, brillos y cristal oscuro.",
-    "Ya sigo el hilo de la conversación y recuerdo lo que me cuenta de usted (en mi app).",
-    "Ya le escucho con mi propio micrófono.",
-    "Ya pongo temporizadores y alarmas."
+    "Ya sigo el hilo de la conversación y recuerdo lo que me cuenta de usted (en mi app)."
   ]
 }

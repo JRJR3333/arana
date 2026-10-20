@@ -6,13 +6,20 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.19.0"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "0.20.0"
+    CURRENT_PROJECT_VERSION: "4"
 targets:
   Arana:
     type: application
     platform: iOS
     sources: [Arana]
+    info:
+      path: Arana/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: com.jrjr3333.arana
+            CFBundleURLSchemes: [arana]
+        NSAppleMusicUsageDescription: La araña pone, pausa y busca la música que usted le pide.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jrjr3333.arana

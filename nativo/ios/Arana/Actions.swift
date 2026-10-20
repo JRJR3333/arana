@@ -29,6 +29,8 @@ enum Actions {
                 else if !(await addTimer(s.text ?? "Su temporizador", seconds: secs)) { fails.append("No tengo permiso para avisarle. Actívelo en Ajustes → Araña → Notificaciones.") }
             case "event":
                 fails.append(await addEvent(s.text ?? "Cita", when: s.when, minutes: s.minutes, duration: s.duration ?? 60))
+            case "music":
+                if let f = await Musica.run(action: s.action, query: s.text) { fails.append(f) }
             case "agenda":
                 fails.append(await agenda(days: s.days ?? 0))
             default:

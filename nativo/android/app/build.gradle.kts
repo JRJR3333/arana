@@ -10,8 +10,8 @@ android {
         applicationId = "com.jrjr3333.arana"
         minSdk = 26
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.19.0"
+        versionCode = 20
+        versionName = "0.20.0"
     }
     // Si Juan pone su llave en GitHub Secrets, cada versión se instala encima de la anterior sin perder nada.
     val ks = System.getenv("ARANA_KEYSTORE")

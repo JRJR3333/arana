@@ -1,5 +1,41 @@
 [
  {
+  "v": "0.20.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.20.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "Widget de la araña (app nativa)",
+    "detalle": "Widget de verdad en la misma extensión que la Isla: en la pantalla de inicio (pequeño) y en la bloqueada (redondo y alargado). Saluda según la hora y, con un toque, abre la app con el micrófono ya escuchando (arana://escuchar). No gasta nada.",
+    "probar": "Cuando la app esté instalada: mantenga pulsada la pantalla de inicio → + → Araña, y tóquelo."
+   },
+   {
+    "id": "0.20.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Su música (app nativa)",
+    "detalle": "«Pausa la música», «siguiente canción», «canción anterior» y «pon música» van en local, sin API. «Pon algo de Rosalía» lo entiende el cerebro y lo busco en su biblioteca (canción, artista o disco) con el reproductor de Música.",
+    "probar": "Diga «pon música» y luego «siguiente canción»."
+   },
+   {
+    "id": "0.20.0-3",
+    "tipo": "sorpresa",
+    "titulo": "Metrónomo (app nativa)",
+    "detalle": "Nadie lo pidió. Condición del dado: «una idea traída de otro campo» (5, la música). «Metrónomo a 90» marca el compás con un clic (de 30 a 240); sale un botón verde para pararlo, o diga «para el metrónomo». En local, sin API. Se quita sin romper nada.",
+    "probar": "Diga «metrónomo a 100» y luego «para el metrónomo»."
+   },
+   {
+    "id": "0.20.0-4",
+    "tipo": "arreglo",
+    "titulo": "La araña de Android sabe dónde vive (#25–#29)",
+    "detalle": "Peticiones de su hermano: distingo Android e iPhone («¿en qué móvil estás?»), «sal de la app» cierra la app de Android, «pon un temporizador de 5 minutos» y «alarma a las 7 y media» usan el reloj de Android, «¿qué has aprendido?» dice lo último y cuándo reviso, y «habla conmigo» charla aunque no haya clave.",
+    "probar": "En el Android: diga «¿en qué móvil estás?» y luego «sal de la app»."
+   }
+  ]
+ },
+ {
   "v": "0.19.0",
   "fecha": "2026-10-20",
   "mejoras": [

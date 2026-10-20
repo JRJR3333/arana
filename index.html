@@ -1281,10 +1281,39 @@ function cocina(l){
   for(const [re,t] of COCINA) if(re.test(l)) return t+(roll(.4)?' Si quiere, pídame «abre el reloj» para el temporizador.':'');
   return null;
 }
+/* 0.20.0 (#25–#29): sé dónde vivo. Dentro de la app de Android uso sus órdenes nativas arana:// (salir, temporizador, alarma). */
+const UA=navigator.userAgent||'';
+const IN_APK=new URLSearchParams(location.search).get('app')==='android'||(/Android/.test(UA)&&/; wv\)/.test(UA));
+const ON_ANDROID=IN_APK||/Android/.test(UA);
+const deviceName=()=>IN_APK?'Android, dentro de mi propia app':ON_ANDROID?'Android, en el navegador':/iPhone|iPad|iPod/.test(UA)?'iPhone':'un ordenador';
+function apkLaunch(u){ setTimeout(()=>launch(u),900); }
+function androidAnswer(l){
+  if(/\b(en que (movil|telefono|dispositivo|sistema|aparato) (estas|estoy|vives)|estas en (android|ios|iphone|un android|un iphone)|android o (ios|iphone)|(ios|iphone) o android|diferencia\w* .*\b(android|ios)\b|donde estas)\b/.test(l))
+    return 'Estoy en '+deviceName()+'.'+(IN_APK?' Aquí sé salir de la app y poner temporizadores y alarmas del reloj.':'');
+  const salir=/\b(sal|salir|salte|salgas|cierra|cierrate|cerrar|cierres)\b.*\b(app|aplicacion|apk|arana)\b|^(sal|salir|salte|cierrate|adios arana)$/;
+  if(/\b(has aprendido|ya sabes|sabes ya)\b/.test(l)&&salir.test(l)) return ON_ANDROID?'Sí. Diga «sal de la app» y me cierro.':'En el iPhone no puedo cerrarme yo: deslice hacia arriba desde abajo.';
+  if(/\b(has aprendido|lo ultimo que|novedades|que hay de nuevo|que sabes hacer nuevo|cuando (voy a saber|sabre|me entero))\b/.test(l)&&!/\bde mi\b/.test(l)){
+    const n=(VERSION.notes||[])[0]; return (n?'Lo último que he aprendido, en la '+VERSION.version+': '+n+' ':'')+'Cada mañana reviso sus peticiones; cuando aprendo algo se lo digo al abrir.'; }
+  if(salir.test(l)&&!/\b(abre|abrir)\b/.test(l)&&!findApp(l)){ if(IN_APK){ apkLaunch('arana://salir'); return 'Hasta luego.'; } return ON_ANDROID?'Desde el navegador no puedo cerrarme. En mi app de Android sí.':'En el iPhone no puedo cerrarme yo: deslice hacia arriba desde abajo.'; }
+  if(!IN_APK) return null;
+  let m=l.match(/\b(?:temporizador|cuenta atras|avisame|avisa(?:me)? en)\b.*?\b(\d{1,3}) ?(segundos?|seg|minutos?|min|horas?)\b/);
+  if(m){ const n=+m[1], u=m[2][0]; const seg=u==='s'?n:u==='h'?n*3600:n*60; if(seg>0){ apkLaunch('arana://temporizador?min='+Math.floor(seg/60)+'&seg='+(seg%60)+'&texto=Ara%C3%B1a'); return 'Temporizador de '+n+' '+m[2]+'.'; } }
+  m=l.match(/\b(?:alarma|despiertame|despierta(?:me)?)\b.*?\b(\d{1,2})(?: (?:y )?(\d{2}|media|cuarto))?\b/);
+  if(m){ const h=+m[1], mi=m[2]==='media'?30:m[2]==='cuarto'?15:+(m[2]||0); if(h<24&&mi<60){ apkLaunch('arana://alarma?hora='+h+'&min='+mi+'&texto=Ara%C3%B1a'); return 'Alarma a las '+h+':'+String(mi).padStart(2,'0')+'.'; } }
+  return null;
+}
+/* 0.20.0 (#29): charla sin cerebro, para cuando no hay clave */
+function chatAnswer(l){
+  if(!/^(habla(me)?( con ?migo| conmigo)?|hablemos|charlemos|conversa con ?migo|cuentame algo|di algo)( arana| un rato| por favor)?$/.test(l)) return null;
+  if(brainReady()) return null;
+  return pick(['Con mucho gusto, '+myName+'.','Aquí me tiene.','Hablemos.'])+' '+pick(CURIOS)+' '+pick(['¿Qué tal su día?','¿Qué le apetece hacer?','¿Le cuento otra?']);
+}
 /* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
 let myName=store.get('name','Juan');
 const cap1=w=>w.replace(/(^|\s)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
 function quickAnswer(l,raw){
+  const an=androidAnswer(l); if(an) return an;
+  const ch=chatAnswer(l); if(ch) return ch;
   const nm=l.match(/^(?:pues |oye )?(?:me llamo|mi nombre es|llamame|llameme|puedes llamarme) ([a-zñ ]{2,30})$/);
   if(nm){ const n=cap1(nm[1].trim()); myName=n; store.set('name',n);
     const t='Prefiere que le llamen '+n+'.'; if(!facts.some(f=>f.t===t)){ facts=facts.filter(f=>!/^Prefiere que le llamen /.test(f.t)); facts.push({t,ts:Date.now()}); saveBrain(); }
@@ -1401,7 +1430,7 @@ function brainSystem(){
   const fails=Object.entries(stats).filter(([k,x])=>x.ko>=2&&x.ko>x.ok).map(([k])=>k).join(', ');
   const routines=Object.entries(mem).filter(([k,m])=>m.score>=1&&stepsOf(m).length>1).sort((a,b)=>b[1].score-a[1].score).slice(0,10).map(([k,m])=>'«'+k+'» → '+labelSteps(stepsOf(m))).join('\n');
   return `Eres Araña, la asistente personal de Juan en su iPhone: una araña de puntos y líneas con personalidad de mayordomo serio. Hablas en español, tratas de usted y dices frases cortas (máximo 20 palabras). Eres también su asistente como Siri: si te pregunta algo (datos, cuentas, consejos, traducciones), contesta tú en "say" en un máximo de 40 palabras, sin pasos.
-Vives en una web app de la pantalla de inicio. Solo actúas con estos pasos:
+Vives en una web app de la pantalla de inicio${ON_ANDROID?' (ahora en un móvil Android'+(IN_APK?', dentro de tu app':'')+')':''}. Solo actúas con estos pasos:
 - open: abrir una app. app = id de: ${apps}.${noUrl?' Sin enlace (no se pueden abrir): '+noUrl+'.':''}
 - set: cambiar un ajuste del iPhone con el atajo «Araña». setting = ${sets}.
 - whatsapp: abrir WhatsApp con un texto escrito; Juan elige el contacto y pulsa enviar. text = mensaje.
@@ -1916,7 +1945,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={exportMemory,importMemory,closeSheet,evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={device:()=>deviceName(),exportMemory,importMemory,closeSheet,evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>

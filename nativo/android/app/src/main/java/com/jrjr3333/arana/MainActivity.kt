@@ -44,12 +44,15 @@ class MainActivity : Activity() {
         }
     }
 
-    /** arana://temporizador?min=5&texto=Pasta · arana://alarma?hora=7&min=30 */
+    /** arana://temporizador?min=5&seg=30&texto=Pasta · arana://alarma?hora=7&min=30 · arana://salir */
     private fun orden(u: Uri): Boolean {
+        if (u.host == "salir") { finishAndRemoveTask(); return true }
         val texto = u.getQueryParameter("texto") ?: "Araña"
+        val segs = (u.getQueryParameter("min")?.toIntOrNull() ?: 0) * 60 + (u.getQueryParameter("seg")?.toIntOrNull() ?: 0)
         val i = when (u.host) {
             "temporizador" -> Intent(AlarmClock.ACTION_SET_TIMER)
-                .putExtra(AlarmClock.EXTRA_LENGTH, (u.getQueryParameter("min")?.toIntOrNull() ?: 1) * 60)
+                .putExtra(AlarmClock.EXTRA_LENGTH, if (segs > 0) segs else 60)
+                .putExtra(AlarmClock.EXTRA_SKIP_UI, false)
                 .putExtra(AlarmClock.EXTRA_MESSAGE, texto)
             "alarma" -> Intent(AlarmClock.ACTION_SET_ALARM)
                 .putExtra(AlarmClock.EXTRA_HOUR, u.getQueryParameter("hora")?.toIntOrNull() ?: 8)

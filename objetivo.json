@@ -59,7 +59,7 @@
       "nombre": "App nativa de la araña",
       "pts": 40,
       "estado": "en_curso",
-      "desc": "App SwiftUI en nativo/ios, compilada en un Mac de GitHub. Ya tiene cerebro Claude con memoria de conversación, voz, micrófono propio, temporizadores, agenda y citas del calendario, «Oye Siri, Araña», recordatorios, llamadas, mensajes y abrir apps. Falta firmarla para instalarla con un enlace (cuenta de desarrollador de Apple, 99 $/año).",
+      "desc": "App SwiftUI en nativo/ios, compilada en un Mac de GitHub. Ya tiene cerebro Claude con memoria de conversación, voz, micrófono propio, temporizadores, agenda y citas del calendario, música, «Oye Siri, Araña», recordatorios, llamadas, mensajes y abrir apps. Falta firmarla para instalarla con un enlace (cuenta de desarrollador de Apple, 99 $/año).",
       "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h7/LEEME.md",
       "juan": "Darse de alta en el Apple Developer Program (99 $/año) para poder firmar e instalar la app con un enlace."
     },
@@ -68,7 +68,7 @@
       "nombre": "La araña en la Isla Dinámica",
       "pts": 30,
       "estado": "en_curso",
-      "desc": "Live Activity en la app nativa: la araña aparece en la Isla Dinámica y en la pantalla bloqueada mientras piensa, y marca ✓ al terminar. Ya programada y compilada; falta instalar la app (firma) para verla. Después: widget de verdad y control del Centro de control."
+      "desc": "Live Activity en la app nativa: la araña aparece en la Isla Dinámica y en la pantalla bloqueada mientras piensa, y marca ✓ al terminar. Desde la 0.20.0 también hay widget (inicio y pantalla bloqueada) que abre la app escuchando. Programado y compilado; falta instalar la app (firma) para verlo. Después: control del Centro de control."
     }
   ]
 }
