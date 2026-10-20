@@ -33,8 +33,10 @@
       "id": "h4",
       "nombre": "Widget en la pantalla de inicio y de bloqueo",
       "pts": 20,
-      "estado": "pendiente",
-      "desc": "La araña como widget nativo con Scriptable: estado, sugerencias y acceso rápido."
+      "estado": "listo_para_juan",
+      "desc": "La araña como widget nativo con Scriptable: estado, sugerencias y acceso rápido.",
+      "juan": "Instale Scriptable, pegue el script «Araña» y ponga el widget con los datos de Evolución (8 minutos).",
+      "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h4/LEEME.md"
     },
     {
       "id": "h5",

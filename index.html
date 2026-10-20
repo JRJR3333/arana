@@ -1157,6 +1157,7 @@ function quickAnswer(l,raw){
     return 'Anotado. A su servicio, '+n+'.'; }
   if(/\b(como me llamo|cual es mi nombre|sabes (como me llamo|mi nombre)|quien soy( yo)?|mi nombre)\b/.test(l)&&l.split(' ').length<=7)
     return roll(.6)?pick(['Se llama usted '+myName+'. No lo olvido.','Usted es '+myName+', mi jefe.',''+myName+'. Lo llevo tejido en la memoria.']):'Usted es '+myName+'.';
+  if(/^(?:dame |dime |quiero )?(?:el )?(?:parte|resumen)(?: de la manana| del dia| de hoy| de hoy por la manana)?$/.test(l)) return briefText();
   // Hora y fecha
   const pre='^(?:oye |dime |sabes |me dices )?';
   if(new RegExp(pre+'(?:que hora es|que hora tienes|la hora)( ahora)?$').test(l)){ const d=new Date(), h=d.getHours(), mm=String(d.getMinutes()).padStart(2,'0'); return (h===1||h===13?'Es la ':'Son las ')+h+':'+mm+'.'; }
@@ -1407,6 +1408,36 @@ function exportRoutines(){
     out.push({name:x.p,steps:labelSteps(x.st),q:SITE+'?q='+encodeURIComponent(x.p),sc:scText(x.st),hour:hourOf(k),kind:'costumbre'}); }
   return out.slice(0,8);
 }
+/* Asistente: el parte de la mañana. Todo en local, sin API.
+   La primera vez que se abre entre las 6 y las 12, la araña pregunta si lo quiere; nunca lo da sin permiso. */
+function briefText(withRoutine){
+  const d=new Date(), h=d.getHours(), mm=String(d.getMinutes()).padStart(2,'0');
+  const g=h<6||h>=21?'Buenas noches':h<13?'Buenos días':'Buenas tardes';
+  const out=[g+', '+myName+'. Hoy es '+d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})+', '+(h===1||h===13?'la ':'las ')+h+':'+mm+'.'];
+  const t0=new Date(d.getFullYear(),d.getMonth(),d.getDate()); let nx=null;
+  for(const [,name,m,dd] of FIESTAS){ let t=new Date(d.getFullYear(),m,dd); if(t<t0) t=new Date(d.getFullYear()+1,m,dd); const n=Math.round((t-t0)/864e5); if(!nx||n<nx.n) nx={name,n}; }
+  if(nx&&nx.n<=60) out.push(nx.n===0?'Hoy es '+nx.name+'.':nx.n===1?'Mañana es '+nx.name+'.':'Faltan '+nx.n+' días para '+nx.name+'.');
+  const wait=GOAL&&GOAL.hitos?GOAL.hitos.filter(x=>x.estado==='listo_para_juan'&&goalOK[x.id]!=='si').length:0;
+  if(wait) out.push(wait===1?'Un paso para salir de la web le espera en Evolución.':wait+' pasos para salir de la web le esperan en Evolución.');
+  const n=unrated().length; if(n) out.push(n===1?'Tiene una mejora sin valorar.':'Tiene '+n+' mejoras sin valorar.');
+  const r=withRoutine&&routineToSuggest(); if(r) out.push('Después le propongo su rutina de esta hora.');
+  return out.join(' ');
+}
+async function offerBrief(){
+  const h=new Date().getHours(), td=today();
+  if(prefs.brief===false||h<6||h>=12||store.get('briefDay','')===td||busy||overlayOpen()||pending) return false;
+  store.set('briefDay',td); S.hidden=false;
+  const v=await chips('Buenos días, '+myName+'. ¿Le doy el parte de la mañana?',[['Sí','yes','yes'],['Hoy no','no'],['No me lo ofrezca','mute']],{x:S.x,y:S.y}).catch(()=>null);
+  logEv('idea',null,'parte de la mañana');
+  if(v==='yes'){ const t=briefText(true); answer(t,'parte de la mañana'); setTimeout(proposeRoutine,Math.max(3800,t.length*75)+600); }
+  else if(v==='mute'){ prefs.brief=false; saveAll(); say('Entendido. Si lo quiere, pídame «el parte».',3200); }
+  return true;
+}
+/* Hito h4: datos para el widget de Scriptable. Solo nombre y rutinas con hora; nada privado más. */
+function widgetData(){
+  const r=exportRoutines().filter(x=>x.hour!=null).slice(0,6).map(x=>({h:x.hour,n:x.name}));
+  return JSON.stringify({v:1,nombre:myName,r});
+}
 function copyText(t,ok){ const p=navigator.clipboard&&navigator.clipboard.writeText(t); if(p&&p.then) p.then(()=>say(ok,3200)).catch(()=>say('No he podido copiarlo.')); else say('No he podido copiarlo.'); }
 
 /* Modo «sígame»: la araña camina hasta donde se apoya el dedo. Se apaga tocándola o diciéndole «quieta». */
@@ -1527,6 +1558,9 @@ function openEvolution(){
       <div class="lvl"><b>${gm?Math.round(gp/gm*100):0} %</b><small>${gp} de ${gm} puntos de hito</small></div><div class="xp"><i style="width:${gm?Math.round(gp/gm*100):0}%"></i></div>
       <ul class="events" style="margin-top:8px">${GOAL.hitos.map(h=>{ const t=ST[h.estado]||[h.estado,'']; return `<li><span class="tag ${t[1]}">${t[0]}</span><span class="tx" style="white-space:normal">${escapeHTML(h.nombre)} · ${h.pts} pts${h.estado==='listo_para_juan'&&h.juan?`<br><small style="color:var(--muted)">${escapeHTML(h.juan)}</small>${h.guia?` <a href="${escapeHTML(h.guia)}" target="_blank" rel="noopener">Ver pasos</a>`:''}<br><button type="button" class="iconbtn" data-gok="${escapeHTML(h.id)}" style="margin-top:4px">${goalOK[h.id]==='si'?'Confirmado ✓':'Ya funciona'}</button> <button type="button" class="iconbtn" data-gko="${escapeHTML(h.id)}" style="margin-top:4px">No me funciona</button>`:''}</span></li>`; }).join('')}</ul></div>`:''}
     ${(()=>{ const rx=exportRoutines(); return `<div><span class="lbl">Recetario de rutinas · para Automatización</span>${rx.length?`<ul class="events">${rx.map((r,i)=>`<li><span class="tag ${r.kind==='rutina'?'ok':''}">${r.hour!=null?String(r.hour).padStart(2,'0')+':00':'—'}</span><span class="tx" style="white-space:normal"><b>«${escapeHTML(r.name)}»</b><br><small style="color:var(--muted)">${escapeHTML(r.steps)}</small><br><button type="button" class="iconbtn" data-rxq="${i}" style="margin-top:4px">Copiar enlace</button>${r.sc?` <button type="button" class="iconbtn" data-rxs="${i}" style="margin-top:4px">Copiar texto del atajo</button>`:''}</span></li>`).join('')}</ul>`:'<p class="note">Aún no tengo recetas. Cuando repita algo 3 días a la misma hora, o bautice una rutina, aparecerá aquí.</p>'}<p class="note" style="margin-top:6px">Péguelo en Atajos → Automatización. <a href="https://github.com/JRJR3333/arana/blob/master/nativo/h3/LEEME.md" target="_blank" rel="noopener">Ver pasos</a></p></div>`; })()}
+    <div><span class="lbl">Widget · con la app Scriptable</span><p class="note">Me pongo en su pantalla de inicio o de bloqueo con la rutina de cada hora. Copie mis datos y péguelos en el «Parámetro» del widget.</p>
+      <div class="row" style="margin-top:6px"><button class="btn ghost" type="button" id="wgData">Copiar datos del widget</button></div>
+      <p class="note" style="margin-top:6px"><a href="https://github.com/JRJR3333/arana/blob/master/nativo/h4/LEEME.md" target="_blank" rel="noopener">Ver pasos</a></p></div>
     <div class="row"><button class="btn${nUn?'':' ghost'}" type="button" id="evRate">${nUn?'Valorar '+nUn+' mejora'+(nUn===1?'':'s')+' nuevas':'Ver mejoras valoradas'}</button></div>
     <div><div class="lvl"><b>${L.name}</b><small>${x} XP${L.to?' · siguiente nivel a '+L.to:' · nivel máximo'}</small></div><div class="xp"><i style="width:${prog}%"></i></div></div>
     <div class="kpis"><div><b>${tot}</b><small>tareas valoradas</small></div><div><b>${pct}</b><small>aciertos</small></div><div><b>${learned}</b><small>frases aprendidas</small></div></div>
@@ -1545,6 +1579,7 @@ function openEvolution(){
   { const rx=exportRoutines();
     document.querySelectorAll('#sheet [data-rxq]').forEach(b=>b.onclick=()=>copyText(rx[+b.dataset.rxq].q,'Enlace copiado. Péguelo en «Abrir URL» de su automatización.'));
     document.querySelectorAll('#sheet [data-rxs]').forEach(b=>b.onclick=()=>copyText(rx[+b.dataset.rxs].sc,'Texto copiado. Péguelo como entrada de «Ejecutar atajo Araña».')); }
+  $('#wgData').onclick=()=>copyText(widgetData(),'Datos copiados. Péguelos en «Parámetro» al editar el widget.');
   $('#evClose').onclick=closeSheet;
   $('#evRate').onclick=openRatings;
   document.querySelectorAll('#sheet [data-gok]').forEach(b=>b.onclick=()=>{ goalOK[b.dataset.gok]='si'; store.set('goalOK',goalOK); b.textContent='Confirmado ✓'; say('Gracias. Se lo diré a Claude al enviar las valoraciones.',3200); });
@@ -1637,7 +1672,7 @@ const first=!store.get('seen',false); store.set('seen',true);
 let Q0=''; try{ const u=new URL(location.href); Q0=(u.searchParams.get('q')||'').trim().slice(0,200); if(u.searchParams.has('q')){ u.searchParams.delete('q'); history.replaceState(null,'',u.pathname+(u.search||'')+u.hash); } }catch(e){}
 if(Q0){ setTimeout(()=>{ say('«'+Q0+'». Voy.',1800); logEv('voz',null,Q0.slice(0,60)); setTimeout(()=>interpret(Q0),900); },500); }
 else { setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':vary('hola'),first?4200:2600),700);
-setTimeout(()=>{ if(!first) proposeRoutine(); },5200); }
+setTimeout(async()=>{ if(first) return; if(!(await offerBrief())) proposeRoutine(); },5200); }
 setTimeout(()=>resolveIcons(false),1500);
 loadRepoData();
 setTimeout(async()=>{
@@ -1671,7 +1706,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,widgetData,brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>

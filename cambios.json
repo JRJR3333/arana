@@ -1,5 +1,27 @@
 [
  {
+  "v": "0.12.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.12.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h4",
+    "titulo": "La araña como widget (Scriptable)",
+    "detalle": "Un script para Scriptable me dibuja en su pantalla de inicio o de bloqueo, le saluda y le recuerda la rutina de esta hora. Un toque me abre con esa rutina pedida. En Evolución copio los datos para el widget.",
+    "probar": "Evolución → Widget · con la app Scriptable → Copiar datos del widget. Pasos en «Ver pasos»."
+   },
+   {
+    "id": "0.12.0-2",
+    "tipo": "iniciativa",
+    "hito": "asistente",
+    "titulo": "El parte de la mañana",
+    "detalle": "La primera vez que me abre entre las 6 y las 12 le pregunto si quiere el parte: fecha y hora, la próxima fiesta, lo que le espera en Evolución y su rutina de la hora. Todo en local, sin gastar consulta. Si no lo quiere, no se lo vuelvo a ofrecer. Condición de la hora (8): una iniciativa propia, siempre preguntando.",
+    "probar": "Ábrame por la mañana y diga «Sí», o escriba «dame el parte»."
+   }
+  ]
+ },
+ {
   "v": "0.11.0",
   "fecha": "2026-10-20",
   "mejoras": [
