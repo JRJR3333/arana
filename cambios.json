@@ -1,0 +1,74 @@
+[
+ {
+  "v": "0.7.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.7.0-1",
+    "tipo": "iniciativa",
+    "titulo": "Meta: salir de la web",
+    "detalle": "Ocho hitos hacia vivir en el iPhone, con puntos que suben de nivel a la araña.",
+    "probar": "Evolución, arriba del todo."
+   },
+   {
+    "id": "0.7.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Valorar mejoras",
+    "detalle": "Puntúe cada cambio de 1 a 5 con comentario; se envía a Claude por GitHub.",
+    "probar": "Evolución → Valorar mejoras."
+   },
+   {
+    "id": "0.7.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Le contesto en voz alta y respondo preguntas",
+    "detalle": "Como un asistente: pregúnteme cosas y le respondo hablando. Se apaga en Ajustes → Voz.",
+    "probar": "Escriba «¿cuántos días faltan para Navidad?»."
+   }
+  ]
+ },
+ {
+  "v": "0.6.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.6.0-1",
+    "tipo": "diseño",
+    "titulo": "Iconos reales de la App Store",
+    "detalle": "Busca cada icono en la App Store y lo guarda; se puede corregir a mano.",
+    "probar": "Mire su pantalla; mantenga pulsada una app → Icono."
+   },
+   {
+    "id": "0.6.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Cerebro de bajo consumo",
+    "detalle": "Órdenes simples, rutinas y planes repetidos sin consultar; tope diario y gasto visible.",
+    "probar": "Ajustes → Cerebro."
+   }
+  ]
+ },
+ {
+  "v": "0.5.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.5.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "Piensa con Claude",
+    "detalle": "Entiende frases libres y combina varios pasos.",
+    "probar": "Diga «ponme modo cine»."
+   },
+   {
+    "id": "0.5.0-2",
+    "tipo": "iniciativa",
+    "titulo": "Propone rutinas según la hora",
+    "detalle": "Si algo se repite a la misma hora, lo sugiere sin hacerlo sola."
+   },
+   {
+    "id": "0.5.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Recuerda lo que le cuenta",
+    "detalle": "Evolución → Lo que sé de usted."
+   }
+  ]
+ }
+]

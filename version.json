@@ -1,11 +1,10 @@
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "date": "2026-10-20",
   "notes": [
-    "Ahora tengo los iconos de verdad: los busco en la App Store y los guardo.",
-    "Si alguno no es el bueno, manténgalo pulsado → Icono, y elija el correcto.",
-    "Gasto lo mínimo: las órdenes simples, las rutinas y los planes repetidos los resuelvo yo sin consultar.",
-    "Solo pienso con Claude para lo nuevo o lo complicado, con un tope diario que usted elige.",
-    "En Ajustes → Cerebro ve lo que llevo gastado hoy y en total."
+    "Tengo una meta: salir de la web y vivir en su iPhone. Mire mi progreso en Evolución.",
+    "Ya le contesto en voz alta y respondo a sus preguntas, como un asistente.",
+    "Cada hora Claude me mejora. Valore cada cambio de 1 a 5 y así sabrá qué seguir.",
+    "Cada hito que consigo hacia la meta me da puntos y me sube de nivel."
   ]
 }

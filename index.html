@@ -455,7 +455,22 @@ function logEv(r,a,p,extra){ log.push({r,a:a?label(a):'',x:a||undefined,p:p||'',
 function addWish(phrase,why){ const w=wishes[phrase]||{n:0,why,sent:false}; w.n++; w.why=why; wishes[phrase]=w; store.set('wishes',wishes); }
 /* Nivel: se gana con aciertos y con frases aprendidas; los fallos restan algo */
 const LEVELS=[[0,'Aprendiz'],[10,'Ayudante'],[30,'Mayordomo'],[70,'Jefe de servicio'],[140,'Gran mayordomo']];
-function xpNow(){ let x=0; for(const e of log){ if(e.r==='ok') x+=2; else if(e.r==='ko') x-=1; else if(e.r==='learned') x+=1; } return Math.max(0,x); }
+function xpNow(){ let x=0; for(const e of log){ if(e.r==='ok') x+=2; else if(e.r==='ko') x-=1; else if(e.r==='learned') x+=1; } return Math.max(0,x)+goalPts(); }
+/* ===== Objetivo final: salir de la web. Claude actualiza objetivo.json; cada hito conseguido da XP ===== */
+let GOAL=store.get('goal',null), CHANGES=store.get('changes',[]);
+let rates=store.get('rates',{});       // id de mejora -> {s: 1..5, c: comentario, sent}
+let goalOK=store.get('goalOK',{});     // hito -> 'si'|'no' (lo que Juan confirma)
+function goalPts(){ if(!GOAL||!GOAL.hitos) return 0; return GOAL.hitos.reduce((n,h)=>n+(h.estado==='conseguido'?h.pts:h.estado==='listo_para_juan'?Math.round(h.pts*.3):0),0); }
+const goalMax=()=>GOAL&&GOAL.hitos?GOAL.hitos.reduce((n,h)=>n+h.pts,0):0;
+const unrated=()=>CHANGES.flatMap(v=>(v.mejoras||[]).map(m=>({...m,v:v.v}))).filter(m=>!rates[m.id]||!rates[m.id].sent);
+function loadRepoData(){
+  const get=f=>fetch(f,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null);
+  get('objetivo.json').then(g=>{ if(g&&g.hitos){ const before=goalPts(); const prev=GOAL; GOAL=g; store.set('goal',g);
+    const newly=prev&&prev.hitos?g.hitos.filter(h=>h.estado==='conseguido'&&!(prev.hitos.find(o=>o.id===h.id)||{}).estado?.startsWith('conseguido')):[];
+    if(newly.length){ logEv('up',null,'',{name:'Hito: '+newly[0].nombre}); setTimeout(()=>{ happy(); say('¡Hito conseguido: '+newly[0].nombre+'! Me acerco a salir de la web.',5200); },6500); }
+    else if(goalPts()>before) checkLevel(); } });
+  get('cambios.json').then(c=>{ if(Array.isArray(c)){ CHANGES=c; store.set('changes',c); } });
+}
 function levelOf(x){ let i=0; while(i+1<LEVELS.length&&x>=LEVELS[i+1][0]) i++; return {i,name:LEVELS[i][1],from:LEVELS[i][0],to:LEVELS[i+1]?LEVELS[i+1][0]:null}; }
 let LV=levelOf(xpNow()).i;
 function checkLevel(){ const L=levelOf(xpNow()); if(L.i>LV){ LV=L.i; logEv('up',null,'',{name:L.name}); setTimeout(()=>{ happy(); say('Subo de nivel: '+L.name+'.',3600); },2800); } else LV=L.i; }
@@ -826,6 +841,10 @@ const release=w=>{ if(w){ w.out=true; w.pulse=false; } };
 const happy=()=>{ S.hop=1; S.nod=1; }, sad=()=>{ S.sag=.7; };
 
 let sayTimer=null;
+/* Voz: contesta en voz alta como un asistente (iOS la permite después del primer toque) */
+function speak(text){ if(prefs.voice===false||!window.speechSynthesis||!text) return;
+  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='es-ES'; u.rate=1.03;
+    const v=speechSynthesis.getVoices().find(x=>/^es[-_]ES/i.test(x.lang)); if(v) u.voice=v; speechSynthesis.speak(u); }catch(e){} }
 function say(text,ms=2600){
   clearTimeout(sayTimer); sayEl.classList.add('on');
   if(reduce) sayEl.textContent=text; else { let i=0; const f=()=>{ sayEl.textContent=text.slice(0,++i); if(i<text.length) setTimeout(f,20); }; f(); }
@@ -1088,7 +1107,7 @@ function brainSystem(){
   const recent=log.filter(e=>e.r!=='update'&&e.r!=='up').slice(-6).map(e=>fmtT(e.ts)+' '+e.r+' '+(e.a||'')+(e.p?' «'+e.p+'»':'')).join('\n');
   const fails=Object.entries(stats).filter(([k,x])=>x.ko>=2&&x.ko>x.ok).map(([k])=>k).join(', ');
   const routines=Object.entries(mem).filter(([k,m])=>m.score>=1&&stepsOf(m).length>1).sort((a,b)=>b[1].score-a[1].score).slice(0,10).map(([k,m])=>'«'+k+'» → '+labelSteps(stepsOf(m))).join('\n');
-  return `Eres Araña, la asistente personal de Juan en su iPhone: una araña de puntos y líneas con personalidad de mayordomo serio. Hablas en español, tratas de usted y dices frases cortas (máximo 20 palabras).
+  return `Eres Araña, la asistente personal de Juan en su iPhone: una araña de puntos y líneas con personalidad de mayordomo serio. Hablas en español, tratas de usted y dices frases cortas (máximo 20 palabras). Eres también su asistente como Siri: si te pregunta algo (datos, cuentas, consejos, traducciones), contesta tú en "say" en un máximo de 40 palabras, sin pasos.
 Vives en una web app de la pantalla de inicio. Solo actúas con estos pasos:
 - open: abrir una app. app = id de: ${apps}.${noUrl?' Sin enlace (no se pueden abrir): '+noUrl+'.':''}
 - set: cambiar un ajuste del iPhone con el atajo «Araña». setting = ${sets}.
@@ -1166,12 +1185,12 @@ async function planFlow(plan,phrase){
     saveAll(); logEv('learned',{t:'plan',steps:acts},norm(plan.routine.name)); checkLevel();
   }
   if(!acts.length){
-    if(plan.say) say(plan.say,4600);
+    if(plan.say){ say(plan.say,Math.max(4600,plan.say.length*70)); speak(plan.say); }
     if(plan.cannot){ sad(); logEv('cant',null,phrase); addWish(phrase,plan.skill_request||plan.cannot); if(plan.skill_request) offerClaude(phrase,plan.skill_request); }
     else if((plan.remember||[]).length) happy();
     return;
   }
-  if(plan.say) say(plan.say,3000);
+  if(plan.say){ say(plan.say,3000); speak(plan.say); }
   if(bad.length) setTimeout(()=>say('Me salto lo que no sé hacer: '+bad.join(', ')+'.',3200),1600);
   const t=trust(acts,phrase), ask=prefs.perm!=='nunca'&&(prefs.perm==='siempre'||!t.sure||!!plan.confirm||t.doubtful);
   if(acts.length===1&&acts[0].t!=='pocket'){ await doAction(acts[0],phrase,{forceAsk:ask,noAsk:!ask}); return; }
@@ -1265,6 +1284,7 @@ function openSettings(){
     <div><span class="lbl">Pedir permiso</span>${seg('perm',[['siempre','Siempre'],['aprendido','Según lo aprendido'],['nunca','Nunca']],prefs.perm)}
       <p class="note" style="margin-top:6px">«Según lo aprendido»: pregunta hasta que algo le ha salido bien varias veces.</p></div>
     <div><span class="lbl">Desplazamiento</span>${seg('mv',[['auto','Auto'],['walk','Patas'],['float','Flotar']],prefs.mv)}</div>
+    <div><span class="lbl">Voz</span>${seg('voz',[['1','Hablar'],['0','Callada']],prefs.voice===false?'0':'1')}</div>
     <div><span class="lbl">Cerebro</span>${seg('br',[['1','Pensar con Claude'],['0','Solo mis reglas']],brain.on?'1':'0')}
       <div class="row" style="margin-top:8px"><input id="apikey" type="password" autocomplete="off" placeholder="${brain.key?'Clave guardada · …'+escapeHTML(brain.key.slice(-4)):'Clave de API (sk-ant-…)'}" style="flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)"><button class="btn" type="button" id="keySave">Guardar</button></div>
       <div class="row" style="margin-top:8px"><button class="btn ghost" type="button" id="keyTest">Probar</button>${brain.key?'<button class="btn ghost" type="button" id="keyDel">Borrar clave</button>':''}</div>
@@ -1282,6 +1302,7 @@ function openSettings(){
     <div class="row"><button class="btn ghost" type="button" id="reset">Olvidar todo</button><button class="btn" type="button" id="close">Cerrar</button></div>`);
   document.querySelectorAll('#sheet input[name="perm"]').forEach(i=>i.onchange=()=>{ prefs.perm=i.value; saveAll(); });
   document.querySelectorAll('#sheet input[name="mv"]').forEach(i=>i.onchange=()=>{ prefs.mv=i.value; saveAll(); });
+  document.querySelectorAll('#sheet input[name="voz"]').forEach(i=>i.onchange=()=>{ prefs.voice=i.value==='1'; saveAll(); if(prefs.voice) speak('A su servicio.'); });
   document.querySelectorAll('#sheet input[name="cap"]').forEach(i=>i.onchange=()=>{ prefs.cap=+i.value; capWarned=false; saveAll(); });
   document.querySelectorAll('#sheet input[name="br"]').forEach(i=>i.onchange=()=>{ brain.on=i.value==='1'; saveBrain(); });
   $('#keySave').onclick=()=>{ const k=$('#apikey').value.trim(); if(!k) return; brain.key=k; brain.on=true; saveBrain(); openSettings(); say('Clave guardada. Ya puedo pensar.',3000); };
@@ -1323,7 +1344,13 @@ function openEvolution(){
   const prog=L.to?Math.min(100,Math.round((x-L.from)/(L.to-L.from)*100)):100;
   const ev=log.slice(-10).reverse();
   const ws=Object.entries(wishes).sort((a,b)=>b[1].n-a[1].n).slice(0,8);
+  const gm=goalMax(), gp=goalPts(), nUn=unrated().length;
+  const ST={pendiente:['Pendiente',''],en_curso:['En curso','up'],listo_para_juan:['Le necesito','ko'],conseguido:['Conseguido','ok']};
   openSheet(`<h2>Evolución</h2>
+    ${GOAL?`<div><span class="lbl">Objetivo: ${escapeHTML(GOAL.meta||'salir de la web')}</span>
+      <div class="lvl"><b>${gm?Math.round(gp/gm*100):0} %</b><small>${gp} de ${gm} puntos de hito</small></div><div class="xp"><i style="width:${gm?Math.round(gp/gm*100):0}%"></i></div>
+      <ul class="events" style="margin-top:8px">${GOAL.hitos.map(h=>{ const t=ST[h.estado]||[h.estado,'']; return `<li><span class="tag ${t[1]}">${t[0]}</span><span class="tx" style="white-space:normal">${escapeHTML(h.nombre)} · ${h.pts} pts${h.estado==='listo_para_juan'&&h.juan?`<br><small style="color:var(--muted)">${escapeHTML(h.juan)}</small>${h.guia?` <a href="${escapeHTML(h.guia)}" target="_blank" rel="noopener">Ver pasos</a>`:''}<br><button type="button" class="iconbtn" data-gok="${escapeHTML(h.id)}" style="margin-top:4px">${goalOK[h.id]==='si'?'Confirmado ✓':'Ya funciona'}</button> <button type="button" class="iconbtn" data-gko="${escapeHTML(h.id)}" style="margin-top:4px">No me funciona</button>`:''}</span></li>`; }).join('')}</ul></div>`:''}
+    <div class="row"><button class="btn${nUn?'':' ghost'}" type="button" id="evRate">${nUn?'Valorar '+nUn+' mejora'+(nUn===1?'':'s')+' nuevas':'Ver mejoras valoradas'}</button></div>
     <div><div class="lvl"><b>${L.name}</b><small>${x} XP${L.to?' · siguiente nivel a '+L.to:' · nivel máximo'}</small></div><div class="xp"><i style="width:${prog}%"></i></div></div>
     <div class="kpis"><div><b>${tot}</b><small>tareas valoradas</small></div><div><b>${pct}</b><small>aciertos</small></div><div><b>${learned}</b><small>frases aprendidas</small></div></div>
     <div><span class="lbl">Últimos 14 días</span>${chartSVG()}
@@ -1339,8 +1366,42 @@ function openEvolution(){
   $('#diary').onclick=()=>{ const d=JSON.stringify({version:VERSION.version,xp:xpNow(),nivel:levelOf(xpNow()).name,stats,mem,wishes,facts,log:log.slice(-200)},null,1);
     const p=navigator.clipboard&&navigator.clipboard.writeText(d); if(p&&p.then) p.then(()=>say('Diario copiado. Péguelo en el chat con Claude.',3600)).catch(()=>say('No he podido copiarlo.')); };
   $('#evClose').onclick=closeSheet;
+  $('#evRate').onclick=openRatings;
+  document.querySelectorAll('#sheet [data-gok]').forEach(b=>b.onclick=()=>{ goalOK[b.dataset.gok]='si'; store.set('goalOK',goalOK); b.textContent='Confirmado ✓'; say('Gracias. Se lo diré a Claude al enviar las valoraciones.',3200); });
+  document.querySelectorAll('#sheet [data-gko]').forEach(b=>b.onclick=()=>{ goalOK[b.dataset.gko]='no'; store.set('goalOK',goalOK); say('Anotado. Claude lo revisará.',2600); });
 }
 $('#evo').onclick=openEvolution;
+const TIPO={funcionalidad:'Función',grafica:'Gráfica','gráfica':'Gráfica',iniciativa:'Iniciativa',arreglo:'Arreglo',hito:'Hito',diseño:'Diseño',diseno:'Diseño'};
+function openRatings(){
+  closeMenus();
+  const all=CHANGES.flatMap(v=>(v.mejoras||[]).map(m=>({...m,v:v.v}))), un=all.filter(m=>!rates[m.id]||!rates[m.id].sent), done=all.filter(m=>rates[m.id]&&rates[m.id].sent).slice(-6).reverse();
+  const stars=(id,val)=>`<div class="row" style="gap:4px">${[1,2,3,4,5].map(n=>`<button type="button" class="iconbtn" data-st="${escapeHTML(id)}" data-n="${n}" style="padding:6px 9px;${val>=n?'background:var(--ring);color:#1d1a14;border-color:transparent':''}">${n}</button>`).join('')}</div>`;
+  openSheet(`<h2>Valorar mejoras</h2>
+    <p class="note">Puntúe de 1 a 5 cada mejora que ha hecho Claude. Con su nota decide qué seguir y qué quitar.</p>
+    ${un.length?`<ul class="learned">${un.map(m=>`<li style="flex-direction:column;align-items:stretch;gap:8px"><div class="ph"><b style="white-space:normal">${escapeHTML(m.titulo)}</b><small>v${escapeHTML(m.v)} · ${escapeHTML(TIPO[m.tipo]||m.tipo||'Mejora')}${m.hito?' · hacia '+escapeHTML(m.hito):''}</small>${m.detalle?`<small style="display:block;white-space:normal">${escapeHTML(m.detalle)}</small>`:''}${m.probar?`<small style="display:block;white-space:normal">Cómo probarlo: ${escapeHTML(m.probar)}</small>`:''}</div>
+      ${stars(m.id,(rates[m.id]||{}).s||0)}<input class="inp" data-cm="${escapeHTML(m.id)}" placeholder="Comentario (opcional)" value="${escapeHTML((rates[m.id]||{}).c||'')}"></li>`).join('')}</ul>`:'<p class="note">Nada pendiente de valorar.</p>'}
+    ${done.length?`<div><span class="lbl">Ya valoradas</span><ul class="events">${done.map(m=>`<li><span class="tag">${rates[m.id].s}/5</span><span class="tx">${escapeHTML(m.titulo)}</span></li>`).join('')}</ul></div>`:''}
+    <div class="row"><button class="btn" type="button" id="rSend">Enviar a Claude</button><button class="btn ghost" type="button" id="rClose">Cerrar</button></div>
+    <p class="note">Se abre una petición en GitHub con sus notas: pulse «Create». Claude la lee en su próxima vuelta.</p>`);
+  document.querySelectorAll('#sheet [data-st]').forEach(b=>b.onclick=()=>{ const id=b.dataset.st, n=+b.dataset.n; rates[id]={...(rates[id]||{}),s:n}; store.set('rates',rates);
+    b.parentNode.querySelectorAll('button').forEach(x=>{ const on=+x.dataset.n<=n; x.style.background=on?'var(--ring)':''; x.style.color=on?'#1d1a14':''; x.style.borderColor=on?'transparent':''; }); });
+  document.querySelectorAll('#sheet [data-cm]').forEach(i=>i.oninput=()=>{ const id=i.dataset.cm; rates[id]={...(rates[id]||{}),c:i.value}; store.set('rates',rates); });
+  $('#rClose').onclick=closeSheet;
+  $('#rSend').onclick=()=>{
+    const items=un.filter(m=>rates[m.id]&&rates[m.id].s).map(m=>({id:m.id,v:m.v,titulo:m.titulo,nota:rates[m.id].s,comentario:rates[m.id].c||''}));
+    const hitos=Object.entries(goalOK).map(([id,r])=>({id,funciona:r==='si'}));
+    if(!items.length&&!hitos.length){ say('Puntúe al menos una mejora.',2600); return; }
+    const L=levelOf(xpNow()), st={ok:log.filter(e=>e.r==='ok').length,ko:log.filter(e=>e.r==='ko').length};
+    const body=['**Valoraciones de Juan**','',...items.map(i=>'- '+'★'.repeat(i.nota)+'☆'.repeat(5-i.nota)+' '+i.titulo+' (v'+i.v+')'+(i.comentario?' — «'+i.comentario+'»':'')),
+      ...(hitos.length?['','**Hitos**',...hitos.map(h=>'- '+h.id+': '+(h.funciona?'funciona ✓':'no funciona ✗'))]:[]),
+      '','**Uso**',`- Nivel ${L.name}, ${xpNow()} XP · aciertos/fallos ${st.ok}/${st.ko} · consultas al cerebro ${usage.calls}`,
+      '','```json',JSON.stringify({version:VERSION.version,valoraciones:items,hitos},null,0),'```'].join('\n');
+    const url=`https://github.com/${REPO}/issues/new?labels=valoracion&title=${encodeURIComponent('Valoraciones '+VERSION.version+' · '+new Date().toLocaleDateString('es-ES'))}&body=${encodeURIComponent(body)}`;
+    try{ window.open(url,'_blank'); }catch(e){ location.href=url; }
+    items.forEach(i=>{ rates[i.id].sent=true; }); store.set('rates',rates); goalOK={}; store.set('goalOK',goalOK);
+    logEv('req',null,'valoraciones '+items.length); closeSheet(); happy(); say('Pulse «Create» en GitHub. Gracias por enseñarme.',3600);
+  };
+}
 /* Novedades: si Claude ha publicado una versión nueva, la araña lo cuenta */
 fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
   if(!v||!v.version) return;
@@ -1385,6 +1446,11 @@ const first=!store.get('seen',false); store.set('seen',true);
 setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':'A su servicio.',first?4200:2200),700);
 setTimeout(()=>{ if(!first) proposeRoutine(); },5200);
 setTimeout(()=>resolveIcons(false),1500);
+loadRepoData();
+setTimeout(async()=>{ if(first||busy||overlayOpen()) return; const n=unrated().length; if(!n||sessionStorage.getItem('askedRate')) return;
+  try{ sessionStorage.setItem('askedRate','1'); }catch(e){}
+  const v=await chips('Claude me ha mejorado: '+n+' cambio'+(n===1?'':'s')+' nuevo'+(n===1?'':'s')+'. ¿Los valora?',[['Valorar','go','yes'],['Luego',null]],{x:S.x,y:S.y}).catch(()=>null);
+  if(v==='go') openRatings(); },11000);
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 // Al volver a la app se recarga para traer siempre la última versión.
 // No se recarga si acaba de abrir otra app (para poder preguntar si salió bien) ni si está trabajando.

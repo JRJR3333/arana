@@ -72,3 +72,34 @@ Al añadir una habilidad nueva:
 - El enlace se guarda en `localStorage` (`arana.icons`).
 - No se suben imágenes de iconos al repo.
 - Las apps que no están en la tienda (`NO_STORE`) se quedan dibujadas.
+
+## Modo evolución (cada hora)
+
+Una tarea programada ejecuta a Claude cada hora, use Juan la araña o no. Cada ejecución sigue este orden:
+
+1. **Leer valoraciones.** Son issues con la etiqueta `valoracion`; el cuerpo trae un bloque JSON con notas de 1 a 5 por mejora y la confirmación de hitos.
+   - Añadir un resumen a `evolucion/valoraciones.md`: fecha, versión, nota media y comentarios.
+   - **Nota 1–2:** quitar o rehacer esa mejora en esta misma ejecución.
+   - **Nota 4–5:** seguir en esa dirección.
+   - **Hito confirmado** («funciona ✓») → `estado: "conseguido"` en `objetivo.json`. Si «no funciona ✗» → `en_curso`, y arreglarlo.
+   - Comentar el issue con lo que se ha hecho con sus notas y cerrarlo.
+2. **Atender peticiones** `nueva-habilidad`, como explica la sección de arriba.
+3. **Publicar una versión con 2–4 mejoras.** Mezclar tipos: `funcionalidad`, `grafica`, `iniciativa`, `diseño`, `arreglo`.
+   - **Al menos una mejora por versión debe acercar a la araña al objetivo** (ver `OBJETIVO.md`) y llevar `"hito": "hN"`.
+   - **Al menos otra debe acercarla a un asistente tipo Siri** (`"hito": "asistente"`; ver la sección de `OBJETIVO.md`).
+   - Si un hito necesita que Juan haga algo en su iPhone, poner `estado: "listo_para_juan"`, rellenar `juan` con la tarea en una frase y `guia` con un enlace a la guía paso a paso en `nativo/`.
+   - Pequeñas, terminadas y probables en 2 minutos. Nada a medias.
+   - Cada mejora se apunta en `cambios.json`, al principio de la lista: `{"v","fecha","mejoras":[{"id":"v-n","tipo","titulo","detalle","probar","hito?"}]}`. Juan las valora desde la app.
+   - Subir `version.json` (minor) y `const V` en `sw.js`.
+4. **Calidad antes de publicar:**
+   - `node --check` del script.
+   - Una prueba en jsdom que abra la app sin errores, abra Evolución y abra «Valorar mejoras».
+   - JSON válidos.
+   - Si algo falla y no se arregla en esa ejecución, no publicar.
+5. **Diario.** Añadir una línea a `evolucion/diario.md`: hora, versión, qué se hizo, qué hito se trabajó y el siguiente paso previsto.
+
+### Freno
+
+- Si las dos últimas valoraciones tienen nota media menor que 3, la siguiente versión solo arregla y pule. Nada nuevo.
+- Si hay 6 versiones seguidas sin ninguna valoración de Juan, publicar como mucho una mejora por hora, priorizando el objetivo.
+- No sumar más de unas 600 líneas por versión. Si `index.html` pasa de unas 3000 líneas, la mejora de esa hora es dividirlo en `js/*.js`, sin compilación.
