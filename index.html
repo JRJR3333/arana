@@ -38,6 +38,51 @@ body{background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size
 .brand small{font-style:italic; font-size:15px; color:var(--muted); margin-left:6px}
 .iconbtn{border:1px solid var(--line); background:transparent; color:var(--fg); font:inherit; font-size:13px; padding:7px 12px; border-radius:999px}
 .field{flex:1; min-height:0; display:flex; flex-direction:column; gap:14px; overflow:hidden}
+/* Pantalla de inicio al estilo de su iPhone: páginas de 4×6, puntos, barra y dock */
+:root{--home:#675a4b; --home-ink:#fff; --ic:58px}
+body{background:var(--home); -webkit-touch-callout:none}
+#app{background:var(--home); color:var(--home-ink)}
+#app .brand small{color:rgba(255,255,255,.7)}
+#app .top .iconbtn{border-color:rgba(255,255,255,.35); color:#fff}
+#app .top .iconbtn.on{background:#fff; color:#2a241d; border-color:#fff}
+.top [hidden]{display:none}
+.pager{position:relative; flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; margin:0 -16px; touch-action:pan-x}
+.pager::-webkit-scrollbar{display:none}
+.page{flex:0 0 100%; scroll-snap-align:start; display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(6,minmax(0,1fr)); align-items:center; justify-items:center; padding:0 12px}
+.dots{display:flex; justify-content:center; gap:7px; padding:6px 0 2px}
+.dots i{width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.4)}
+.dots i.on{background:#fff}
+#app .tile{color:#fff; width:100%; position:relative}
+#app .tile .sq{width:var(--ic); height:var(--ic); border-radius:calc(var(--ic)*.23); color:var(--fg2,#fff); box-shadow:0 1px 3px rgba(0,0,0,.18)}
+#app .tile .sq b{font-family:var(--f-body); font-weight:600; font-size:calc(var(--ic)*.36); letter-spacing:-.02em}
+#app .tile .nm{font-size:11.5px; font-weight:500; text-shadow:0 1px 2px rgba(0,0,0,.35); max-width:calc(var(--ic) + 22px)}
+.tile .x{display:none; position:absolute; top:-6px; left:calc(50% - var(--ic)/2 - 6px); width:22px; height:22px; border-radius:50%; background:#d9d6d0; color:#222; font-size:15px; line-height:22px; text-align:center; z-index:2}
+body.editing .tile .x{display:block}
+body.editing .page .tile .sq, body.editing .dock .tile .sq{animation:jig .26s ease-in-out infinite alternate}
+body.editing .page .tile:nth-child(2n) .sq{animation-delay:-.13s}
+@keyframes jig{from{transform:rotate(-2deg)} to{transform:rotate(2deg)}}
+.folder .sq{background:rgba(255,255,255,.22)!important; display:grid!important; grid-template-columns:repeat(3,1fr); gap:3px; padding:calc(var(--ic)*.14)}
+.folder .sq{place-items:stretch!important; align-content:start}
+.folder .sq i{display:block; width:100%; border-radius:3px; aspect-ratio:1}
+.widget{grid-column:span 2; grid-row:span 2; align-self:stretch; justify-self:stretch; margin:6px 6px 14px; border-radius:22px; padding:12px; background:rgba(30,33,52,.82); color:#fff; display:flex; flex-direction:column; gap:8px; min-height:0; border:0; font:inherit; text-align:left}
+.widget .wl{font-size:12px; font-weight:600; letter-spacing:.02em; opacity:.85}
+.wgrid{flex:1; display:grid; grid-template-columns:repeat(4,1fr); align-items:center; justify-items:center; gap:4px}
+#app .wgrid .tile .sq{width:calc(var(--ic)*.6); height:calc(var(--ic)*.6); border-radius:50%; box-shadow:none; background:rgba(255,255,255,.16)}
+#app .wgrid .tile .sq svg{width:18px; height:18px}
+#app .wgrid .tile .nm{display:none}
+.wpocket #pocketTxt{flex:1; min-height:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; font-size:13.5px; line-height:1.3; opacity:.75}
+.wpocket.full #pocketTxt{opacity:1}
+.wpocket .dot{width:26px; height:26px; flex:none; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center; align-self:flex-end}
+.wpocket .dot i{width:7px; height:7px; background:currentColor; transform:rotate(45deg)}
+#app #bar{padding:6px 18px 8px}
+#app #cmd{background:rgba(25,20,15,.55); border-color:transparent; color:#fff; border-radius:999px; text-align:center}
+#app #cmd::placeholder{color:rgba(255,255,255,.75)}
+#app #bar .btn.ghost{background:rgba(25,20,15,.55); border-color:transparent; color:#fff; border-radius:999px}
+#app #bar .btn{border-radius:999px; background:#fff; color:#2a241d}
+.dock{display:grid; grid-template-columns:repeat(4,1fr); justify-items:center; align-items:center; padding:12px 10px; margin:0 -4px; border-radius:34px; background:rgba(20,16,12,.72); min-height:calc(var(--ic) + 24px)}
+.dock .tile .nm{display:none}
+.inp{width:100%; font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--fg)}
+.sw{width:30px; height:30px; flex:none; border-radius:8px; display:grid; place-items:center; font-weight:600; font-size:12px}
 .lbl{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:0 2px 8px}
 .grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px 6px}
 .tile{display:flex; flex-direction:column; align-items:center; gap:5px; border:0; background:none; padding:0; color:var(--fg); font:inherit; min-width:0}
@@ -112,28 +157,25 @@ textarea{width:100%; min-height:90px; font:inherit; font-size:16px; padding:10px
 .events time{margin-left:auto; flex:none; color:var(--muted); font-size:11.5px; font-variant-numeric:tabular-nums}
 .wish button{font:inherit; font-size:12.5px; border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:9px; padding:6px 9px; white-space:nowrap}
 .wish button.sent{color:var(--muted); border-style:dashed}
-@media (max-height:700px){ .tile .sq{width:48px; height:48px} .grid{gap:8px 6px} .field{gap:10px} }
-@media (prefers-reduced-motion: reduce){ .chipbox{animation:none} }
+@media (max-height:700px){ .tile .sq{width:48px; height:48px} .grid{gap:8px 6px} .field{gap:10px} .brand{font-size:28px} }
+@media (prefers-reduced-motion: reduce){ .chipbox{animation:none} body.editing .tile .sq{animation:none!important} }
 </style>
 </head>
 <body>
 <main id="app">
   <header class="top">
     <div class="brand">Araña <small>a su servicio</small></div>
-    <div class="row"><button class="iconbtn" id="evo" type="button">Evolución</button><button class="iconbtn" id="gear" type="button">Ajustes</button></div>
+    <div class="row" id="topBtns"><button class="iconbtn" id="evo" type="button">Evolución</button><button class="iconbtn" id="gear" type="button">Ajustes</button></div>
+    <div class="row" id="editBtns" hidden><button class="iconbtn" id="addApp" type="button">+ Añadir</button><button class="iconbtn on" id="editDone" type="button">Listo</button></div>
   </header>
-  <section class="field">
-    <div><span class="lbl">Apps</span><div class="grid" id="appsGrid"></div></div>
-    <div><span class="lbl">Ajustes del iPhone</span><div class="grid" id="setsGrid"></div></div>
-    <div><span class="lbl">Bolsillo</span>
-      <button class="pocket" id="pocket" type="button"><span class="dot"><i></i></span><span id="pocketTxt">Vacío. Tóquelo para guardar un texto.</span></button>
-    </div>
-  </section>
+  <section class="pager" id="pager" aria-label="Pantalla de inicio"></section>
+  <div class="dots" id="dots"></div>
   <form id="bar" autocomplete="off">
     <input id="cmd" type="text" placeholder="Dígale qué hacer…" enterkeyhint="go">
     <button class="btn ghost" type="button" id="mic" aria-label="Voz"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2"/></svg></button>
     <button class="btn" type="submit">Ir</button>
   </form>
+  <nav class="dock" id="dock" aria-label="Dock"></nav>
 </main>
 
 <canvas id="spider"></canvas>
@@ -154,16 +196,215 @@ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const SHORTCUT='Araña';
 
 /* ================= Datos ================= */
-const APPS=[
-  {id:'notas',name:'Notas',url:'mobilenotes://',c:2,al:['notas','nota']},
-  {id:'mapas',name:'Mapas',url:'maps://',c:3,al:['mapas','mapa','maps']},
-  {id:'musica',name:'Música',url:'music://',c:4,al:['musica','music']},
-  {id:'fotos',name:'Fotos',url:'photos-redirect://',c:5,al:['fotos','galeria','foto']},
-  {id:'calendario',name:'Calendario',url:'calshow://',c:4,al:['calendario','agenda']},
-  {id:'correo',name:'Correo',url:'message://',c:1,al:['correo','mail','email','emails']},
-  {id:'recordatorios',name:'Recordatorios',url:'x-apple-reminderkit://',c:6,al:['recordatorios','recordatorio']},
-  {id:'whatsapp',name:'WhatsApp',url:'whatsapp://',c:3,al:['whatsapp','wasap','whats','wassap','guasap']},
-];
+/* Catálogo: id|nombre (como en su iPhone)|enlace (URL scheme; vacío si no se conoce)|color|otras formas de llamarla */
+const CAT_SRC=`facetime|FaceTime||#34c759|videollamada
+notas|Notes|mobilenotes://|#f5c542|notas,nota
+calendario|Calendar|calshow://|#f2f2f2|calendario,agenda
+fotos|Photos|photos-redirect://|#f7f7f7|fotos,galeria,foto
+camara|Camera||#8e8e93|camara
+correo|Mail|message://|#1a8cff|correo,mail,email,emails
+recordatorios|Reminders|x-apple-reminderkit://|#f7f7f7|recordatorios,recordatorio
+reloj|Clock|clock-alarm://|#f7f7f7|reloj,alarmas
+tv|TV|videos://|#111111|apple tv
+juegos|Games||#e8453c|juegos
+appstore|App Store|itms-apps://|#1a8cff|app store,tienda
+mapas|Maps|maps://|#5ac85a|mapas,mapa,maps
+salud|Health|x-apple-health://|#f7f7f7|salud
+cartera|Wallet|shoebox://|#1c1c1e|cartera
+ajustesapp|Settings|App-prefs:|#8e8e93|configuracion
+prime|Prime Video|aiv://|#1f6fe5|prime,amazon prime
+tiempo|Weather|weather://|#3d8ef0|tiempo,el tiempo
+bolsa|Stocks|stocks://|#1c1c1e|bolsa,acciones
+buscar|Find My|findmy://|#4cd964|buscar,encontrar
+casa|Home|com.apple.home://|#f7f7f7|casa,domotica
+podcasts|Podcasts|podcasts://|#9b4fd6|
+libros|Books|ibooks://|#f08a24|libros
+fitness|Fitness|fitnessapp://|#111111|actividad
+watch|Watch|itms-watchs://|#111111|reloj apple
+contactos|Contacts||#cfcfcf|contactos,agenda de contactos
+archivos|Files|shareddocuments://|#f7f7f7|archivos
+vistaprevia|Preview||#f7f7f7|vista previa
+itunes|iTunes Store|itms://|#b44be0|
+traducir|Translate|translate://|#5fd0f0|traducir,traductor
+freeform|Freeform|freeform://|#1f5f73|
+diario|Journal||#25284a|diario
+consejos|Tips||#f5c542|consejos
+applestore|Apple Store|applestore://|#1f6fe5|
+imovie|iMovie|imovie://|#5a3fcf|
+keynote|Keynote||#1f6fe5|
+numbers|Numbers||#1e7a34|
+pages|Pages||#e0661f|
+musica|Music|music://|#f0444f|musica,music
+flightsim|FlightSimulator2d||#7cc4ee|simulador de vuelo
+notasvoz|Voice Memos|voicememos://|#1c1c1e|notas de voz
+brujula|Compass||#1c1c1e|brujula
+medir|Measure||#1c1c1e|medir,metro
+lupa|Magnifier||#1c1c1e|lupa
+calculadora|Calculator|calc://|#f7f7f7|calculadora
+atajos|Shortcuts|shortcuts://|#5b4ce0|atajos
+contrasenas|Passwords||#3dbd5c|contrasenas,claves
+clashclans|Clash of Clans|clashofclans://|#7a3fb8|clash
+onefootball|OneFootball|onefootball://|#e9f75c|
+f1|Formula 1||#f7f7f7|f1,formula uno
+letterboxd|Letterboxd|letterboxd://|#202830|
+wellhub|Wellhub||#d9415d|gympass
+vivagym|VivaGym||#f0602a|
+pluxee|Pluxee España||#4fdc5c|pluxee
+compportal|Comp Portal|companyportal://|#f7f7f7|portal de empresa
+marca|MARCA||#f7f7f7|
+chatgpt|ChatGPT|chatgpt://|#f7f7f7|chat gpt
+ttransporte|TarjetaTransporte||#f7f7f7|tarjeta transporte,abono
+bolt|Bolt||#34a565|
+midigi|Mi DIGI||#1730e6|digi
+linkedin|LinkedIn|linkedin://|#2a6ebd|
+subway|Subway Surf||#4a8fd8|subway surfers
+scorehero|Score! Hero||#2d6b2a|
+mcdonalds|McDonald's||#f7f7f7|mcdonalds,mcdonald
+thefork|TheFork||#7cf06a|el tenedor
+ubereats|Uber Eats|ubereats://|#3fb760|
+glovo|Glovo|glovo://|#f6c34a|
+teams|Teams|msteams://|#f7f7f7|
+authenticator|Authenticator||#f7f7f7|autenticador
+onedrive|OneDrive|ms-onedrive://|#f7f7f7|
+outlook|Outlook|ms-outlook://|#f7f7f7|
+amazon|Amazon|com.amazon.mobile.shopping://|#e8c48f|
+tiktok|TikTok|snssdk1233://|#111111|tik tok
+gmail|Gmail|googlegmail://|#f7f7f7|
+bbva|BBVA||#0b1fa8|banco
+spotify|Spotify|spotify://|#111111|
+waze|Waze|waze://|#5bc8f5|
+x|X|twitter://|#111111|twitter
+netflix|Netflix|nflx://|#111111|
+gphotos|Google Photos|googlephotos://|#f7f7f7|google fotos
+cabify|Cabify|cabify://|#6a43d6|
+hbomax|HBO Max||#111526|hbo,max
+skyscanner|Skyscanner|skyscanner://|#2e7cf6|
+movistar|Movistar Plus+||#111111|movistar
+clashroyale|Clash Royale|clashroyale://|#3d7fd6|
+youtube|YouTube|youtube://|#f7f7f7|
+gmaps|Google Maps|comgooglemaps://|#f7f7f7|
+dazn|DAZN||#111111|
+fantasy|Fantasy||#111111|
+chess|Chess|chesscom://|#3a3a3a|ajedrez
+myinvestor|MyInvestor||#eef0fa|
+safari|Safari|x-safari-https://www.google.com|#f7f7f7|navegador
+mensajes|Messages|sms:|#34c759|mensajes,sms
+soundconnect|Sound Connect||#111111|
+toogoodtogo|TooGoodToGo||#1e5c52|too good to go
+esta|ESTA||#244f9e|
+clave|Cl@ve||#f7f7f7|clave
+midgt|miDGT||#28518f|dgt
+sm26|SM26||#7aaee0|
+vpnsuper|VPN Super||#3a8ef0|vpn
+chessable|Chessable||#2463e0|
+tsanitaria|Tarjeta Sanitaria||#f7f7f7|salud madrid
+mapfre|Mapfre Salud||#e8343c|mapfre
+vipdistrict|Vip District||#2f6ef0|
+revolut|Revolut|revolut://|#f7f7f7|
+holafly|Holafly||#d0304f|
+tricount|tricount||#f7f7f7|
+uber|Uber|uber://|#111111|
+fr24|Flightradar24||#2a5a9a|flightradar,radar de vuelos
+tigerball|TigerBall||#9fe08a|
+pingid|PingID||#c0262d|
+tulotero|TuLotero||#4ab070|loteria
+fnumerosa|FamiliaNumerosa||#e53a2f|familia numerosa
+kraken|Kraken||#7a4ff0|
+iprint|iPrint&Scan||#2a63c0|imprimir,impresora,brother
+airbnb|Airbnb|airbnb://|#f05b6d|
+puydufou|Puy du Fou ES||#6b1b23|puy du fou
+spaceflight|SpaceflightSim…||#8cc4ee|spaceflight
+edge|Edge|microsoft-edge://|#f7f7f7|
+gcal|Google Calendar|googlecalendar://|#f7f7f7|calendario de google
+esperabus|EsperaBusMadrid||#4a7cc0|autobus,bus
+zscaler|Zscaler||#f7f7f7|
+booking|Booking.com|booking://|#0d2a82|booking
+twitch|Twitch|twitch://|#8a45f0|
+blablacar|BlaBlaCar||#2a63e0|
+idealista|idealista||#e3f35c|
+vytal|Vytal||#4fb87a|
+lotuschess|Lotus Chess||#111111|
+burgerking|Burger King ES||#f5e6d3|burger king
+shelly|Shelly||#2a5aa0|
+freenow|Freenow||#e03040|free now
+ghome|Google Home||#f7f7f7|
+life|Life||#f2f2f2|
+telepizza|Telepizza||#d62e2e|
+moodle|Moodle|moodlemobile://|#f7f7f7|
+epic|Epic Games||#1c1c1e|epic
+trip|Trip.com||#2a4bf0|trip
+classpass|ClassPass||#2a63f0|
+parchisi|Parchisi Star||#7a2a4a|parchis
+acciona|ACCIONAMobility||#f7f7f7|acciona
+cooltra|Cooltra||#2e7cf0|
+zity|Zity&MobilizeS…||#1c1c1e|zity,mobilize
+rlsideswipe|RL Sideswipe||#3a3ae0|rocket league
+wible|WiBLE||#f7f7f7|
+bet365|bet365||#1f6b45|
+claude|Claude|claude://|#d9774f|
+fotocasa|fotocasa||#1e3cf0|
+ball8|8 Ball Pool||#3a9ee0|billar
+entaxi|EnTaxi App||#111111|taxi
+renfe|Renfe||#7a1f6a|tren
+playus|playus||#6a4fe0|
+midni|MiDNI||#1d2a50|dni
+scorito|Scorito||#111111|
+timechef|Timechef||#5aaa7a|
+deportemadrid|DEPORTESCM||#f7f7f7|deporte madrid
+linkwindows|Link to Windows||#f7f7f7|enlace movil
+locally|Locally||#f7f7f7|
+bicimad|bicimad||#2a63c0|bici
+sheets|Sheets|googlesheets://|#f7f7f7|hojas de calculo
+zoomearth|Zoom Earth||#1c1c1e|
+polytopia|Polytopia||#9fd07a|
+micarpeta|MiCarpetaCiud…||#f7f7f7|mi carpeta ciudadana,carpeta ciudadana
+groupon|Groupon|groupon://|#f7f7f7|
+starwalk|Star Walk 2||#3a2a8a|star walk,estrellas
+moco|mo.co||#111111|moco
+brawlstars|Brawl Stars|brawlstars://|#2a2a2a|brawl
+gameinformer|GAMEINFORMER||#2a4ae0|game informer
+dominos|Domino's||#f7f7f7|dominos
+rfs|RFS||#6a8ab0|
+alchemy|Little Alchemy||#f5efe0|
+cercanias|Cercanias||#d9302a|cercanias
+sevici|SEVICI||#f7f7f7|
+absoluterc|AbsoluteRCSim…||#7a7ae0|absolute rc
+vinted|Vinted|vinted://|#1f7a80|
+idleminer|Idle Miner||#5a8ae0|
+telefono|Phone|mobilephone://|#34c759|telefono,llamadas
+chrome|Chrome|googlechrome://|#f7f7f7|
+instagram|Instagram|instagram://|#d6307a|insta
+whatsapp|WhatsApp|whatsapp://|#34c759|whatsapp,wasap,whats,wassap,guasap
+telegram|Telegram|tg://|#2aa3e0|
+facebook|Facebook|fb://|#1877f2|
+discord|Discord|discord://|#5865f2|
+zoom|Zoom|zoomus://|#2d8cff|
+shazam|Shazam|shazam://|#1a8cff|
+duolingo|Duolingo|duolingo://|#58cc02|
+wallapop|Wallapop|wallapop://|#13c1ac|
+gdrive|Google Drive|googledrive://|#f7f7f7|drive
+pinterest|Pinterest|pinterest://|#e60023|
+reddit|Reddit|reddit://|#ff4500|`;
+const CATALOG={};
+CAT_SRC.split('\n').forEach(line=>{ const [id,name,url,bg,al]=line.split('|'); CATALOG[id]={id,name,url:url||'',bg:bg||'#556',al:al?al.split(','):[]}; });
+/* Pantalla de Juan (capturas del 20/10/2026). La página 1 lleva dos widgets: Ajustes y Bolsillo. */
+const DEF_HOME={
+  pages:[
+    ['facetime','notas','calendario','fotos','camara','correo','recordatorios','reloj','tv','juegos','appstore','mapas','salud','cartera','ajustesapp','prime'],
+    ['tiempo','bolsa','buscar','casa','podcasts','libros','fitness','watch','contactos','archivos','vistaprevia','f:utilidades','itunes','traducir','freeform','diario','consejos','applestore','imovie','keynote','numbers','pages','musica','flightsim'],
+    ['clashclans','onefootball','f1','letterboxd','wellhub','vivagym','pluxee','compportal','marca','chatgpt','ttransporte','bolt','midigi','linkedin','subway','scorehero','mcdonalds','thefork','ubereats','glovo','teams','authenticator','onedrive','outlook'],
+    ['amazon','tiktok','gmail','bbva','spotify','waze','x','netflix','gphotos','cabify','hbomax','skyscanner','movistar','clashroyale','youtube','gmaps','dazn','fantasy','chess','myinvestor','safari','mensajes','soundconnect','toogoodtogo'],
+    ['esta','clave','midgt','sm26','vpnsuper','chessable','tsanitaria','mapfre','vipdistrict','revolut','holafly','tricount','uber','fr24','tigerball','pingid','tulotero','fnumerosa','kraken','iprint','airbnb','puydufou','spaceflight','edge'],
+    ['gcal','esperabus','zscaler','booking','twitch','blablacar','idealista','vytal','lotuschess','burgerking','shelly','freenow','ghome','life','telepizza','moodle','epic','trip','classpass','parchisi','acciona','cooltra','zity','rlsideswipe'],
+    ['wible','bet365','claude','fotocasa','ball8','entaxi','renfe','playus','midni','scorito','timechef','deportemadrid','linkwindows','locally','bicimad','sheets','zoomearth','polytopia','micarpeta','groupon','starwalk','moco','brawlstars','gameinformer'],
+    ['dominos','rfs','alchemy','cercanias','sevici','absoluterc','vinted','idleminer'],
+  ],
+  dock:['telefono','chrome','instagram','whatsapp'],
+  folders:{utilidades:{name:'Utilities',apps:['notasvoz','brujula','medir','lupa','calculadora','atajos','contrasenas']}},
+  custom:{}, over:{}
+};
+const TXT_APPS=['whatsapp','notas','correo','mensajes','gmail','outlook','recordatorios','teams','telegram','chatgpt','claude','x','linkedin','instagram'];
+let APPS=[];
 const IC={
   wifi:'<path d="M3 9a13 13 0 0 1 18 0M6 12.5a8.5 8.5 0 0 1 12 0M9 16a4 4 0 0 1 6 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/>',
   bt:'<path d="M7 7l10 10-5 4V3l5 4L7 17"/>',
@@ -185,6 +426,7 @@ const SETS=[
   {id:'datos',name:'Datos',sc:'datos',kind:'onoff',al:['datos moviles','datos']},
 ];
 const appById=id=>APPS.find(a=>a.id===id), setById=id=>SETS.find(s=>s.id===id);
+const actOK=a=>!(a&&(a.t==='open'||a.t==='carry'))||!!appById(a.id);
 
 /* ================= Memoria (aprendizaje) ================= */
 const store={
@@ -197,6 +439,10 @@ let prefs=store.get('prefs',{perm:'aprendido',mv:'auto'});
 let pocket=store.get('pocket','');
 let log=store.get('log',[]);       // diario: {k, r, a, p, ts}
 let wishes=store.get('wishes',{}); // frase -> {n, why, sent}
+let home=store.get('home',null);    // su pantalla: páginas, dock, carpetas, apps propias, nombres y enlaces cambiados
+if(!home||!Array.isArray(home.pages)||!home.pages.length) home=JSON.parse(JSON.stringify(DEF_HOME));
+home.dock=home.dock||[]; home.folders=home.folders||{}; home.custom=home.custom||{}; home.over=home.over||{};
+const saveHome=()=>store.set('home',home);
 const REPO='JRJR3333/arana';
 let VERSION=store.get('ver',{version:'0.1.0',notes:[]});
 function logEv(r,a,p,extra){ log.push({r,a:a?label(a):'',p:p||'',ts:Date.now(),...(extra||{})}); if(log.length>800) log=log.slice(-800); store.set('log',log); }
@@ -232,30 +478,175 @@ const saveAll=()=>{ store.set('mem',mem); store.set('stats',stats); store.set('p
 const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[¿?¡!.,;:]/g,' ').replace(/\s+/g,' ').trim();
 const keyOf=a=>[a.t,a.id||'',a.v||''].join(':');
 function label(a){
-  if(a.t==='open') return 'Abrir '+appById(a.id).name;
+  const an=id=>(appById(id)||(CATALOG[id]||{name:id})).name;
+  if(a.t==='open') return 'Abrir '+an(a.id);
   if(a.t==='set'){ const s=setById(a.id); return s.name+': '+(a.v==='on'?'activar':a.v==='off'?'desactivar':a.v+' %'); }
   if(a.t==='wa') return 'Preparar un WhatsApp';
-  if(a.t==='carry') return 'Llevar el bolsillo a '+appById(a.id).name;
+  if(a.t==='carry') return 'Llevar el bolsillo a '+an(a.id);
   if(a.t==='pocket') return 'Guardar en el bolsillo';
   return '?';
 }
 
 /* ================= Pantalla ================= */
 function tileHTML(inner,c){ return `<span class="sq" style="--c:${c}">${inner}</span>`; }
-APPS.forEach(a=>{
-  const b=document.createElement('button'); b.className='tile'; b.type='button'; b.dataset.app=a.id;
-  b.innerHTML=tileHTML(`<b>${a.name[0]}</b>`,`var(--app-${a.c})`)+`<span class="nm">${a.name}</span>`;
-  b.onclick=()=>{ if(!busy) run(()=>doAction({t:'open',id:a.id},null)); };
-  $('#appsGrid').appendChild(b); a.el=b;
+const esc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function appInfo(id){ const c=CATALOG[id]||home.custom[id]; if(!c) return null; const o=home.over[id]||{}; return {...c,name:o.name||c.name,url:'url' in o?o.url:c.url}; }
+function rebuildApps(){
+  const all=[];
+  [...home.pages.flat(),...home.dock].forEach(id=>{ if(id.startsWith('f:')){ const f=home.folders[id.slice(2)]; if(f) f.apps.forEach(x=>all.push([x,id])); } else all.push([id,null]); });
+  APPS=all.map(([id,fid])=>{ const c=appInfo(id); if(!c) return null;
+    const al=[...new Set([norm(c.name),norm(CATALOG[id]?CATALOG[id].name:c.name),...c.al.map(norm)])].filter(Boolean);
+    return {id,name:c.name,url:c.url,bg:c.bg,al,folder:fid,el:null}; }).filter(Boolean);
+}
+const inkFor=hex=>{ const h=hex.replace('#',''); if(h.length<6) return '#fff'; const [r,g,b]=[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255); return (.299*r+.587*g+.114*b)>.62?'#1d1d1f':'#fff'; };
+const initials=n=>{ const w=n.replace(/[^\p{L}\p{N} ]/gu,' ').trim().split(/\s+/).filter(Boolean); return ((w[0]||'?')[0]+(w.length>1&&w[0].length<5?w[1][0]:'')).toUpperCase(); };
+let editing=false, longFired=false;
+function tileFor(id){
+  const b=document.createElement('button'); b.className='tile'; b.type='button';
+  if(id.startsWith('f:')){
+    const f=home.folders[id.slice(2)]; if(!f) return null;
+    b.classList.add('folder'); b.dataset.folder=id;
+    b.innerHTML=`<span class="sq">${f.apps.slice(0,9).map(x=>`<i style="background:${(appInfo(x)||{bg:'#888'}).bg}"></i>`).join('')}</span><span class="nm">${escapeHTML(f.name)}</span>`;
+    b.onclick=()=>{ if(!busy) openFolder(id.slice(2)); };
+    APPS.forEach(a=>{ if(a.folder===id) a.el=b; });
+    return b;
+  }
+  const a=appById(id); if(!a) return null;
+  b.dataset.app=id;
+  b.innerHTML=`<span class="x" aria-label="Quitar">−</span>`+tileHTML(`<b>${escapeHTML(initials(a.name))}</b>`,a.bg).replace('style="','style="--fg2:'+inkFor(a.bg)+';')+`<span class="nm">${escapeHTML(a.name)}</span>`;
+  b.querySelector('.x').onclick=e=>{ e.stopPropagation(); removeApp(id); };
+  b.onclick=()=>{ if(editing) return editApp(id); if(!busy) run(()=>doAction({t:'open',id},null)); };
+  a.el=b; return b;
+}
+function widgets(){
+  const f=document.createDocumentFragment();
+  const w=document.createElement('div'); w.className='widget'; w.innerHTML='<span class="wl">Ajustes</span><div class="wgrid"></div>';
+  SETS.forEach(s=>{
+    const b=document.createElement('button'); b.className='tile'; b.type='button'; b.dataset.set=s.id; b.setAttribute('aria-label',s.name);
+    b.innerHTML=tileHTML(`<svg viewBox="0 0 24 24">${IC[s.id]}</svg>`,'transparent')+`<span class="nm">${s.name}</span>`;
+    b.onclick=()=>{ if(!busy&&!editing) pickSetting(s); };
+    w.querySelector('.wgrid').appendChild(b); s.el=b;
+  });
+  const p=document.createElement('button'); p.className='widget wpocket'; p.id='pocket'; p.type='button';
+  p.innerHTML='<span class="wl">Bolsillo</span><span id="pocketTxt"></span><span class="dot"><i></i></span>';
+  p.onclick=()=>{ if(!busy&&!editing) fillPocket(); };
+  f.append(w,p); return f;
+}
+function renderHome(){
+  rebuildApps();
+  const pager=$('#pager'), keep=pager.scrollLeft; pager.innerHTML='';
+  home.pages.forEach((ids,pi)=>{
+    const pg=document.createElement('div'); pg.className='page'; pg.dataset.p=pi;
+    if(pi===0) pg.appendChild(widgets());
+    ids.forEach(id=>{ const t=tileFor(id); if(t) pg.appendChild(t); });
+    pager.appendChild(pg);
+  });
+  const dock=$('#dock'); dock.innerHTML=''; home.dock.forEach(id=>{ const t=tileFor(id); if(t) dock.appendChild(t); });
+  $('#dots').innerHTML=home.pages.map(()=>'<i></i>').join('');
+  pager.scrollLeft=keep; renderPocket(); sizeIcons(); markDot();
+}
+function markDot(){ const pager=$('#pager'), i=Math.round(pager.scrollLeft/Math.max(1,pager.clientWidth)); [...$('#dots').children].forEach((d,k)=>d.classList.toggle('on',k===i)); }
+function sizeIcons(){ const h=$('#pager').clientHeight; if(!h) return; const ic=Math.round(Math.max(40,Math.min(62,h/6-26))); document.documentElement.style.setProperty('--ic',ic+'px'); }
+$('#pager').addEventListener('scroll',markDot,{passive:true});
+addEventListener('resize',()=>{ sizeIcons(); markDot(); });
+/* Llevar a la vista la página donde está un icono antes de que la araña vaya */
+async function reveal(el){
+  const pg=el&&el.closest('.page'); if(!pg) return; const pager=$('#pager');
+  if(Math.abs(pager.scrollLeft-pg.offsetLeft)<4) return;
+  pager.scrollTo({left:pg.offsetLeft,behavior:reduce?'auto':'smooth'}); await wait(reduce?80:520);
+}
+function goPage(i){ const pg=$('#pager').children[i]; if(pg) $('#pager').scrollTo({left:pg.offsetLeft,behavior:reduce?'auto':'smooth'}); }
+
+/* ---------- Organizar (mantener pulsado) ---------- */
+const cap=p=>p===0?16:24;
+function locate(id){
+  for(let p=0;p<home.pages.length;p++){ const i=home.pages[p].indexOf(id); if(i>=0) return {list:home.pages[p],p,i}; }
+  const d=home.dock.indexOf(id); if(d>=0) return {list:home.dock,p:-1,i:d};
+  for(const k in home.folders){ const i=home.folders[k].apps.indexOf(id); if(i>=0) return {list:home.folders[k].apps,p:-2,f:k,i}; }
+  return null;
+}
+function tidy(){
+  for(let p=0;p<home.pages.length;p++){ if(home.pages[p].length>cap(p)){ const extra=home.pages[p].splice(cap(p)); if(!home.pages[p+1]) home.pages.push([]); home.pages[p+1].unshift(...extra); } }
+  for(const k in home.folders){ if(!home.folders[k].apps.length){ delete home.folders[k]; const L=locate('f:'+k); if(L) L.list.splice(L.i,1); } }
+  home.pages=home.pages.filter((pg,i)=>i===0||pg.length);
+}
+const commit=()=>{ tidy(); saveHome(); renderHome(); };
+function placeAtEnd(id){ let p=home.pages.length-1; if(home.pages[p].length>=cap(p)){ home.pages.push([]); p++; } home.pages[p].push(id); return p; }
+function moveBy(id,dir){
+  const L=locate(id); if(!L) return; const {list,p,i}=L, j=i+dir;
+  if(j>=0&&j<list.length){ [list[i],list[j]]=[list[j],list[i]]; }
+  else if(p>=0){ const q=p+dir; if(q<0) return; if(q>=home.pages.length) home.pages.push([]); const other=home.pages[q]; list.splice(i,1);
+    if(other.length<cap(q)) dir<0?other.push(id):other.unshift(id);
+    else if(dir<0){ const out=other.pop(); other.push(id); list.unshift(out); }
+    else { const out=other.shift(); other.unshift(id); list.push(out); } }
+  commit();
+}
+function removeApp(id){ const L=locate(id); if(!L) return; L.list.splice(L.i,1); commit(); say('Quitada de aquí. Con «+ Añadir» vuelve.',3000); }
+function addApp(id){ const p=placeAtEnd(id); commit(); setTimeout(()=>goPage(p),60); }
+function enterEdit(){ if(editing) return; closeMenus(); editing=true; document.body.classList.add('editing'); $('#topBtns').hidden=true; $('#editBtns').hidden=false; say('Toque una app para moverla, renombrarla o cambiar su enlace.',3800); }
+function exitEdit(){ editing=false; document.body.classList.remove('editing'); $('#topBtns').hidden=false; $('#editBtns').hidden=true; lastActive=performance.now(); say('Guardado.'); }
+$('#editDone').onclick=exitEdit;
+$('#addApp').onclick=()=>openAdd();
+let lp=null;
+['#pager','#dock'].forEach(sel=>{ const el=$(sel);
+  el.addEventListener('pointerdown',e=>{ if(!e.target.closest('.tile,.widget')) return; clearTimeout(lp&&lp.t); lp={x:e.clientX,y:e.clientY,t:setTimeout(()=>{ longFired=true; lp=null; enterEdit(); },550)}; });
+  el.addEventListener('pointermove',e=>{ if(lp&&Math.hypot(e.clientX-lp.x,e.clientY-lp.y)>10){ clearTimeout(lp.t); lp=null; } });
+  ['pointerup','pointercancel'].forEach(t=>el.addEventListener(t,()=>{ if(lp){ clearTimeout(lp.t); lp=null; } }));
 });
-SETS.forEach(s=>{
-  const b=document.createElement('button'); b.className='tile'; b.type='button'; b.dataset.set=s.id;
-  b.innerHTML=tileHTML(`<svg viewBox="0 0 24 24">${IC[s.id]}</svg>`,'var(--set)')+`<span class="nm">${s.name}</span>`;
-  b.onclick=()=>{ if(!busy) pickSetting(s); };
-  $('#setsGrid').appendChild(b); s.el=b;
-});
-function renderPocket(){ const p=$('#pocket'); p.classList.toggle('full',!!pocket); $('#pocketTxt').textContent=pocket||'Vacío. Tóquelo para guardar un texto.'; }
-renderPocket();
+document.addEventListener('click',e=>{ if(longFired){ longFired=false; e.stopPropagation(); e.preventDefault(); } },true);
+document.addEventListener('contextmenu',e=>{ if(e.target.closest('#pager,#dock')) e.preventDefault(); });
+function editApp(id){
+  const a=appById(id)||appInfo(id); if(!a) return; const L=locate(id);
+  const inFolder=L&&L.p===-2, inDock=L&&L.p===-1;
+  openSheet(`<h2>${escapeHTML(a.name)}</h2>
+    <div><span class="lbl">Nombre</span><input class="inp" id="eName" value="${escapeHTML(a.name)}"></div>
+    <div><span class="lbl">Enlace para abrirla</span><input class="inp" id="eUrl" value="${escapeHTML(a.url||'')}" placeholder="por ejemplo spotify://" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <p class="note" style="margin-top:6px">Es el «URL scheme» de la app. Si no lo conoce, pídaselo a Claude desde la araña.</p></div>
+    <div class="row">${inFolder?'<button class="btn ghost" type="button" id="eOut">Sacar de la carpeta</button>':`<button class="btn ghost" type="button" id="eL">← Mover</button><button class="btn ghost" type="button" id="eR">Mover →</button><button class="btn ghost" type="button" id="eDock">${inDock?'Sacar del dock':'Al dock'}</button>`}</div>
+    <div class="row"><button class="btn" type="button" id="eSave">Guardar</button><button class="btn ghost" type="button" id="eRm">Quitar</button><button class="btn ghost" type="button" id="eClose">Cerrar</button></div>`);
+  $('#eSave').onclick=()=>{ const n=$('#eName').value.trim(), u=$('#eUrl').value.trim(), base=CATALOG[id]||home.custom[id], o={};
+    if(n&&n!==base.name) o.name=n; if(u!==base.url) o.url=u; if(Object.keys(o).length) home.over[id]=o; else delete home.over[id];
+    closeSheet(); commit(); say('Anotado.'); };
+  $('#eRm').onclick=()=>{ closeSheet(); removeApp(id); };
+  $('#eClose').onclick=closeSheet;
+  if(inFolder) $('#eOut').onclick=()=>{ L.list.splice(L.i,1); placeAtEnd(id); closeSheet(); commit(); };
+  else {
+    $('#eL').onclick=()=>{ moveBy(id,-1); };
+    $('#eR').onclick=()=>{ moveBy(id,1); };
+    $('#eDock').onclick=()=>{ if(inDock){ L.list.splice(L.i,1); placeAtEnd(id); }
+      else { if(home.dock.length>=4){ say('El dock está lleno: saque antes una app.',3200); return; } L.list.splice(L.i,1); home.dock.push(id); }
+      closeSheet(); commit(); };
+  }
+}
+function openFolder(k){
+  const f=home.folders[k]; if(!f) return; closeMenus();
+  openSheet(`<h2>${escapeHTML(f.name)}</h2><ul class="learned">${f.apps.map(id=>{ const a=appInfo(id)||{name:id,bg:'#888'}; return `<li data-id="${id}"><span class="sw" style="background:${a.bg};color:${inkFor(a.bg)}">${escapeHTML(initials(a.name))}</span><div class="ph"><b>${escapeHTML(a.name)}</b></div>${editing?'<button type="button" data-ed>Editar</button>':''}</li>`; }).join('')}</ul>
+    <div class="row"><button class="btn ghost" type="button" id="fClose">Cerrar</button></div>`);
+  document.querySelectorAll('#sheet li[data-id]').forEach(li=>li.onclick=()=>{ const id=li.dataset.id; closeSheet(); if(editing) editApp(id); else run(()=>doAction({t:'open',id},null)); });
+  $('#fClose').onclick=closeSheet;
+}
+function openAdd(){
+  closeMenus();
+  const placed=new Set([...home.pages.flat(),...home.dock,...Object.values(home.folders).flatMap(f=>f.apps)]);
+  const pool=[...Object.values(CATALOG),...Object.values(home.custom)].filter(c=>!placed.has(c.id));
+  openSheet(`<h2>Añadir app</h2>
+    <input class="inp" id="aQ" placeholder="Buscar…" autocomplete="off">
+    <ul class="learned" id="aList"></ul>
+    <div><span class="lbl">Otra app</span>
+      <div class="row"><input class="inp" id="aName" placeholder="Nombre"><input class="inp" id="aUrl" placeholder="Enlace, p. ej. spotify:// (opcional)" autocapitalize="off" autocorrect="off" spellcheck="false"></div></div>
+    <div class="row"><button class="btn" type="button" id="aAdd">Añadir</button><button class="btn ghost" type="button" id="aClose">Cerrar</button></div>`);
+  const draw=()=>{ const q=norm($('#aQ').value);
+    const list=pool.filter(c=>!q||norm(c.name).includes(q)||c.al.some(x=>norm(x).includes(q)));
+    $('#aList').innerHTML=list.length?list.map(c=>`<li><span class="sw" style="background:${c.bg};color:${inkFor(c.bg)}">${escapeHTML(initials(c.name))}</span><div class="ph"><b>${escapeHTML(c.name)}</b><small>${c.url?escapeHTML(c.url):'sin enlace'}</small></div><button type="button" data-add="${c.id}" aria-label="Añadir">+</button></li>`).join(''):'<p class="note">Todas las apps conocidas ya están en su pantalla. Añada otra abajo.</p>';
+    document.querySelectorAll('#aList [data-add]').forEach(b=>b.onclick=()=>{ closeSheet(); addApp(b.dataset.add); say('Puesta al final.'); }); };
+  $('#aQ').oninput=draw; draw();
+  $('#aAdd').onclick=()=>{ const n=$('#aName').value.trim(); if(!n){ $('#aName').focus(); return; }
+    const id='c'+Date.now().toString(36); home.custom[id]={id,name:n,url:$('#aUrl').value.trim(),bg:'#4a5568',al:[]};
+    closeSheet(); addApp(id); say('Añadida.'); };
+  $('#aClose').onclick=closeSheet;
+}
+function renderPocket(){ const p=$('#pocket'); if(!p) return; p.classList.toggle('full',!!pocket); $('#pocketTxt').textContent=pocket||'Vacío. Tóquelo para guardar un texto.'; }
+renderHome();
 function center(el){ const r=(el.querySelector('.sq')||el.querySelector('.dot')||el).getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; }
 function press(el){ (el.querySelector('.sq')||el).animate([{transform:'scale(1)'},{transform:'scale(.86)'},{transform:'scale(1)'}],{duration:260,easing:'ease-out'}); }
 function mark(el,on){ (el.querySelector('.sq')||el).classList.toggle('webbed',on); }
@@ -403,7 +794,7 @@ const overlayOpen=()=>!!pendingChip||!$('#sheet').hidden;
 /* ================= Puente con iOS ================= */
 const scURL=(cmd,val)=>`shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT)}&input=text&text=${encodeURIComponent(cmd+'|'+val)}`;
 function urlFor(a){
-  if(a.t==='open'||a.t==='carry') return appById(a.id).url;
+  if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); return x?x.url:''; }
   if(a.t==='set') return scURL(setById(a.id).sc,a.v);
   if(a.t==='wa') return 'whatsapp://send?text='+encodeURIComponent(a.text||'');
   return null;
@@ -436,19 +827,29 @@ async function askFeedback(p){
 }
 
 /* ================= Tareas ================= */
-function elFor(a){ if(a.t==='open'||a.t==='carry') return appById(a.id).el; if(a.t==='set') return setById(a.id).el; if(a.t==='wa') return appById('whatsapp').el; return $('#pocket'); }
+function elFor(a){ if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); return x&&x.el; } if(a.t==='set') return setById(a.id).el; if(a.t==='wa'){ const x=appById('whatsapp'); return x&&x.el; } return $('#pocket'); }
 async function doAction(a,phrase){
-  const el=elFor(a), c=center(el), url=urlFor(a), t=trust(a,phrase);
+  const el=elFor(a), url=urlFor(a), t=trust(a,phrase);
+  if(!el){ say('Esa app ya no está en su pantalla.',3000); return; }
   if(a.t==='carry'&&!pocket){ say('El bolsillo está vacío. Primero guarde algo en él.',3200); return; }
+  const nm=(a.t==='open'||a.t==='carry')?appById(a.id).name:'';
+  if(!url){
+    await reveal(el); const c0=center(el); await approach(c0); sad();
+    const why='No conoce el enlace (URL scheme) de '+nm+'.', ph=phrase||('abre '+norm(nm));
+    const v=await chips(`No sé abrir ${nm}: me falta su enlace.`,[['Poner enlace','edit','yes'],['Pedírselo a Claude','claude','',()=>{ addWish(ph,why); askClaude(ph,why); }],['×',null]],c0);
+    if(v==='edit') editApp(a.id); else if(v==='claude') say('Petición creada. Pulse «Create» en GitHub.',3600);
+    return;
+  }
   if(t.doubtful) say('La última vez esto no salió bien.',2400);
-  if(a.t==='carry'){ carry.x=center($('#pocket')).x; carry.y=center($('#pocket')).y; await approach(center($('#pocket'))); const wp=await web(center($('#pocket'))); release(wp); carry.on=true; await wait(300); }
+  if(a.t==='carry'){ const pk=$('#pocket'); await reveal(pk); carry.x=center(pk).x; carry.y=center(pk).y; await approach(center(pk)); const wp=await web(center(pk)); release(wp); carry.on=true; await wait(300); }
+  await reveal(el); const c=center(el);
   await approach(c);
   const w=await web(c); mark(el,true);
   const go=()=>{ if(a.t==='carry'){ try{ navigator.clipboard&&navigator.clipboard.writeText(pocket); }catch(e){} } pending={act:a,phrase}; launch(url); };
   const mustAsk=a.t==='carry'||prefs.perm==='siempre'||(prefs.perm==='aprendido'&&!t.sure)||t.doubtful;
   let launched=false;
   if(mustAsk){
-    const q=a.t==='carry'?`¿Lo copio y abro ${appById(a.id).name}?`:a.t==='wa'?'¿Abro WhatsApp con el texto?':`¿${label(a)}?`;
+    const q=a.t==='carry'?`¿Lo copio y abro ${nm}?`:a.t==='wa'?'¿Abro WhatsApp con el texto?':`¿${label(a)}?`;
     const v=await chips(q,[['Sí',true,'yes',go],['No',false]],c,w);
     if(!v){ mark(el,false); release(w); carry.on=false; say('Como prefiera.'); if(phrase) learn(phrase,a,-1); logEv('cancel',a,phrase); throw CANCEL; }
     launched=true;
@@ -462,11 +863,17 @@ async function doAction(a,phrase){
   if(launched&&!wentAway&&!document.hidden&&pending){
     const v=await chips('iOS necesita un toque suyo.',[['Continuar',true,'yes',()=>launch(url)],['Cancelar',false]],{x:S.x,y:S.y});
     if(!v) pending=null;
+    // Si ni así se abre, quizá la app ya no está instalada o el enlace no vale
+    else if(a.t==='open'||a.t==='carry'){ await wait(1600);
+      if(!wentAway&&!document.hidden){ pending=null; sad();
+        const r=await chips(`${nm} no se abre. ¿La ha borrado?`,[['Sí, quitarla','rm'],['Cambiar enlace','edit'],['No',null]],{x:S.x,y:S.y});
+        if(r==='rm') removeApp(a.id); else if(r==='edit') editApp(a.id); } }
   }
 }
 function pickSetting(s){
   lastActive=performance.now();
   const opts=s.kind==='level'?[['25 %','25'],['50 %','50'],['75 %','75'],['100 %','100']]:[['Activar','on','yes'],['Desactivar','off']];
+  goPage(0);
   chips(s.name,[...opts,['×',null]],center(s.el)).then(v=>{ if(v) run(()=>doAction({t:'set',id:s.id,v},null)); }).catch(()=>{});
 }
 async function fillPocket(){
@@ -480,9 +887,8 @@ async function fillPocket(){
   $('#pClear').onclick=()=>{ $('#pText').value=''; };
   $('#pClose').onclick=closeSheet;
   $('#pSave').onclick=()=>{ pocket=$('#pText').value.trim(); saveAll(); renderPocket(); closeSheet();
-    run(async()=>{ const c=center($('#pocket')); await approach(c); const w=await web(c); await wait(250); release(w); happy(); say(pocket?'Guardado en el bolsillo.':'Bolsillo vacío.'); }); };
+    run(async()=>{ await reveal($('#pocket')); const c=center($('#pocket')); await approach(c); const w=await web(c); await wait(250); release(w); happy(); say(pocket?'Guardado en el bolsillo.':'Bolsillo vacío.'); }); };
 }
-$('#pocket').onclick=()=>{ if(!busy) fillPocket(); };
 function cleanup(){ webs.forEach(release); carry.on=false; document.querySelectorAll('.webbed').forEach(e=>e.classList.remove('webbed')); }
 async function run(fn){
   if(busy){ say('Un momento, termino lo anterior.'); return; }
@@ -496,17 +902,17 @@ function hideAtEdge(){ S.hidden=true; S.face=null; S.travelFloat=false; S.tx=S.x
 /* ================= Entender órdenes ================= */
 const CANT=[
   [/(pulsa|toca|dale|clic|click).*(en|dentro|boton)/,'No puedo tocar dentro de otras apps: iOS no lo permite a ninguna app.'],
-  [/(mueve|ordena|coloca|recoloca).*(icono|apps|aplicaciones)/,'No puedo mover iconos: Apple no deja que ninguna app toque la pantalla de inicio.'],
+  [/(mueve|coloca|recoloca).*(icono|apps|aplicaciones)/,'Los iconos de su iPhone no los puedo mover: Apple no lo permite. Los de aquí sí: mantenga pulsado uno.'],
   [/(borra|elimina|desinstala|instala)\b/,'Instalar o borrar apps solo puede hacerlo usted.'],
   [/(lee|leeme|que dice|mira|revisa).*(pantalla|notificacion|mensajes|correo)/,'No puedo ver lo que hay en otras apps. Si me pega el texto en el bolsillo, lo uso.'],
   [/(llama|llamar)\b/,'Llamar todavía no lo sé hacer. Se puede añadir con un atajo.'],
   [/(alarma|despierta|temporizador)/,'Las alarmas aún no están en mi atajo. Se pueden añadir.'],
 ];
 const ALL_ACTS=()=>[
-  ...APPS.map(a=>({act:{t:'open',id:a.id},words:a.al.concat(['abre','abrir'])})),
+  ...APPS.map(a=>({act:{t:'open',id:a.id},words:a.al.flatMap(x=>x.split(' '))})),
   ...SETS.flatMap(s=>s.kind==='level'?[{act:{t:'set',id:s.id,v:'50'},words:s.al.concat(['sube','baja'])}]:[{act:{t:'set',id:s.id,v:'on'},words:s.al.concat(['activa','enciende','pon'])},{act:{t:'set',id:s.id,v:'off'},words:s.al.concat(['apaga','desactiva','quita'])}]),
 ];
-const findApp=l=>APPS.find(a=>a.al.some(x=>new RegExp('\\b'+x+'\\b').test(l)));
+function findApp(l){ let best=null,bl=0; for(const a of APPS) for(const x of a.al){ if(x.length>bl&&new RegExp('(^|\\s)'+esc(x)+'(\\s|$)').test(l)){ best=a; bl=x.length; } } return best; }
 const findSet=l=>SETS.find(s=>s.al.some(x=>new RegExp('\\b'+x+'\\b').test(l)));
 function rules(l,raw){
   const OFF=/\b(apaga|apagar|desactiva|desactivar|quita|quitar|off|cierra|sin)\b/, ON=/\b(enciende|encender|activa|activar|pon|poner|on|con|abre)\b/;
@@ -518,6 +924,7 @@ function rules(l,raw){
   if(/\b(deja de seguir\w*|para de seguir\w*|no me sigas|no me persigas|quieta|quieto|estate quiet[ao])\b/.test(l)) return {follow:false};
   if(/\b(sigueme|sigas|seguirme|sigue (mi|el) dedo|persigueme|persigas|ven conmigo)\b/.test(l)) return {follow:true};
   if(/\b(guarda|bolsillo)\b/.test(l)) return {pocket:true};
+  if(/\b(edita|editar|organiza|organizar|ordena|ordenar|personaliza|personalizar)\b/.test(l)&&/\b(pantalla|iconos|apps|inicio|aplicaciones)\b/.test(l)) return {edit:true};
   for(const [re,msg] of CANT) if(re.test(l)) return {cant:msg};
   const s=findSet(l);
   if(s){
@@ -531,7 +938,7 @@ function rules(l,raw){
     return {suggestSet:s};
   }
   const a=findApp(l); if(a) return {act:{t:'open',id:a.id}};
-  if(/^(abre|abrir|abra|lanza|entra)\b/.test(l)) return {cant:'Esa app aún no está entre mis estaciones. Se puede añadir a la lista de apps.'};
+  if(/^(abre|abrir|abra|lanza|entra)\b/.test(l)) return {cant:'Esa app no está en su pantalla. Mantenga pulsado un icono y use «+ Añadir».'};
   return null;
 }
 function similar(a,b){ const A=new Set(a.split(' ')), B=new Set(b.split(' ')); let i=0; A.forEach(x=>{ if(B.has(x)) i++; }); return i/(A.size+B.size-i||1); }
@@ -544,11 +951,12 @@ async function interpret(raw){
   const l=norm(raw); if(!l) return; lastActive=performance.now();
   // 1) Lo aprendido manda
   let m=mem[l]; if(!m){ let best=null,bs=0; for(const k in mem){ const s=similar(k,l); if(s>bs){ bs=s; best=k; } } if(bs>=.75&&mem[best].score>=1) m=mem[best]; }
-  if(m&&m.score>=1) return run(()=>doAction(m.act,l));
+  if(m&&m.score>=1&&actOK(m.act)) return run(()=>doAction(m.act,l));
   // 2) Reglas
   const r=rules(l,raw);
   if(r&&r.act) return run(()=>doAction(r.act,l));
   if(r&&r.pocket) return fillPocket();
+  if(r&&r.edit) return enterEdit();
   if(r&&'follow' in r) return setFollow(r.follow);
   if(r&&r.cant){ sad(); say(r.cant,4200); logEv('cant',null,l); addWish(l,r.cant); return offerClaude(l,r.cant); }
   if(r&&r.suggestSet) return pickSetting(r.suggestSet);
@@ -604,6 +1012,9 @@ function openSettings(){
     <div><span class="lbl">Desplazamiento</span>${seg('mv',[['auto','Auto'],['walk','Patas'],['float','Flotar']],prefs.mv)}</div>
     <div><span class="lbl">Lo que he aprendido</span>
       ${items.length?`<ul class="learned">${items.map(([k,m])=>`<li><div class="ph"><b>«${escapeHTML(k)}»</b><small>${escapeHTML(label(m.act))}</small></div><span class="sc">${m.score>0?'+':''}${m.score}</span><button type="button" data-del="${escapeHTML(k)}" aria-label="Olvidar">×</button></li>`).join('')}</ul>`:'<p class="note">Nada todavía. Cada vez que me diga «Bien» o elija una opción, aprendo.</p>'}</div>
+    <div><span class="lbl">Pantalla</span>
+      <div class="row"><button class="btn ghost" type="button" id="hEdit">Organizar apps</button><button class="btn ghost" type="button" id="hReset">Volver a la original</button></div>
+      <p class="note" style="margin-top:6px">iOS no me deja ver qué apps tiene instaladas. Si instala o borra una, póngala o quítela aquí (o mantenga pulsado un icono).</p></div>
     <div><span class="lbl">Conexión con Atajos</span>
       <div class="row"><button class="btn ghost" type="button" id="test">Probar el atajo «Araña»</button></div>
       <p class="note" style="margin-top:6px">Si no pasa nada, el atajo no existe o tiene otro nombre.</p></div>
@@ -612,6 +1023,8 @@ function openSettings(){
   document.querySelectorAll('#sheet input[name="mv"]').forEach(i=>i.onchange=()=>{ prefs.mv=i.value; saveAll(); });
   document.querySelectorAll('#sheet [data-del]').forEach(b=>b.onclick=()=>{ delete mem[b.dataset.del]; saveAll(); openSettings(); });
   $('#test').onclick=()=>{ launch(scURL('test','1')); };
+  $('#hEdit').onclick=()=>{ closeSheet(); enterEdit(); };
+  $('#hReset').onclick=()=>{ if(!confirm('¿Volver a la pantalla original? Se pierden sus cambios de iconos.')) return; home=JSON.parse(JSON.stringify(DEF_HOME)); saveHome(); closeSheet(); renderHome(); goPage(0); say('Como el primer día.'); };
   $('#reset').onclick=()=>{ mem={}; stats={}; saveAll(); openSettings(); say('Memoria borrada. Empezamos de cero.'); };
   $('#close').onclick=closeSheet;
 }
@@ -692,7 +1105,7 @@ function spiderMenu(){
     if(v==='evo') openEvolution();
     else if(v==='pocket') fillPocket();
     else if(v==='settings') openSettings();
-    else if(v==='carry') chips('¿A dónde?',[...APPS.filter(a=>a.id!=='fotos'&&a.id!=='musica').map(a=>[a.name,a.id]),['×',null]],{x:S.x,y:S.y}).then(id=>{ if(id) run(()=>doAction({t:'carry',id},null)); }).catch(()=>{});
+    else if(v==='carry') chips('¿A dónde?',[...APPS.filter(a=>TXT_APPS.includes(a.id)&&a.url).map(a=>[a.name,a.id]),['×',null]],{x:S.x,y:S.y}).then(id=>{ if(id) run(()=>doAction({t:'carry',id},null)); }).catch(()=>{});
   }).catch(()=>{});
 }
 
@@ -710,7 +1123,7 @@ document.addEventListener('visibilitychange',()=>{
   }).catch(()=>{});
 });
 // Para pruebas: window.__arana
-window.__arana={rules:(t)=>rules(norm(t),t),norm};
+window.__arana={rules:(t)=>rules(norm(t),t),norm,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>

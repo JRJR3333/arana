@@ -1,11 +1,13 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "date": "2026-10-20",
   "notes": [
+    "Ya me parezco a su iPhone: sus apps, en sus páginas, con su carpeta y su dock.",
+    "Mantenga pulsado un icono para moverlo, quitarlo, renombrarlo o cambiar su enlace. Con «+ Añadir» pongo una app nueva.",
+    "Si una app no se abre, le pregunto si la ha borrado.",
+    "Los ajustes y el bolsillo están ahora en dos widgets de la primera página.",
     "Ya sé seguirle el dedo: dígame «sígame» y toque donde quiera. Para que pare, tóqueme o dígame «quieta».",
     "Panel de Evolución: nivel, aciertos, gráfica de 14 días y diario.",
-    "Cuando no sé algo, puedo pedírselo a Claude en GitHub.",
-    "Me actualizo sola cuando Claude publica una versión nueva.",
-    "Cada nivel se me nota en el cuerpo."
+    "Cuando no sé algo, puedo pedírselo a Claude en GitHub."
   ]
 }
