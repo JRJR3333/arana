@@ -1,12 +1,12 @@
 {
-  "version": "0.4.0",
+  "version": "0.5.0",
   "date": "2026-10-20",
   "notes": [
-    "Ya me parezco a su iPhone: sus apps, en sus páginas, con su carpeta y su dock.",
-    "Mantenga pulsado un icono para moverlo, quitarlo, renombrarlo o cambiar su enlace. Con «+ Añadir» pongo una app nueva.",
-    "Si una app no se abre, le pregunto si la ha borrado.",
-    "Los ajustes y el bolsillo están ahora en dos widgets de la primera página.",
-    "Ahora me pongo al día cada vez que vuelve a abrirme.",
-    "Ya sé seguirle el dedo: dígame «sígame» y toque donde quiera. Para que pare, tóqueme o dígame «quieta»."
+    "Ahora pienso con Claude: entiendo cualquier frase y combino pasos para tareas nuevas.",
+    "Si me bautiza una rutina («modo cine es…»), la aprendo y la próxima vez la hago al instante, sin consultar.",
+    "Recuerdo lo que me cuenta de usted. Lo ve y lo borra en Evolución.",
+    "Si algo lo hace a menudo a la misma hora, se lo propongo. Nunca lo hago sin preguntar.",
+    "Mientras pienso, me orbitan tres puntos sobre la cabeza.",
+    "Para activarme: Ajustes → Cerebro → pegue su clave de API."
   ]
 }

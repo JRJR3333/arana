@@ -46,3 +46,18 @@ Araña es la app personal de Juan para iPhone. Es una web app instalada en la pa
 - Una petición por commit.
 - Si una petición es ambigua, comentar con una pregunta concreta y dejarla abierta con la etiqueta `necesita-info`.
 - Nunca borrar datos del usuario ni cambiar el nombre del atajo `Araña`.
+
+## El cerebro
+
+Desde la 0.5.0 la araña piensa con la API de Claude (`claude-haiku-5-5`). La clave la guarda Juan en su iPhone; nunca va en el repo. Funciona así:
+
+- `brainSystem()` describe las herramientas y el contexto que se envían en cada consulta.
+- `PLAN_TOOL` define el plan que devuelve el modelo.
+- `toActs()` traduce ese plan a acciones.
+- `planFlow()` ejecuta el plan.
+
+Al añadir una habilidad nueva:
+
+- **Apps y ajustes:** lo que se añade a `APPS` o a `SETS` le llega al cerebro sin más.
+- **Un tipo de paso nuevo** hay que añadirlo en cuatro sitios: el `enum` de `PLAN_TOOL`, la lista de pasos de `brainSystem()`, `toActs()` y `doAction()`/`urlFor()`.
+- **Las reglas** (`rules()`) siguen siendo el plan B, para cuando no hay conexión ni clave.
