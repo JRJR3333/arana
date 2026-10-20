@@ -1,9 +1,9 @@
 {
-  "version": "0.8.0",
+  "version": "0.9.0",
   "date": "2026-10-20",
   "notes": [
-    "Ahora tengo un dado: varío mis frases, curioseo por sus apps y a veces le propongo algo inesperado.",
-    "En Ajustes → Sorpresa elige cuánto: baja, media o alta (viene en alta).",
-    "Claude también tira un dado cada hora y me trae mejoras sorpresa con condiciones nuevas."
+    "Ya sé contestar al instante: la hora, la fecha, cuánto falta para Navidad, cuentas y cómo se llama usted.",
+    "Ahora entiendo varias órdenes juntas, como «apaga el wifi y el bluetooth». Si prepara su atajo, las mando de un salto.",
+    "Pruebe a tocarme tres veces seguidas."
   ]
 }

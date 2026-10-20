@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.9.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.9.0-1",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Respuestas al instante, sin gastar",
+    "detalle": "Hora, fecha, cuenta atrás a fiestas o fechas, cuentas y porcentajes, y su nombre. Todo en local, sin cerebro ni conexión.",
+    "probar": "Escriba «¿cuántos días faltan para Navidad?», «15 % de 80» o «¿cómo me llamo?»."
+   },
+   {
+    "id": "0.9.0-2",
+    "tipo": "funcionalidad",
+    "hito": "h1",
+    "titulo": "Varias órdenes en un salto",
+    "detalle": "Entiendo «apaga el wifi y el bluetooth» sin cerebro y, con su atajo preparado, mando todos los ajustes de una vez.",
+    "probar": "Ajustes → Varias órdenes en un salto → Cómo prepararlo; luego «Probar dos avisos»."
+   },
+   {
+    "id": "0.9.0-3",
+    "tipo": "sorpresa",
+    "titulo": "Tres toques: la araña baila",
+    "detalle": "Nadie lo pidió. Dado de la hora: sorpresa sí, sin condición.",
+    "probar": "Toque la araña tres veces seguidas, rápido."
+   }
+  ]
+ },
+ {
   "v": "0.8.0",
   "fecha": "2026-10-20",
   "mejoras": [

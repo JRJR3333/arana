@@ -1469,7 +1469,7 @@ function openEvolution(){
   document.querySelectorAll('#sheet [data-gko]').forEach(b=>b.onclick=()=>{ goalOK[b.dataset.gko]='no'; store.set('goalOK',goalOK); say('Anotado. Claude lo revisará.',2600); });
 }
 $('#evo').onclick=openEvolution;
-const TIPO={funcionalidad:'Función',grafica:'Gráfica','gráfica':'Gráfica',iniciativa:'Iniciativa',arreglo:'Arreglo',hito:'Hito',diseño:'Diseño',diseno:'Diseño'};
+const TIPO={sorpresa:'Sorpresa',funcionalidad:'Función',grafica:'Gráfica','gráfica':'Gráfica',iniciativa:'Iniciativa',arreglo:'Arreglo',hito:'Hito',diseño:'Diseño',diseno:'Diseño'};
 function openRatings(){
   closeMenus();
   const all=CHANGES.flatMap(v=>(v.mejoras||[]).map(m=>({...m,v:v.v}))), un=all.filter(m=>!rates[m.id]||!rates[m.id].sent), done=all.filter(m=>rates[m.id]&&rates[m.id].sent).slice(-6).reverse();
@@ -1522,10 +1522,19 @@ hit.addEventListener('pointerup',()=>{
   if(drag){ S.user=false; S.vx=S.vy=0; S.tx=S.x; S.ty=S.y; return; }
   if(busy){ abortFlag=true; if(pendingChip) pendingChip.done(ABORT); return; }
   if(follow){ setFollow(false); return; }
+  if(tripleTap()) return dance();
   if(S.hidden){ S.hidden=false; S.tx=S.x<W/2?64:W-64; say('¿Sí?'); setTimeout(spiderMenu,600); return; }
   pendingChip?closeChip():spiderMenu();
 });
 hit.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); spiderMenu(); } });
+/* Sorpresa 0.9.0: tres toques rápidos y la araña baila. Se quita borrando este bloque y su línea en pointerup. */
+let taps=[];
+function tripleTap(){ const n=performance.now(); taps=taps.filter(t=>n-t<900); taps.push(n); if(taps.length<3) return false; taps=[]; return true; }
+const DANCE=['Un pasito de baile, con permiso.','Ocho patas, ocho compases.','Esto es un zapateado arácnido.','Bailo poco, pero bailo bien.','Que no se entere nadie.'];
+function dance(){ closeChip();
+  run(async()=>{ const x0=S.x, y0=S.y, t=pick(DANCE); say(t,3200); speak(t);
+    for(let i=0;i<6;i++){ await moveTo(x0+(i%2?-30:30),y0+(i%3===0?-16:0)); happy(); }
+    await moveTo(x0,y0); S.nod=1; }); }
 function spiderMenu(){
   if(busy) return;
   const opts=[['Evolución','evo'],['Bolsillo','pocket'],['Ajustes','settings']];
