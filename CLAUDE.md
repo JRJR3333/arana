@@ -82,9 +82,9 @@ Al añadir una habilidad nueva:
 - Gastar poco con Claude, igual que en la web: `max_tokens` corto, sin historial largo.
 - Firma: cuando Juan tenga cuenta de desarrollador, sus certificados van en *GitHub Secrets*, nunca en el repo.
 
-## Modo evolución (cada hora)
+## Modo evolución (una vez al día)
 
-Una tarea programada ejecuta a Claude cada hora, use Juan la araña o no. Cada ejecución sigue este orden:
+Una tarea programada ejecuta a Claude una vez al día, a las 9:33 (hora de Madrid), use Juan la araña o no (antes era cada hora; Juan lo cambió el 2026-10-20). Cada ejecución sigue este orden:
 
 1. **Leer valoraciones.** Son issues con la etiqueta `valoracion`; el cuerpo trae un bloque JSON con notas de 1 a 5 por mejora y la confirmación de hitos.
    - Añadir un resumen a `evolucion/valoraciones.md`: fecha, versión, nota media y comentarios.
