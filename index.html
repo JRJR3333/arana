@@ -1059,6 +1059,26 @@ function guesses(l){
   return ALL_ACTS().map(o=>({act:o.act,s:o.words.reduce((n,w)=>n+(toks.some(t=>t.length>2&&(w.startsWith(t)||t.startsWith(w)))?1:0),0)}))
     .filter(o=>o.s>0).sort((x,y)=>y.s-x.s).slice(0,3).map(o=>o.act);
 }
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const FIESTAS=[[/\bnochebuena\b/,'Nochebuena',11,24],[/\bnavidad(es)?\b/,'Navidad',11,25],[/\b(nochevieja|fin de ano|uvas)\b/,'Nochevieja',11,31],[/\bano nuevo\b/,'Año Nuevo',0,1],[/\breyes\b/,'Reyes',0,6],[/\bsan valentin\b/,'San Valentín',1,14],[/\bverano\b/,'el verano',5,21],[/\bhalloween\b/,'Halloween',9,31]];
+function dateTarget(l){
+  for(const [re,name,m,d] of FIESTAS) if(re.test(l)) return {name,m,d};
+  let x=l.match(new RegExp('\\b(\\d{1,2}) de ('+MESES.join('|')+')\\b')); if(x) return {name:'el '+x[1]+' de '+x[2],m:MESES.indexOf(x[2]),d:+x[1]};
+  x=l.match(/\b(\d{1,2})\/(\d{1,2})\b/); if(x&&+x[2]>=1&&+x[2]<=12) return {name:'el '+x[1]+' de '+MESES[+x[2]-1],m:+x[2]-1,d:+x[1]};
+  return null;
+}
+function calc(raw){
+  let t=String(raw).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[¿?¡!=]/g,' ').replace(/\s+/g,' ').trim();
+  t=t.replace(/^(oye |dime |y )?(cuanto (es|son|da|hacen)|calcula|calculame|hazme la cuenta)\s*/,'').replace(/(\d),(\d)/g,'$1.$2');
+  const pc=t.match(/^(\d+(?:\.\d+)?) ?(?:%|por ciento) de (\d+(?:\.\d+)?)$/);
+  if(pc) t='('+pc[1]+'*'+pc[2]+'/100)';
+  else t=t.replace(/\bal cuadrado\b/g,'**2').replace(/\belevado a\b/g,'**').replace(/\bdividido (entre|por)\b|\bentre\b|÷/g,'/').replace(/\bmas\b/g,'+').replace(/\bmenos\b/g,'-').replace(/\bpor\b|×/g,'*').replace(/(\d)\s*x\s*(?=\d)/g,'$1*');
+  t=t.replace(/\s+/g,'');
+  if(!/^[\d.+\-*/()]+$/.test(t)||!/\d[)]?(\*\*|[+\-*/])[(]?-?\d/.test(t)||t.length>60) return null;
+  let r; try{ r=Function('"use strict";return ('+t+')')(); }catch(e){ return null; }
+  if(typeof r!=='number'||!isFinite(r)) return 'Esa cuenta no tiene resultado.';
+  return pick(['Son ','Da ','Resultado: '])+r.toLocaleString('es-ES',{maximumFractionDigits:4})+'.';
+}
 /* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
 let myName=store.get('name','Juan');
 const cap1=w=>w.replace(/(^|\s)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
@@ -1069,6 +1089,19 @@ function quickAnswer(l,raw){
     return 'Anotado. A su servicio, '+n+'.'; }
   if(/\b(como me llamo|cual es mi nombre|sabes (como me llamo|mi nombre)|quien soy( yo)?|mi nombre)\b/.test(l)&&l.split(' ').length<=7)
     return roll(.6)?pick(['Se llama usted '+myName+'. No lo olvido.','Usted es '+myName+', mi jefe.',''+myName+'. Lo llevo tejido en la memoria.']):'Usted es '+myName+'.';
+  // Hora y fecha
+  const pre='^(?:oye |dime |sabes |me dices )?';
+  if(new RegExp(pre+'(?:que hora es|que hora tienes|la hora)( ahora)?$').test(l)){ const d=new Date(), h=d.getHours(), mm=String(d.getMinutes()).padStart(2,'0'); return (h===1||h===13?'Es la ':'Son las ')+h+':'+mm+'.'; }
+  if(new RegExp(pre+'(?:que dia es( hoy)?|a que (dia )?estamos( hoy)?|que fecha es( hoy)?|la fecha( de hoy)?|que dia es mañana)$').test(l)){
+    const d=new Date(); if(/manana/.test(l)) d.setDate(d.getDate()+1); return (/manana/.test(l)?'Mañana es ':'Hoy es ')+d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})+'.'; }
+  // Cuenta atrás: «cuántos días faltan para Navidad», «cuánto queda para el 15 de marzo»
+  if(/\b(cuant\w*|falta\w*|queda\w*)\b/.test(l)){
+    const t=dateTarget(l); if(t){ const now=new Date(); now.setHours(0,0,0,0); let d=new Date(now.getFullYear(),t.m,t.d); if(d<now) d=new Date(now.getFullYear()+1,t.m,t.d);
+      const n=Math.round((d-now)/864e5), wd=d.toLocaleDateString('es-ES',{weekday:'long'});
+      const up1=x=>x.charAt(0).toUpperCase()+x.slice(1); if(n===0) return '¡'+up1(t.name)+' es hoy!'; if(n===1) return up1(t.name)+' es mañana.';
+      return 'Faltan '+n+' días para '+t.name+(n>14?', unas '+Math.round(n/7)+' semanas':'')+'. Cae en '+wd+'.'; } }
+  // Cuentas: «cuánto es 12 por 7», «15 % de 80», «3,5 + 2»
+  const c=calc(raw); if(c!=null) return c;
   return null;
 }
 function answer(text,phrase){ say(text,Math.max(3600,text.length*75)); speak(text); happy(); logEv('answer',null,phrase); }
