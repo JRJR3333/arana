@@ -308,7 +308,7 @@ function update(dt,t){
   if(carry.on){ const tx=S.x-Math.cos(S.h)*36, ty=S.y-Math.sin(S.h)*36; carry.x+=(tx-carry.x)*Math.min(1,dt*6); carry.y+=(ty-carry.y)*Math.min(1,dt*6); }
   hit.style.transform=`translate(${S.x}px,${S.y}px)`;
   placeSay();
-  if(!busy&&!S.user&&!S.hidden&&!overlayOpen()&&performance.now()-lastActive>8000) hideAtEdge();
+  if(!busy&&!S.user&&!S.hidden&&!follow&&!overlayOpen()&&performance.now()-lastActive>8000) hideAtEdge();
 }
 function ik(hx,hy,fx,fy,L1,L2){
   const dx=fx-hx, dy=fy-hy, len=Math.hypot(dx,dy)||1, d=Math.max(4,Math.min(L1+L2-.5,len)), ux=dx/len, uy=dy/len;
@@ -358,6 +358,7 @@ function frame(now){ const dt=Math.min(.05,(now-last)/1000); last=now; update(dt
 
 /* ================= Araña: acciones básicas ================= */
 const ABORT={abort:1}, CANCEL={cancel:1};
+let follow=false; // modo «sígame»: camina hacia donde Juan pone el dedo (solo dentro de la app, no se guarda)
 let abortFlag=false, busy=false, lastActive=performance.now(), pendingChip=null;
 const until=c=>new Promise((res,rej)=>{ const f=()=>{ if(abortFlag) return rej(ABORT); if(c()) return res(); requestAnimationFrame(f); }; f(); });
 const wait=ms=>{ const e=performance.now()+ms; return until(()=>performance.now()>=e); };
@@ -514,6 +515,8 @@ function rules(l,raw){
     return {act:{t:'wa',text}};
   }
   if(/\b(lleva|llevar|pasa|pasalo|pega|pegalo|copia)\b/.test(l)&&/\b(bolsillo|esto|lo)\b|\ba\b/.test(l)){ const a=findApp(l); if(a) return {act:{t:'carry',id:a.id}}; }
+  if(/\b(deja de seguir\w*|para de seguir\w*|no me sigas|no me persigas|quieta|quieto|estate quiet[ao])\b/.test(l)) return {follow:false};
+  if(/\b(sigueme|sigas|seguirme|sigue (mi|el) dedo|persigueme|persigas|ven conmigo)\b/.test(l)) return {follow:true};
   if(/\b(guarda|bolsillo)\b/.test(l)) return {pocket:true};
   for(const [re,msg] of CANT) if(re.test(l)) return {cant:msg};
   const s=findSet(l);
@@ -546,6 +549,7 @@ async function interpret(raw){
   const r=rules(l,raw);
   if(r&&r.act) return run(()=>doAction(r.act,l));
   if(r&&r.pocket) return fillPocket();
+  if(r&&'follow' in r) return setFollow(r.follow);
   if(r&&r.cant){ sad(); say(r.cant,4200); logEv('cant',null,l); addWish(l,r.cant); return offerClaude(l,r.cant); }
   if(r&&r.suggestSet) return pickSetting(r.suggestSet);
   // 3) No lo entiendo: pregunto y aprendo de su elección
@@ -555,6 +559,20 @@ async function interpret(raw){
   if(v){ learn(l,v,1); logEv('learned',v,l); checkLevel(); run(()=>doAction(v,l)); }
   else { logEv('unknown',null,l); addWish(l,'No lo entendió; ninguna sugerencia valía.'); offerClaude(l,'No lo entendió; ninguna sugerencia valía.'); }
 }
+/* Modo «sígame»: la araña camina hasta donde se apoya el dedo. Se apaga tocándola o diciéndole «quieta». */
+function setFollow(on){
+  const was=follow; follow=on; lastActive=performance.now(); S.hidden=false;
+  if(on){ happy(); say(was?'Ya le sigo.':'Le sigo. Ponga el dedo donde quiera. Para que pare, tóqueme.',3800); }
+  else say(was?'Me quedo aquí.':'Ya estoy quieta.',2200);
+}
+function followTo(e){
+  if(!follow||busy||S.user||overlayOpen()||e.target===hit) return;
+  if(e.type==='pointermove'&&!(e.buttons||e.pointerType==='touch')) return;
+  const x=clampX(e.clientX), y=clampY(e.clientY);
+  S.hidden=false; S.face=null; S.travelFloat=Math.hypot(x-S.x,y-S.y)>170; S.tx=x; S.ty=y; lastActive=performance.now();
+}
+document.addEventListener('pointerdown',followTo,{capture:true,passive:true});
+document.addEventListener('pointermove',followTo,{capture:true,passive:true});
 /* Cuando no sabe algo, ofrece pedírselo a Claude: abre una petición en GitHub que Claude programa */
 async function offerClaude(l,why){
   await new Promise(r=>setTimeout(r,1400));
@@ -661,6 +679,7 @@ hit.addEventListener('pointerup',()=>{
   if(!pd) return; const drag=pd.moved; pd=null; lastActive=performance.now();
   if(drag){ S.user=false; S.vx=S.vy=0; S.tx=S.x; S.ty=S.y; return; }
   if(busy){ abortFlag=true; if(pendingChip) pendingChip.done(ABORT); return; }
+  if(follow){ setFollow(false); return; }
   if(S.hidden){ S.hidden=false; S.tx=S.x<W/2?64:W-64; say('¿Sí?'); setTimeout(spiderMenu,600); return; }
   pendingChip?closeChip():spiderMenu();
 });
