@@ -43,7 +43,7 @@ Araña es la app personal de Juan para iPhone. Es una web app instalada en la pa
 
 ## Límites
 
-- Una petición por commit.
+- Un commit por versión basta; el mensaje nombra los issues que resuelve.
 - Si una petición es ambigua, comentar con una pregunta concreta y dejarla abierta con la etiqueta `necesita-info`.
 - Nunca borrar datos del usuario ni cambiar el nombre del atajo `Araña`.
 
@@ -83,7 +83,7 @@ Una tarea programada ejecuta a Claude cada hora, use Juan la araña o no. Cada e
    - **Nota 4–5:** seguir en esa dirección.
    - **Hito confirmado** («funciona ✓») → `estado: "conseguido"` en `objetivo.json`. Si «no funciona ✗» → `en_curso`, y arreglarlo.
    - Comentar el issue con lo que se ha hecho con sus notas y cerrarlo.
-2. **Atender peticiones** `nueva-habilidad`, como explica la sección de arriba.
+2. **Atender todas las peticiones** `nueva-habilidad` abiertas, en cada ejecución y sin límite (lo pidió Juan el 2026-10-20), como explica la sección de arriba. Cada una acaba implementada, cerrada con `no-posible` y una alternativa, o con `necesita-info`. Si una es grande, se hace la parte que se pueda terminar y se deja abierta explicando qué falta. Se suman a las 2–4 mejoras propias; no las sustituyen.
 3. **Publicar una versión con 2–4 mejoras.** Mezclar tipos: `funcionalidad`, `grafica`, `iniciativa`, `diseño`, `arreglo`.
    - **Al menos una mejora por versión debe acercar a la araña al objetivo** (ver `OBJETIVO.md`) y llevar `"hito": "hN"`.
    - **Al menos otra debe acercarla a un asistente tipo Siri** (`"hito": "asistente"`; ver la sección de `OBJETIVO.md`).

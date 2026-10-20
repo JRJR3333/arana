@@ -1,11 +1,13 @@
 {
-  "version": "0.15.0",
+  "version": "0.16.0",
   "date": "2026-10-20",
   "notes": [
+    "Ya le digo cómo suena mi voz y la cambio cuando me lo pide.",
+    "Ya miro una captura de su pantalla si me la da.",
+    "Ya sé qué sé de usted, y me intereso por sus gustos.",
+    "Ya puedo viajar a otro aparato: copie mi memoria y péguela allí.",
+    "Ya vuelvo a buscar cada 6 horas los iconos que no encontré.",
     "Ya le digo «Pensando…» y «Aprendiendo…», y se me nota analizar.",
-    "Ya vivo a un toque, en el Centro de control o la pantalla bloqueada: sin carpetas.",
-    "Ya hago una reverencia cuando me da las gracias.",
-    "Ya vuelvo a pensar: Haiku 5.5 no admite temperatura y la he quitado.",
-    "Ya le digo exactamente qué contesta Anthropic cuando algo falla con la clave."
+    "Ya vivo a un toque, en el Centro de control o la pantalla bloqueada: sin carpetas."
   ]
 }

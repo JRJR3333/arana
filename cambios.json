@@ -1,5 +1,48 @@
 [
  {
+  "v": "0.16.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.16.0-1",
+    "tipo": "arreglo",
+    "hito": "asistente",
+    "titulo": "Voz y micrófono arreglados",
+    "detalle": "Peticiones #14 y #7. iOS solo me deja hablar si la primera frase sale de un toque: ahora desbloqueo la voz en silencio en cuanto usted toca la pantalla. El micrófono muestra «Escuchando» y, si iOS no lo permite en la app instalada, le digo por qué y le paso al dictado del teclado. Nuevas órdenes: «cómo suena tu voz» y «cambia de voz» (recorre las voces en español de su iPhone). Y arreglo un fallo: si decía dos frases seguidas, la primera se seguía escribiendo encima de la segunda.",
+    "probar": "Toque la pantalla y diga o escriba «cómo suena tu voz». Luego «cambia de voz»."
+   },
+   {
+    "id": "0.16.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Miro una captura de su pantalla",
+    "detalle": "Petición #10. No puedo ver su pantalla por mi cuenta, pero si me dice «mira esta captura» elijo una foto y Claude me dice qué hay de interés y qué podría hacer. Una consulta por captura, reducida para gastar poco y dentro del tope diario.",
+    "probar": "Haga una captura (lateral + subir volumen), abra la araña y escriba «mira esta captura»."
+   },
+   {
+    "id": "0.16.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Me intereso por usted",
+    "detalle": "Petición #9. «¿Qué sabes de mí?» le contesta al instante y sin gastar. Al abrir, a veces le pregunto por sus gustos (música, café o té, deporte, horario) con botones, y lo recuerdo.",
+    "probar": "Escriba «qué sabes de mí»."
+   },
+   {
+    "id": "0.16.0-4",
+    "tipo": "funcionalidad",
+    "titulo": "Viajo a otro aparato",
+    "detalle": "Petición #13. Bluetooth y Wi-Fi directo no están al alcance de una web en el iPhone, pero en Ajustes → «Llevarme a otro dispositivo» copio mi memoria como texto; la pega en la araña del iPad u otro móvil y me tiene allí igual. La clave no viaja y antes de pegar guardo copia de lo que había.",
+    "probar": "Ajustes → Copiar mi memoria. Péguela en Notas para ver que sale."
+   },
+   {
+    "id": "0.16.0-5",
+    "tipo": "arreglo",
+    "titulo": "Iconos que se buscan solos",
+    "detalle": "Petición #17. Los iconos que no encontraba en la App Store esperaban 30 días; ahora los vuelvo a buscar cada 6 horas yo sola, sin preguntarle.",
+    "probar": "Mire si aparecen iconos que antes salían dibujados."
+   }
+  ]
+ },
+ {
   "v": "0.15.0",
   "fecha": "2026-10-20",
   "mejoras": [

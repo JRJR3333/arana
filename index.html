@@ -658,9 +658,9 @@ let iconRun=false;
 async function resolveIcons(force){
   if(iconRun||navigator.onLine===false) return; iconRun=true;
   const ids=[...new Set([...home.pages.flat(),...home.dock].flatMap(x=>x.startsWith('f:')?((home.folders[x.slice(2)]||{apps:[]}).apps):[x]))];
-  const old=Date.now()-30*864e5; let changed=0;
+  const retry=Date.now()-6*36e5; let changed=0; // 0.16.0 (#17): los que no encontré los vuelvo a buscar cada 6 horas
   for(const id of ids){
-    const c=icons[id]; if(!force&&c&&(c.u||c.ts>old)) continue; if(c&&c.manual) continue;
+    const c=icons[id]; if(!force&&c&&(c.u||c.ts>retry)) continue; if(c&&c.manual) continue;
     try{ const u=await findIcon(id); icons[id]={u,ts:Date.now()}; if(u) changed++; }catch(e){ if(String(e).includes('red')) break; }
     store.set('icons',icons);
     if(changed&&changed%8===0&&!editing&&!overlayOpen()) renderHome();
@@ -876,12 +876,21 @@ const vary=k=>roll()?pick(PH[k]):PH[k][0];
 const CURIOS=['Las arañas no se pegan a su propia tela: caminan por los hilos que no tienen pegamento.','Hay arañas que viajan cientos de kilómetros volando con un hilo, como cometas.','La seda de araña es, a igual grosor, más resistente que el acero.','Muchas arañas se comen su tela vieja para reciclar la seda.','Las arañas saltadoras ven en color y calculan distancias antes de saltar.','Una tela de araña puede tener hasta 20 metros de hilo.','Algunas arañas decoran su tela con zigzags que reflejan la luz ultravioleta.','Las arañas tienen el esqueleto por fuera y mudan de piel para crecer.'];
 const CURIO_TALK=['Curiosa, esta app de','Le estaba echando un ojo a','Siempre me ha intrigado','Me pregunto qué guarda dentro'];
 /* Voz: contesta en voz alta como un asistente (iOS la permite después del primer toque) */
-function speak(text){ if(prefs.voice===false||!window.speechSynthesis||!text) return;
+function esVoices(){ try{ return speechSynthesis.getVoices().filter(x=>/^es/i.test(x.lang)); }catch(e){ return []; } }
+function myVoice(){ const vs=esVoices(); return vs.find(x=>x.name===prefs.voiceName)||vs.find(x=>/^es[-_]ES/i.test(x.lang))||vs[0]||null; }
+function speak(text,force){ if((prefs.voice===false&&!force)||!window.speechSynthesis||!text) return;
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='es-ES'; u.rate=1.03;
-    const v=speechSynthesis.getVoices().find(x=>/^es[-_]ES/i.test(x.lang)); if(v) u.voice=v; speechSynthesis.speak(u); }catch(e){} }
+    const v=myVoice(); if(v){ u.voice=v; u.lang=v.lang; } speechSynthesis.speak(u); }catch(e){} }
+/* 0.16.0 (#14): iOS solo deja hablar si la primera frase sale de un toque. La desbloqueo en silencio al primer toque. */
+let voiceUnlocked=false;
+addEventListener('pointerdown',()=>{ if(voiceUnlocked||!window.speechSynthesis) return; voiceUnlocked=true; try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} },{capture:true});
+try{ if(window.speechSynthesis) speechSynthesis.onvoiceschanged=()=>{}; }catch(e){}
+function voiceName(v){ return v?v.name.replace(/\s*\(.*\)\s*/g,'').trim():'la de su iPhone'; }
+let sayTok=0;
 function say(text,ms=2600){
   clearTimeout(sayTimer); sayEl.classList.add('on');
-  if(reduce) sayEl.textContent=text; else { let i=0; const f=()=>{ sayEl.textContent=text.slice(0,++i); if(i<text.length) setTimeout(f,20); }; f(); }
+  const tok=++sayTok; // 0.16.0: si llega otra frase, la anterior deja de escribirse encima
+  if(reduce) sayEl.textContent=text; else { let i=0; const f=()=>{ if(tok!==sayTok) return; sayEl.textContent=text.slice(0,++i); if(i<text.length) setTimeout(f,20); }; f(); }
   sayTimer=setTimeout(()=>sayEl.classList.remove('on'),ms);
 }
 /* Pastilla de estado: «Pensando…», «Analizando…», «Aprendiendo…» */
@@ -1219,6 +1228,16 @@ async function interpret(raw){
   const l=norm(raw); if(!l) return; lastActive=performance.now();
   if(thinking){ say('Un momento, estoy pensando.'); return; }
   // 0) Respuestas al instante (hora, cuentas, su nombre…): gratis y sin cerebro
+  // 0.16.0 (#7): cómo suena mi voz y cambiarla, sin cerebro
+  if(/\b(como suena tu voz|que voz tienes|dejame oirte|quiero oirte|como hablas)\b/.test(l)){ const t='Así sueno. Mi voz es '+voiceName(myVoice())+'. Si prefiere otra, dígame «cambia de voz».'; say(t,5200); speak(t,true); logEv('answer',null,l); return; }
+  if(/^(cambia(r)? (de |la )?voz|otra voz|pon otra voz)$/.test(l)){ const vs=esVoices(); if(vs.length<2){ const t='Su iPhone solo me da una voz en español. Puede bajar más en Ajustes del iPhone → Accesibilidad → Contenido leído → Voces.'; say(t,6500); speak(t,true); return; }
+    const i=vs.findIndex(x=>x===myVoice()), v=vs[(i+1)%vs.length]; prefs.voiceName=v.name; prefs.voice=true; saveAll(); const t='Ahora hablo así. Soy '+voiceName(v)+'.'; say(t,4200); speak(t,true); happy(); return; }
+  // 0.16.0 (#9): lo que sé de usted, gratis
+  if(/\b(que sabes de mi|que recuerdas de mi|que has aprendido de mi|cuales son mis gustos)\b/.test(l)){ const fs=facts.slice(-6).map(f=>f.t.replace(/\.$/,'')); const t=fs.length?'Sé esto de usted: '+fs.join('; ')+'.':'Aún sé poco de usted, '+myName+'. Cuénteme algo y lo apunto.'; say(t,Math.max(4200,t.length*70)); speak(t); logEv('answer',null,l); return; }
+  // 0.16.0 (#10): mirar una captura de su pantalla con Claude
+  if(/\b(mira|analiza|lee|revisa|que ves en) (esto|mi pantalla|la pantalla|una captura|esta captura|mi captura|una foto|esta foto)\b|^(mira|analiza) (la )?captura$/.test(l)) return lookAtImage(raw);
+  // 0.16.0 (#13): llevarme a otro dispositivo
+  if(/\b(otro (dispositivo|movil|iphone|ipad|ordenador)|exporta(r)? (tu|la) memoria|importa(r)? (tu|la|mi) memoria|copia(r)? tu memoria)\b/.test(l)){ openSettings(); setTimeout(()=>{ const e=$('#travel'); if(e&&e.scrollIntoView) e.scrollIntoView({block:'center'}); },60); say('Aquí puede copiar mi memoria y pegarla en otro aparato.',4200); return; }
   // Sorpresa 0.15.0: si me da las gracias, hago una reverencia de mayordomo (gratis, sin cerebro)
   if(/^(?:muchas |mil |pues )?gracias(?: arana| de verdad| majo| crack)?$/.test(l)){ const t=pick(['A usted.','Es un honor.','Siempre a su servicio.','No hay de qué. Me inclino.']); bow(); say(t,2600); speak(t); logEv('answer',null,l); return; }
   const qa=quickAnswer(l,raw); if(qa) return answer(qa,l);
@@ -1343,6 +1362,32 @@ async function think(raw){
     if(convo.length>14) convo=convo.slice(-14);
     return plan;
   } finally { clearTimeout(to); S.think=false; status(null); }
+}
+/* 0.16.0 (#10): no puedo ver su pantalla, pero sí una captura que usted me dé. Una sola consulta, imagen reducida para gastar poco. */
+function lookAtImage(raw){
+  if(!brainReady()){ say('Para mirar una captura necesito pensar con Claude. Ponga su clave en Ajustes.',4600); return; }
+  if(capReached()){ say('Hoy ya he pensado mucho. Mañana la miro.',3600); return; }
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none'; document.body.appendChild(inp);
+  inp.onchange=async()=>{ const f=inp.files&&inp.files[0]; inp.remove(); if(!f) return;
+    S.think=true; status(['Mirando','Analizando','Pensando']); thinking=true;
+    try{
+      const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=URL.createObjectURL(f); });
+      const k=Math.min(1,900/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height); const b64=c.toDataURL('image/jpeg',.72).split(',')[1];
+      const ask=norm(raw).replace(/\b(mira|analiza|lee|revisa|que ves en) (esto|mi pantalla|la pantalla|una captura|esta captura|mi captura|una foto|esta foto)\b/,'').trim();
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':brain.key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:BRAIN_MODEL,max_tokens:220,system:'Eres «Araña», el mayordomo de '+myName+' en su iPhone. Trata de usted, frases cortas. Mira la captura, di en 2 o 3 frases qué ves de interés y propone una cosa útil que hacer. Sin listas.',
+          messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:ask||'¿Qué ves aquí?'}]}]})});
+      if(!r.ok){ const e=await r.text().catch(()=>''); let m=e; try{ m=JSON.parse(e).error.message; }catch(_){} throw new Error(r.status+' '+String(m).slice(0,200)); }
+      const j=await r.json(), ti=(j.usage&&j.usage.input_tokens)||0, to2=(j.usage&&j.usage.output_tokens)||0;
+      usage.calls++; usage.in+=ti; usage.out+=to2; const dd=dayNow(); dd.n++; dd.in+=ti; dd.out+=to2; store.set('day',dd); saveBrain();
+      const t=((j.content||[]).find(x=>x.type==='text')||{}).text||'No distingo nada claro.';
+      S.think=false; status(null); say(t,Math.max(5200,t.length*70)); speak(t); happy(); logEv('answer',null,'captura');
+    }catch(e){ console.warn(e); S.think=false; status(null); sad(); say(/401/.test(String(e))?'Mi clave no funciona. Revísela en Ajustes.':'No he podido mirarla: '+String(e).replace(/^Error: /,'').slice(0,140),5200); }
+    finally{ S.think=false; thinking=false; }
+  };
+  say('Elija la captura. Haga una con el botón lateral y subir volumen, y luego tóquela aquí.',5200);
+  inp.click();
 }
 function toActs(steps){
   const acts=[], bad=[];
@@ -1516,8 +1561,15 @@ $('#bar').addEventListener('submit',e=>{ e.preventDefault(); const v=$('#cmd').v
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 $('#mic').onclick=()=>{
   if(!SR){ say('Aquí no tengo micrófono propio. Use el dictado del teclado (el micro junto a la barra espaciadora).',4500); $('#cmd').focus(); return; }
-  try{ const r=new SR(); r.lang='es-ES'; r.interimResults=false; r.onresult=e=>interpret(e.results[0][0].transcript); r.onerror=()=>say('No le he oído bien.'); r.start(); say('Le escucho.'); }
-  catch(e){ say('El micrófono no está disponible.'); }
+  try{ const r=new SR(); r.lang='es-ES'; r.interimResults=false; r.maxAlternatives=1;
+    r.onresult=e=>{ status(null); interpret(e.results[0][0].transcript); };
+    r.onerror=e=>{ status(null); const er=e&&e.error;
+      if(er==='not-allowed'||er==='service-not-allowed'){ say('iOS no me da el micrófono aquí. Toque la barra y use el micro del teclado, o diga «Oye Siri, Araña voz».',6000); $('#cmd').focus(); }
+      else if(er==='no-speech') say('No he oído nada. Pruebe otra vez, más cerca.',3200);
+      else say('No le he oído bien.'); };
+    r.onend=()=>status(null);
+    r.start(); status('Escuchando'); say('Le escucho.',2000); }
+  catch(e){ status(null); say('El micrófono no está disponible. Use el dictado del teclado.',4000); $('#cmd').focus(); }
 };
 function escapeHTML(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function openSheet(html){ $('#sheetCard').innerHTML=html; $('#sheet').hidden=false; }
@@ -1552,6 +1604,9 @@ function openSettings(){
       <span class="lbl" style="margin-top:12px">Varias órdenes en un salto</span>${seg('multi',[['1','Mi atajo ya sabe'],['0','Todavía no']],prefs.multi?'1':'0')}
       <div class="row" style="margin-top:8px"><button class="btn ghost" type="button" id="testMulti">Probar dos avisos</button><a class="btn ghost" style="text-decoration:none;display:inline-block" href="https://github.com/JRJR3333/arana/blob/master/nativo/h1/LEEME.md" target="_blank" rel="noopener">Cómo prepararlo</a></div>
       <p class="note" style="margin-top:6px">Con el atajo preparado, mando todos los ajustes de una vez y no vuelvo a la web entre paso y paso. La prueba debe mostrar dos avisos.</p></div>
+    <div id="travel"><span class="lbl">Llevarme a otro dispositivo</span>
+      <div class="row"><button class="btn ghost" type="button" id="mOut">Copiar mi memoria</button><button class="btn ghost" type="button" id="mIn">Pegar memoria</button></div>
+      <p class="note" style="margin-top:6px">Copio lo que he aprendido (frases, rutinas, lo que sé de usted, su pantalla) como texto. Mándeselo por AirDrop o Notas y péguelo en la araña del otro aparato. La clave de API no viaja.</p></div>
     <div class="row"><button class="btn ghost" type="button" id="reset">Olvidar todo</button><button class="btn" type="button" id="close">Cerrar</button></div>`);
   document.querySelectorAll('#sheet input[name="perm"]').forEach(i=>i.onchange=()=>{ prefs.perm=i.value; saveAll(); });
   document.querySelectorAll('#sheet input[name="mv"]').forEach(i=>i.onchange=()=>{ prefs.mv=i.value; saveAll(); });
@@ -1571,8 +1626,18 @@ function openSettings(){
   $('#hIcons').onclick=()=>{ closeSheet(); Object.keys(icons).forEach(k=>{ if(!icons[k].manual) delete icons[k]; }); store.set('icons',icons); say('Busco los iconos en la App Store.',2600); resolveIcons(true); };
   $('#hReset').onclick=()=>{ if(!confirm('¿Volver a la pantalla original? Se pierden sus cambios de iconos.')) return; home=JSON.parse(JSON.stringify(DEF_HOME)); saveHome(); closeSheet(); renderHome(); goPage(0); say('Como el primer día.'); };
   $('#reset').onclick=()=>{ mem={}; stats={}; saveAll(); openSettings(); say('Memoria borrada. Empezamos de cero.'); };
+  $('#mOut').onclick=()=>{ const t=exportMemory(); try{ navigator.clipboard.writeText(t).then(()=>say('Memoria copiada. Péguela en el otro aparato.',3600),()=>{ prompt('Copie este texto:',t); }); }catch(e){ prompt('Copie este texto:',t); } };
+  $('#mIn').onclick=()=>{ const t=prompt('Pegue aquí la memoria que copió en el otro aparato:'); if(!t) return; const n=importMemory(t); if(n<0){ say('Ese texto no es una memoria mía.',3200); return; } closeSheet(); say('Hecho. Traigo '+n+' recuerdos. Guardé copia de lo de antes.',4200); happy(); setTimeout(()=>location.reload(),2600); };
   $('#close').onclick=closeSheet;
 }
+/* 0.16.0 (#13): mi memoria como texto. Sin la clave (brain) ni los iconos (se vuelven a buscar). */
+const TRAVEL_SKIP=new Set(['brain','icons','backup','seen','day','usage']);
+function exportMemory(){ const o={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(!k||!k.startsWith('arana.')) continue; const kk=k.slice(6); if(TRAVEL_SKIP.has(kk)) continue; o[kk]=localStorage.getItem(k); }
+  return 'ARANA1:'+JSON.stringify({ts:Date.now(),d:o}); }
+function importMemory(t){ t=String(t).trim(); if(!t.startsWith('ARANA1:')) return -1; let j; try{ j=JSON.parse(t.slice(7)); }catch(e){ return -1; } if(!j||typeof j.d!=='object') return -1;
+  const bk={}; for(const k in j.d){ if(TRAVEL_SKIP.has(k)) continue; const cur=localStorage.getItem('arana.'+k); if(cur!=null) bk[k]=cur; }
+  try{ localStorage.setItem('arana.backup',JSON.stringify({ts:Date.now(),d:bk})); }catch(e){}
+  let n=0; for(const k in j.d){ if(TRAVEL_SKIP.has(k)||typeof j.d[k]!=='string') continue; try{ localStorage.setItem('arana.'+k,j.d[k]); n++; }catch(e){} } return n; }
 $('#gear').onclick=openSettings;
 
 /* ================= Evolución ================= */
@@ -1725,7 +1790,7 @@ let Q0='', A0=''; try{ const u=new URL(location.href); Q0=(u.searchParams.get('q
 if(Q0){ setTimeout(()=>{ say('«'+Q0+'». Voy.',1800); logEv('voz',null,Q0.slice(0,60)); setTimeout(()=>{ const l=norm(Q0), st=parseSteps(A0), m=mem[l]; if(st.length&&!(m&&m.score>=1)) st.length===1?run(()=>doAction(st[0],l)):run(()=>planFlow({acts:st,say:'Enseguida.'},l)); else interpret(Q0); },900); },500); }
 else { setTimeout(()=>say(first?'Buenas. Soy su araña. Dígame qué hacer o toque una estación.':vary('hola'),first?4200:2600),700);
 setTimeout(async()=>{ if(first) return; if(!(await offerBrief())) proposeRoutine(); },5200); }
-setTimeout(()=>resolveIcons(false),1500);
+setTimeout(()=>resolveIcons(false),1500); setInterval(()=>resolveIcons(false),6*36e5);
 loadRepoData();
 setTimeout(async()=>{
   if(first||Q0||busy||overlayOpen()||pending||!roll(.7)) return;
@@ -1736,8 +1801,11 @@ setTimeout(async()=>{
     ()=>({q:'Reto del día: pídame algo que nunca me haya pedido. ¿Acepta?',go:()=>{ say('Le escucho. Sorpréndame usted a mí.',3600); $('#cmd').focus(); }}),
     ()=>({q:'¿Le cuento qué he aprendido de usted hasta ahora?',go:()=>openEvolution()}),
     ()=>({q:'¿Me deja reordenar su primera página a mi gusto? Lo puede deshacer.',go:()=>{ say('Mejor no toco nada sin un plan. Mantenga pulsado un icono y lo hacemos juntos.',4200); }}),
+    ()=>{ const Q=[['¿Qué música le acompaña más?',['Pop','Rock','Urbana','Clásica'],'Su música: '],['¿Café o té por la mañana?',['Café','Té','Ninguno'],'Por la mañana toma: '],['¿Qué deporte sigue?',['Fútbol','Baloncesto','Tenis','Ninguno'],'Deporte que sigue: '],['¿Es usted de madrugar o de trasnochar?',['Madrugar','Trasnochar'],'Prefiere: ']].filter(q=>!facts.some(f=>f.t.startsWith(q[2])));
+      if(!Q.length) return {q:'',go:()=>{},brain:true,none:true}; const q=pick(Q);
+      return {q:'Me intereso por usted: '+q[0].toLowerCase()+' ¿Se lo pregunto?',go:async()=>{ const v=await chips(q[0],q[1].map(o=>[o,o]),{x:S.x,y:S.y}).catch(()=>null); if(!v) return; facts.push({t:q[2]+v.toLowerCase()+'.',ts:Date.now()}); saveBrain(); learning(); say(pick(['Anotado. Ya le conozco un poco más.','Lo guardo con hilo fino.','Interesante. Lo recordaré.']),3200); }}; },
     ()=>({q:'Tengo una pregunta para conocerle mejor. ¿Me la contesta?',go:()=>interpret('hazme una pregunta corta y original para conocerme mejor y recordar la respuesta'),brain:true})
-  ].map(f=>f()).filter(i=>!i.brain||(brainReady()&&!capReached()));
+  ].map(f=>f()).filter(i=>!i.none&&(!i.brain||(brainReady()&&!capReached())));
   if(!ideas.length) return;
   const it=pick(ideas); store.set('surpDay',td);
   const v=await chips(it.q,[['Sí','y','yes'],['Ahora no',null]],{x:S.x,y:S.y}).catch(()=>null);
@@ -1758,7 +1826,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home};
+window.__arana={exportMemory,importMemory,closeSheet,evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),findIcon:(id)=>findIcon(id),icons:()=>icons,rules:(t)=>rules(norm(t),t),norm,toActs,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home};
 })();
 </script>
 </body>
