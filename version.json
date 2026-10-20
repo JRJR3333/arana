@@ -1,9 +1,9 @@
 {
-  "version": "0.13.0",
+  "version": "0.14.0",
   "date": "2026-10-20",
   "notes": [
-    "Ya me pongo en su pantalla de inicio con el widget de Atajos, sin instalar nada.",
-    "Mis recetas funcionan ya también desde Safari.",
-    "Ya le doy el parte de la mañana si me lo pide, o se lo ofrezco al abrir."
+    "Ya le aviso a la hora de sus rutinas aunque esté cerrada, siempre preguntando.",
+    "Ya le enseño a qué horas me usa.",
+    "Ya me pongo en su pantalla de inicio con el widget de Atajos, sin instalar nada."
   ]
 }

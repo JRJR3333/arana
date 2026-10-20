@@ -42,8 +42,10 @@
       "id": "h5",
       "nombre": "Avisos con la app cerrada",
       "pts": 20,
-      "estado": "pendiente",
-      "desc": "Automatizaciones de Atajos que, a la hora de cada rutina, le muestran un aviso para lanzarla. Sin instalar nada."
+      "estado": "listo_para_juan",
+      "desc": "Automatizaciones de Atajos que, a la hora de cada rutina, le muestran un aviso para lanzarla. Sin instalar nada.",
+      "juan": "Copie la pregunta en Evolución → Avisos y créela en Atajos → Automatización con «Elegir del menú» (5 minutos).",
+      "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h5/LEEME.md"
     },
     {
       "id": "h6",

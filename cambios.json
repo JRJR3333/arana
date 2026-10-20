@@ -1,5 +1,19 @@
 [
  {
+  "v": "0.14.0",
+  "fecha": "2026-10-20",
+  "mejoras": [
+   {
+    "id": "0.14.0-1",
+    "tipo": "grafica",
+    "hito": "h5",
+    "titulo": "Avisos con la app cerrada, y a qué horas me usa",
+    "detalle": "Nueva gráfica en Evolución con las tareas por hora del día (últimos 30 días); las horas de sus recetas salen en azul. Para cada una le preparo la pregunta («Son las 23:00. ¿Hago «modo noche»?») para un aviso de Atajos con «Elegir del menú»: el iPhone le pregunta y usted decide, aunque yo esté cerrada. También es un paso del asistente: proponer a su hora, nunca actuar sola. Solo una mejora esta hora: llevo 6 versiones sin valoración suya (freno). Condición de la hora (3): una gráfica nueva con datos que ya existen.",
+    "probar": "Evolución → Avisos · con la app cerrada → Copiar pregunta, y siga «Ver pasos»."
+   }
+  ]
+ },
+ {
   "v": "0.13.0",
   "fecha": "2026-10-20",
   "mejoras": [
