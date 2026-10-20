@@ -11,14 +11,8 @@ struct AskArana: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        do {
-            let plan = try await Brain.think(order)
-            let fails = await Actions.run(plan.steps ?? [])
-            let text = ([plan.say] + fails).joined(separator: " ")
-            return .result(dialog: IntentDialog(stringLiteral: text))
-        } catch {
-            return .result(dialog: IntentDialog(stringLiteral: error.localizedDescription))
-        }
+        let text = await Brain.ask(order)
+        return .result(dialog: IntentDialog(stringLiteral: text))
     }
 }
 

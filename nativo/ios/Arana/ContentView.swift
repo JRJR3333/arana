@@ -6,10 +6,13 @@ struct ContentView: View {
     @State private var thinking = false
     @State private var showSettings = false
     @State private var key = Keychain.load()
+    @StateObject private var ear = Listener()
+    @AppStorage("arana.hilos") private var hilos = 0
 
     var body: some View {
         ZStack {
             Color(red: 0.07, green: 0.07, blue: 0.10).ignoresSafeArea()
+            Telarana(threads: hilos).ignoresSafeArea().allowsHitTesting(false)
             VStack(spacing: 18) {
                 HStack { Spacer(); Button { showSettings = true } label: { Image(systemName: "gearshape").font(.title2) } }
                     .foregroundStyle(.white.opacity(0.8)).padding(.horizontal)
@@ -21,8 +24,18 @@ struct ContentView: View {
                     .foregroundStyle(.white).padding(.horizontal)
                 SpiderView(thinking: thinking).frame(width: 180, height: 180)
                 if thinking { Text("Pensando…").font(.caption.bold()).foregroundStyle(.white.opacity(0.8)) }
+                if ear.listening {
+                    Text(ear.heard.isEmpty ? "Escuchando…" : ear.heard)
+                        .font(.callout).foregroundStyle(.white.opacity(0.85)).padding(.horizontal)
+                }
                 Spacer()
                 HStack {
+                    Button(action: toggleEar) {
+                        Image(systemName: ear.listening ? "stop.circle.fill" : "mic.circle.fill").font(.system(size: 34))
+                    }
+                    .foregroundStyle(ear.listening ? Color.red : Color.white)
+                    .disabled(thinking)
+                    .accessibilityLabel(ear.listening ? "Dejar de escuchar" : "Hablar")
                     TextField("Dígame qué hacer", text: $input)
                         .textFieldStyle(.roundedBorder).submitLabel(.go).onSubmit(send)
                     Button("Ir", action: send).buttonStyle(.borderedProminent).disabled(thinking)
@@ -30,6 +43,10 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showSettings) { settings }
+        .onChange(of: ear.done) { _, said in
+            guard let said else { return }
+            ear.done = nil; input = said; send()
+        }
     }
 
     private var settings: some View {
@@ -40,6 +57,10 @@ struct ContentView: View {
                     Button("Guardar clave") { Keychain.save(key.trimmingCharacters(in: .whitespacesAndNewlines)); showSettings = false; bubble = "Clave guardada. Ya puedo pensar." }
                 }
                 Section { Text("La clave se guarda solo en el llavero de este iPhone.").font(.footnote) }
+                Section("Lo que sé de usted") {
+                    if Memory.facts.isEmpty { Text("Aún nada. Cuénteme algo de usted y lo recordaré.").font(.footnote) }
+                    ForEach(Memory.facts, id: \.self) { Text($0).font(.footnote) }
+                }
             }.navigationTitle("Ajustes")
         }
     }
@@ -49,16 +70,47 @@ struct ContentView: View {
         guard !t.isEmpty, !thinking else { return }
         input = ""; thinking = true
         Task {
-            do {
-                let plan = try await Brain.think(t)
-                let fails = await Actions.run(plan.steps ?? [])
-                let text = ([plan.say] + fails).joined(separator: " ")
-                bubble = text; Voice.shared.say(text)
-            } catch {
-                bubble = error.localizedDescription
-            }
+            let text = await Brain.ask(t)
+            bubble = text; Voice.shared.say(text)
+            hilos = UserDefaults.standard.integer(forKey: "arana.hilos")
             thinking = false
         }
+    }
+
+    private func toggleEar() {
+        if ear.listening { ear.stop(); return }
+        Task { if let msg = await ear.start() { bubble = msg } }
+    }
+}
+
+/// Sorpresa: la telaraña de fondo. Cada orden cumplida le añade una vuelta (hasta 14).
+struct Telarana: View {
+    var threads: Int
+    var body: some View {
+        Canvas { ctx, size in
+            let c = CGPoint(x: size.width / 2, y: size.height * 0.45)
+            let r = max(size.width, size.height) * 0.6
+            let ink = GraphicsContext.Shading.color(.white.opacity(0.07))
+            let spokes = 12
+            for i in 0..<spokes {
+                let a = Double(i) / Double(spokes) * 2 * .pi
+                var p = Path(); p.move(to: c)
+                p.addLine(to: CGPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r))
+                ctx.stroke(p, with: ink, lineWidth: 0.7)
+            }
+            let rings = min(threads, 14)
+            for k in 0..<rings {
+                let rr = 40 + Double(k) * 26
+                var p = Path()
+                for i in 0...spokes {
+                    let a = Double(i % spokes) / Double(spokes) * 2 * .pi
+                    let pt = CGPoint(x: c.x + cos(a) * rr, y: c.y + sin(a) * rr)
+                    if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                }
+                ctx.stroke(p, with: ink, lineWidth: 0.7)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 
