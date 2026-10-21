@@ -22,24 +22,46 @@ function avisarApp(msg) {
 /* Los 12 peldaños de la escalera de Stockfish (nivel de Stockfish y cuánto piensa) */
 const ESCALERA = [
   { n: 1, nombre: 'Stockfish a ciegas', skill: 0, go: 'depth 1' }, { n: 2, nombre: 'Mira dos jugadas', skill: 0, go: 'depth 2' },
-  { n: 3, nombre: 'Aprendiz', skill: 1, go: 'depth 3' }, { n: 4, nombre: 'Principiante', skill: 2, go: 'depth 3' },
-  { n: 5, nombre: 'Jugador de club', skill: 3, go: 'depth 4' }, { n: 6, nombre: 'Club fuerte', skill: 4, go: 'depth 4' },
-  { n: 7, nombre: 'Jugador de torneo', skill: 5, go: 'depth 5' }, { n: 8, nombre: 'Torneo fuerte', skill: 6, go: 'depth 5' },
-  { n: 9, nombre: 'Experto', skill: 8, go: 'depth 6' }, { n: 10, nombre: 'Maestro', skill: 10, go: 'depth 8' },
-  { n: 11, nombre: 'Gran maestro', skill: 15, go: 'movetime 50' }, { n: 12, nombre: 'Plena potencia', skill: 20, go: 'movetime 100' }];
+  { n: 3, nombre: 'Mira tres jugadas', skill: 0, go: 'depth 3' }, { n: 4, nombre: 'Aprendiz', skill: 1, go: 'depth 3' },
+  { n: 5, nombre: 'Principiante', skill: 2, go: 'depth 3' }, { n: 6, nombre: 'Principiante atento', skill: 2, go: 'depth 4' },
+  { n: 7, nombre: 'Jugador de club', skill: 3, go: 'depth 4' }, { n: 8, nombre: 'Club fuerte', skill: 4, go: 'depth 4' },
+  { n: 9, nombre: 'Club que calcula', skill: 4, go: 'depth 5' }, { n: 10, nombre: 'Jugador de torneo', skill: 5, go: 'depth 5' },
+  { n: 11, nombre: 'Torneo fuerte', skill: 6, go: 'depth 5' }, { n: 12, nombre: 'Candidato a experto', skill: 7, go: 'depth 6' },
+  { n: 13, nombre: 'Experto', skill: 8, go: 'depth 6' }, { n: 14, nombre: 'Candidato a maestro', skill: 9, go: 'depth 7' },
+  { n: 15, nombre: 'Maestro', skill: 10, go: 'depth 8' }, { n: 16, nombre: 'Maestro internacional', skill: 12, go: 'depth 10' },
+  { n: 17, nombre: 'Gran maestro', skill: 15, go: 'movetime 50' }, { n: 18, nombre: 'Gran maestro de élite', skill: 18, go: 'movetime 100' },
+  { n: 19, nombre: 'Plena potencia', skill: 20, go: 'movetime 100' }, { n: 20, nombre: 'Plena potencia, sin prisa', skill: 20, go: 'movetime 500' }];
+/* Antes había 12 peldaños: cada uno es ahora este (los nuevos quedan en medio) */
+const DE_12_A_20 = { 1: 1, 2: 2, 3: 4, 4: 5, 5: 7, 6: 8, 7: 10, 8: 11, 9: 13, 10: 15, 11: 17, 12: 19 };
+function migrarEscalera(e) {
+  if (e.v >= 2) return e;
+  const con = {}; let max = 0;
+  for (const k of Object.keys(e.conquistas || {})) { const n = DE_12_A_20[k]; if (n) { con[n] = e.conquistas[k]; if (n > max) max = n; } }
+  for (let n = 1; n < max; n++) if (!con[n]) con[n] = Object.assign({}, con[max], { nota: 'por debajo de un peldaño ya conquistado' });
+  return { v: 2, peldano: max ? Math.min(ESCALERA.length, max + 1) : 1, conquistas: con, ventana: max + 1 === DE_12_A_20[e.peldano] ? (e.ventana || []) : [] };
+}
 
 /* ───── Opciones (se guardan en el aparato) ───── */
-const OPC_DEF = { ms: 30, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4 };
+const OPC_DEF = { ms: 30, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4, ana: 1 };
 let opc = OPC_DEF;
 try { opc = Object.assign({}, OPC_DEF, JSON.parse(localStorage.getItem('arana.ajedrez.opc') || '{}')); } catch (e) { opc = Object.assign({}, OPC_DEF); }
 const guardarOpc = () => { try { localStorage.setItem('arana.ajedrez.opc', JSON.stringify(opc)); } catch (e) {} };
 
+/* ───── Evoluciones: cada una en su propia base de datos, para empezar otra sin perder la de ahora ───── */
+const SLOTS_K = 'arana.ajedrez.slots', SLOT_K = 'arana.ajedrez.slot';
+function leerSlots() { try { const l = JSON.parse(localStorage.getItem(SLOTS_K) || 'null'); if (Array.isArray(l) && l.length) return l; } catch (e) {} return [{ id: 'principal', nombre: 'Mi evolución', creada: new Date().toISOString() }]; }
+let slots = leerSlots(), slotId = (() => { try { return localStorage.getItem(SLOT_K) || 'principal'; } catch (e) { return 'principal'; } })();
+if (!slots.some(x => x.id === slotId)) slotId = slots[0].id;
+const guardarSlots = () => { try { localStorage.setItem(SLOTS_K, JSON.stringify(slots)); localStorage.setItem(SLOT_K, slotId); } catch (e) {} };
+const dbNombre = id => id === 'principal' ? 'arana-ajedrez' : 'arana-ajedrez-' + id;
+const slotActual = () => slots.find(x => x.id === slotId) || slots[0];
+
 /* ───── Base de datos: memoria aparte de la del asistente ───── */
 let db = null;
-function abrirDB() {
+function abrirDB(nombre) {
   return new Promise((ok, ko) => {
     if (!window.indexedDB) return ok(null);
-    const r = indexedDB.open('arana-ajedrez', 2);
+    const r = indexedDB.open(nombre || dbNombre(slotId), 2);
     r.onupgradeneeded = e => {
       const d = r.result, viejo = e.oldVersion || 0;
       if (viejo < 1) {
@@ -66,6 +88,7 @@ function escribir(ops) {
   });
 }
 const conHuella = p => { if (p.genes) p.huella = M.huella(p.genes); return p; };
+const genesTodas = () => !!(est && est.opc && est.opc.genesTodas);   // guardar también los genes de las que mueren (ocupa más)
 
 /* ───── Estado de la evolución ───── */
 let est = null, pop = [], byId = new Map(), historial = [], cazadoras = [], cazById = new Map();
@@ -82,11 +105,11 @@ async function cargar() {
     if (pop.length !== est.pop.length || pop.some(p => !p.genes)) pop = [];
   }
   if (!est || !pop.length) {
-    est = { gen: 1, origen: ORIGEN, opc: {}, creada: new Date().toISOString(), hitos: {}, escalera: { peldano: 1, conquistas: {} } };
+    est = { gen: 1, origen: ORIGEN, opc: {}, creada: new Date().toISOString(), hitos: {}, escalera: { v: 2, peldano: 1, conquistas: {} } };
     pop = M.poblacionInicial(rng, ORIGEN, M.OPC_EVO.poblacion);
     await guardarEstado();
   }
-  est.hitos = est.hitos || {}; est.escalera = est.escalera || { peldano: 1, conquistas: {} };
+  est.hitos = est.hitos || {}; est.escalera = migrarEscalera(est.escalera || { peldano: 1, conquistas: {} });
   pop.forEach(p => M.completar(p.genes));
   if (est.cazPop) { const cs = await Promise.all(est.cazPop.map(id => leer('individuos', id))); cazadoras = cs.every(c => c && c.genes) ? cs : []; cazadoras.forEach(c => M.completar(c.genes)); }
   historial = (await todos('generaciones')).sort((a, b) => a.gen - b.gen);
@@ -149,10 +172,10 @@ function repartir() {
 function alRecibir(w, d) {
   if (d.t === 'pensado') { const f = pens.get(d.id); if (f) { pens.delete(d.id); f(d); } return; }
   const j = enCurso.get(d.id); if (!j) return;
-  if (d.t === 'jugada') { j.fenAhora = d.fen; j.ultima = d.uci; j.eval = d.eval; marcar(j); return; }
+  if (d.t === 'jugada') { j.fenAhora = d.fen; j.ultima = d.uci; j.eval = d.eval; (j.lista = j.lista || []).push(d.uci); marcar(j); actualizarVisor(); return; }
   if (d.t === 'fin') {
     w.libre = true; enCurso.delete(d.id);
-    j.estado = 'fin'; j.res = d.res; j.motivo = d.motivo; j.jugadas = d.jugadas; j.fenAhora = d.fen; j.plies = d.plies;
+    j.estado = 'fin'; j.res = d.res; j.motivo = d.motivo; j.jugadas = d.jugadas; j.lista = d.jugadas.slice(); j.fenAhora = d.fen; j.plies = d.plies; actualizarVisor();
     const a = ind(j.w), b = ind(j.b);
     if (j.tipo === 'caza') {   // la araña suma o pierde puntos de su generación; la cazadora suma los suyos
       const aranaB = byId.has(j.b), s0 = aranaB ? b : a, c = aranaB ? a : b, rs = aranaB ? 1 - d.res : d.res;
@@ -191,7 +214,7 @@ async function cerrarGeneracion() {
   if (resSF) out.resumen.sf = resSF;
   out.resumen.flags = fkey(F);
   // Memoria del rival (35): las hijas heredan la memoria del padre que más les dio
-  const antes = new Map(viejos.map(p => [p.id, p]));
+  const antes = new Map(viejos.map(p => [p.id, p])), cazAntes = new Map(cazadoras.map(c => [c.id, c]));
   for (const h of out.pop) if (h.padres && h.padres.length && !h.rivales) { const cr = h.mut && h.mut.cruce, pa = antes.get(h.padres[cr && cr.b > cr.a ? 1 : 0]); if (pa && pa.rivales) h.rivales = JSON.parse(JSON.stringify(pa.rivales)); }
   // Las cazadoras también evolucionan
   const extraCaz = [];
@@ -199,14 +222,19 @@ async function cerrarGeneracion() {
     est.caz.flags = F;
     const oc = M.siguienteGeneracion(est.caz, cazadoras, rng), vivasC = new Set(oc.pop.map(c => c.id)), eliteC = new Set(oc.resumen.elite);
     out.resumen.caza = { mejor: oc.resumen.mejor, puntos: cazadoras.reduce((a, c) => a + c.pts, 0), partidas: cazadoras.length * 2 };
-    for (const c of cazadoras) if (!vivasC.has(c.id)) { conHuella(c); extraCaz.push(['individuos', Object.assign({}, c, { genes: eliteC.has(c.id) ? c.genes : null })]); }
+    for (const c of cazadoras) if (!vivasC.has(c.id)) { conHuella(c); c.murio = est.gen; extraCaz.push(['individuos', Object.assign({}, c, { genes: eliteC.has(c.id) || genesTodas() ? c.genes : null })]); }
     oc.pop.forEach(c => { if (!c.mut || !c.mut.nacio) { c.mut = c.mut || {}; } c.pts = 0; });
     cazadoras = oc.pop; cazById = new Map(cazadoras.map(c => [c.id, c]));
   }
   const elite = new Set(out.resumen.elite);
   const vivos = new Set(out.pop.map(p => p.id)), extra = [['generaciones', out.resumen]].concat(extraCaz);
-  if (mejorPartida) extra.push(['partidas', Object.assign({ gen: out.resumen.gen }, mejorPartida)]);
-  for (const p of viejos) if (!vivos.has(p.id)) { conHuella(p); extra.push(['individuos', Object.assign({}, p, { genes: elite.has(p.id) ? p.genes : null })]); }
+  if (mejorPartida) {   // todas las partidas de la generación, con sus jugadas
+    const nom = id => (ind(id) || antes.get(id) || cazAntes.get(id) || { nombre: '?' }).nombre;
+    mejorPartida.todas = juegos.filter(j => j.estado === 'fin').map(j => ({ tipo: j.tipo || '', wn: nom(j.w), bn: nom(j.b), w: j.w, b: j.b, fen: j.fen, jugadas: (j.jugadas || []).join(' '), res: j.res, motivo: j.motivo }))
+      .concat(fase ? fase.hechos.map(x => ({ tipo: 'sf', wn: x.yoB ? x.nombre : 'Stockfish', bn: x.yoB ? 'Stockfish' : x.nombre, fen: x.fen0, jugadas: x.jugadas.join(' '), res: x.yoB ? x.res : 1 - x.res, motivo: x.motivo, peldano: fase.E.n })) : []);
+    extra.push(['partidas', Object.assign({ gen: out.resumen.gen }, mejorPartida)]);
+  }
+  for (const p of viejos) if (!vivos.has(p.id)) { conHuella(p); p.murio = out.resumen.gen; extra.push(['individuos', Object.assign({}, p, { genes: elite.has(p.id) || genesTodas() ? p.genes : null })]); }
   est = out.est; pop = out.pop; byId = new Map(pop.map(p => [p.id, p])); historial.push(out.resumen);
   const nuevos = revisarHitos(out.resumen);
   try { await guardarEstado(extra); } catch (e) { console.warn('guardar', e); }
@@ -251,7 +279,7 @@ const HITOS = [
   ...[1300, 1400, 1500, 1600, 1800, 2000].map(e => ({ id: 'e' + e, texto: `Una campeona llega a ${e} de Elo`, ok: r => r.mejor.elo >= e })),
   { id: 'sf-tablas', texto: 'Mis primeras tablas contra Stockfish', ok: r => !!(r.sf && r.sf.juegos.some(j => j.res === .5)) },
   { id: 'sf-gana', texto: 'Mi primera victoria contra Stockfish', ok: r => !!(r.sf && r.sf.juegos.some(j => j.res === 1)) },
-  ...[1, 3, 6, 9, 12].map(n => ({ id: 'p' + n, texto: n === 12 ? 'Conquisto el último peldaño: Stockfish a plena potencia' : `Peldaño ${n} conquistado: ${ESCALERA[n - 1].nombre}`, ok: () => !!(est.escalera && est.escalera.conquistas[n]) })),
+  ...[1, 3, 5, 10, 15, 20].map(n => ({ id: 'p' + n, texto: n === 20 ? 'Conquisto el último peldaño: Stockfish a plena potencia y sin prisa' : `Peldaño ${n} conquistado: ${ESCALERA[n - 1].nombre}`, ok: () => !!(est.escalera && est.escalera.conquistas[n]) })),
   { id: 'sacudida', texto: 'Me estanqué y sacudí la mutación para explorar', ok: () => (est.sacudidas || 0) > 0 },
   { id: 'inmigrante', texto: 'Una inmigrante llega a la élite', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.mut && p.mut.nacio === 'inmigrante'; }) },
   { id: 'red3', texto: 'Una araña de la élite con 3 neuronas ocultas propias', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.genes && M.huella(p.genes).r >= 3; }) },
@@ -319,7 +347,7 @@ function pensarArana(p, fen0, jugadas, aj) {
 async function partidaSF(ind, yoB, fen0, E) {
   sf.w.postMessage('ucinewgame'); sf.w.postMessage('setoption name Skill Level value ' + E.skill); await sfCmd('isready', /^readyok/);
   const pos = new M.Pos(fen0), jug = [], cal = [], aj = ajusteContra(ind, 'sf' + E.n, 'sf'); let f = null, malas = 0, buenas = 0, evYo = 0, evSF = null;
-  sfVista = { fen: pos.fen(), ultima: null, ind, yoB, evYo, evSF, E }; marcarSF();
+  sfVista = { fen: pos.fen(), ultima: null, ind, yoB, evYo, evSF, E, jug, fen0 }; marcarSF();
   while (true) {
     if (!entrenando) return null;
     f = M.fin(pos); if (f) break;
@@ -341,7 +369,7 @@ async function partidaSF(ind, yoB, fen0, E) {
     if (!u || u === '(none)') { f = M.fin(pos) || { res: .5, motivo: 'sin jugada' }; break; }
     const m = M.parseUci(pos, u); if (!m) { f = { res: .5, motivo: 'jugada imposible' }; break; }
     pos.make(m); jug.push(u);
-    sfVista = { fen: pos.fen(), ultima: u, ind, yoB, evYo, evSF, E, plies: jug.length }; marcarSF();
+    sfVista = { fen: pos.fen(), ultima: u, ind, yoB, evYo, evSF, E, plies: jug.length, jug, fen0 }; marcarSF(); actualizarVisor();
     if (f) break;
   }
   return { res: yoB ? f.res : 1 - f.res, plies: jug.length, calidad: cal.length ? cal.reduce((a, b) => a + b) / cal.length : .5, motivo: f.motivo, jugadas: jug, fen0, yoB };
@@ -375,12 +403,12 @@ async function faseStockfish() {
 let sfSucio = true;
 function marcarSF() { sfSucio = true; pedir(); }
 function escaleraSVG(w, h) {
-  const n = ESCALERA.length, cw = w / n, act = est.escalera.peldano, con = est.escalera.conquistas;
+  const n = ESCALERA.length, cw = w / n, act = est.escalera.peldano, con = est.escalera.conquistas, fs = cw < 22 ? 9 : 12;
   let s = `<svg viewBox="0 0 ${w} ${h + 18}" width="${w}" height="${h + 18}" role="img" aria-label="Escalera de Stockfish: peldaño ${act} de ${n}">`;
   for (let i = 0; i < n; i++) {
     const k = i + 1, hh = (k / n) * h, x = i * cw + 3, y = h - hh, ok = !!con[k], cur = k === act && !ok;
     s += `<rect x="${x}" y="${y}" width="${cw - 6}" height="${hh}" rx="4" fill="${ok ? 'rgba(61,255,153,.35)' : cur ? 'rgba(94,232,255,.12)' : 'none'}" stroke="${ok ? '#3dff99' : cur ? '#5ee8ff' : 'rgba(94,232,255,.3)'}" stroke-width="${cur ? 3 : 1}"/>`;
-    s += `<text x="${x + (cw - 6) / 2}" y="${h + 14}" text-anchor="middle" fill="${cur ? '#5ee8ff' : 'rgba(235,235,245,.55)'}" style="font:600 12px ui-monospace,Menlo,monospace">${k}</text>`;
+    s += `<text x="${x + (cw - 6) / 2}" y="${h + 14}" text-anchor="middle" fill="${cur ? '#5ee8ff' : 'rgba(235,235,245,.55)'}" style="font:600 ${fs}px ui-monospace,Menlo,monospace">${k}</text>`;
   }
   return s + '</svg>';
 }
@@ -389,7 +417,7 @@ function pintarSF() {
   const z = document.getElementById('zsf'); if (!z) return;
   const act = est.escalera.peldano, E = ESCALERA[act - 1], hecho = !!est.escalera.conquistas[ESCALERA.length];
   z.querySelector('h3').textContent = hecho ? 'Escalera de Stockfish · ¡conquistada!' : `Escalera de Stockfish · peldaño ${act}: ${E.nombre}`;
-  z.querySelector('.esc').innerHTML = escaleraSVG(560, 150);
+  z.querySelector('.esc').innerHTML = escaleraSVG(480, 170);
   const info = z.querySelector('.sfi'), v = sfVista;
   let t;
   if (!opc.sf) t = 'La escalera está apagada en las opciones.';
@@ -414,7 +442,7 @@ function construirPlano() {
   const n = Math.max(1, Math.floor(pop.length / 2)), filas = Math.ceil(n / COLS);
   W0 = PAD * 2 + COLS * CW + (COLS - 1) * GAP;
   const yZ = PAD + filas * CH + (filas - 1) * GAP + 40;
-  H0 = yZ + 320 + 24 + 300 + PAD;
+  H0 = yZ + 360 + 24 + 330 + PAD + 60;
   let h = '';
   for (let m = 0; m < n; m++) {
     const x = PAD + (m % COLS) * (CW + GAP), y = PAD + Math.floor(m / COLS) * (CH + GAP);
@@ -425,9 +453,9 @@ function construirPlano() {
       <div class="lejos" aria-hidden="true"><div class="o">${m + 1}</div><div class="t">MESA ${m + 1}</div></div></div>`;
   }
   const wz = W0 - PAD * 2;
-  h += `<div class="zona zsf" id="zsf" style="left:${PAD}px;top:${yZ}px;width:${wz}px;height:320px"><h3>Escalera de Stockfish</h3>
-      <canvas width="240" height="240" aria-label="Partida contra Stockfish"></canvas><div class="sfi"></div><div class="esc"></div></div>
-    <div class="zona zcz" id="zcz" style="left:${PAD}px;top:${yZ + 344}px;width:${wz}px;height:300px"><h3>Rincón de las cazadoras</h3>
+  h += `<div class="zona zsf" id="zsf" style="left:${PAD}px;top:${yZ}px;width:${wz}px;height:360px"><h3>Escalera de Stockfish</h3>
+      <canvas width="240" height="240" aria-label="Partida contra Stockfish (tóquela para verla con sus jugadas)"></canvas><div class="sfi"></div><div class="esc"></div></div>
+    <div class="zona zcz" id="zcz" style="left:${PAD}px;top:${yZ + 384}px;width:${wz}px;height:330px"><h3>Rincón de las cazadoras</h3>
       <canvas width="240" height="240" aria-label="Partida de una cazadora"></canvas><div class="czi"></div><div class="czl"></div></div>`;
   lienzo.innerHTML = h; lienzo.style.width = W0 + 'px'; lienzo.style.height = H0 + 'px';
   mesas = Array.from(lienzo.querySelectorAll('.mesa')); sfSucio = true; cazaSucio = true;
@@ -513,43 +541,181 @@ function pez(g, x, y, r, color, hacia) {
   for (const k of [-.4, 0, .4]) { g.beginPath(); g.arc(k * r, r * .2, r * .08, 0, 7); g.fill(); }
   g.restore();
 }
-function tablero(cv, fen, ultima, conAranas, pezEn) {
-  const s = Math.max(.6, esc0), dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(240 * s * dpr);
+/* El tablero, verde y crema, con las piezas «cburnett» (piezas.js). o: girar, coords, sel, destinos, base (resolución) */
+const CLARA = '#eeeed2', OSCURA = '#769656';
+const IMG = {}; let imgListas = 0;
+(function cargarPiezas() {
+  const svgs = window.PIEZAS_SVG || {};
+  for (const k of Object.keys(svgs)) {
+    const im = new Image();
+    im.onload = () => { if (++imgListas === Object.keys(svgs).length) { redibujarSF = true; marcar(); if (visor) pintarVisor(); if (ph) pintarHumana(); } };
+    im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgs[k]); IMG[k] = im;
+  }
+})();
+const TIPO = { p: 'P', n: 'N', b: 'B', r: 'R', q: 'Q', k: 'K' };
+function pieza(g, ch, x, y, q) {
+  const blanca = ch !== ch.toLowerCase(), im = IMG[(blanca ? 'w' : 'b') + TIPO[ch.toLowerCase()]];
+  if (im && im.complete && im.naturalWidth !== 0) { g.drawImage(im, x, y, q, q); return; }
+  g.beginPath(); g.arc(x + q / 2, y + q / 2, q * .38, 0, 7); g.fillStyle = blanca ? '#fff' : '#333'; g.fill();   // mientras cargan
+  g.lineWidth = Math.max(1, q * .05); g.strokeStyle = blanca ? '#333' : '#000'; g.stroke();
+  g.fillStyle = blanca ? '#111' : '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 ' + Math.round(q * .46) + 'px -apple-system,system-ui,sans-serif';
+  g.fillText(TIPO[ch.toLowerCase()], x + q / 2, y + q / 2 + q * .03);
+}
+function tablero(cv, fen, ultima, conAranas, pezEn, o) {
+  o = o || {};
+  const base = o.base || Math.max(.6, esc0), dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(240 * base * dpr);
   if (cv.width !== px) { cv.width = px; cv.height = px; }
   const g = cv.getContext('2d'); g.setTransform(px / 240, 0, 0, px / 240, 0, 0); g.clearRect(0, 0, 240, 240);
-  const m = conAranas ? 26 : 0, L = 240 - m * 2, q = L / 8;
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { g.fillStyle = (r + c) % 2 ? 'rgba(94,232,255,.05)' : 'rgba(94,232,255,.16)'; g.fillRect(m + c * q, m + r * q, q, q); }
-  let hasta = null;
-  if (ultima) {
-    g.fillStyle = 'rgba(61,255,153,.22)';
-    for (const sq of [ultima.slice(0, 2), ultima.slice(2, 4)]) { const c = sq.charCodeAt(0) - 97, r = 8 - +sq[1]; g.fillRect(m + c * q, m + r * q, q, q); }
-    const c = ultima.charCodeAt(2) - 97, r = 8 - +ultima[3]; hasta = [m + c * q + q / 2, m + r * q + q / 2];
+  const m = conAranas ? 26 : 0, L = 240 - m * 2, q = L / 8, gir = !!o.girar;
+  const XY = (c, r) => gir ? [m + (7 - c) * q, m + (7 - r) * q] : [m + c * q, m + r * q];   // c: columna (0 = a), r: fila desde arriba (0 = la 8)
+  const deSq = sq => [sq & 7, 7 - (sq >> 4)];
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const [x, y] = XY(c, r); g.fillStyle = (r + c) % 2 ? OSCURA : CLARA; g.fillRect(x, y, q, q); }
+  if (o.sel >= 0 && o.sel != null) { const [x, y] = XY(...deSq(o.sel)); g.fillStyle = 'rgba(255,255,51,.5)'; g.fillRect(x, y, q, q); }
+  if (o.coords) {
+    g.font = '700 ' + Math.max(6, Math.round(q * .2)) + 'px -apple-system,system-ui,sans-serif';
+    for (let v = 0; v < 8; v++) {
+      const r = gir ? 7 - v : v, c0 = gir ? 7 : 0, [x0, y0] = XY(c0, r);
+      g.fillStyle = (r + c0) % 2 ? CLARA : OSCURA; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(String(8 - r), x0 + q * .06, y0 + q * .05);
+      const c = gir ? 7 - v : v, r7 = gir ? 0 : 7, [x1, y1] = XY(c, r7);
+      g.fillStyle = (r7 + c) % 2 ? CLARA : OSCURA; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText('abcdefgh'[c], x1 + q * .95, y1 + q * .97);
+    }
   }
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 ' + Math.round(q * .5) + 'px ui-monospace,Menlo,monospace';
   fen.split(' ')[0].split('/').forEach((f, r) => {
     let c = 0;
-    for (const ch of f) {
-      if (ch >= '1' && ch <= '8') { c += +ch; continue; }
-      const blanca = ch !== ch.toLowerCase(), x = m + c * q + q / 2, y = m + r * q + q / 2;
-      g.beginPath(); g.arc(x, y, q * .38, 0, Math.PI * 2);
-      g.fillStyle = blanca ? '#e9f6ff' : '#1b1430'; g.fill();
-      g.lineWidth = Math.max(1, q * .06); g.strokeStyle = blanca ? '#5ee8ff' : '#ff4fa3'; g.stroke();
-      g.fillStyle = blanca ? '#0a0c15' : '#ffd6ea'; g.fillText(LET[ch.toLowerCase()], x, y + q * .03);
-      c++;
-    }
+    for (const ch of f) { if (ch >= '1' && ch <= '8') { c += +ch; continue; } const [x, y] = XY(c, r); pieza(g, ch, x, y, q); c++; }
   });
+  if (o.destinos) for (const d of o.destinos) {
+    const [x, y] = XY(...deSq(d)), ocupada = /[a-z]/i.test(fen.split(' ')[0]) && casillaOcupada(fen, d);
+    g.fillStyle = 'rgba(0,0,0,.16)'; g.beginPath();
+    if (ocupada) { g.lineWidth = q * .09; g.strokeStyle = 'rgba(0,0,0,.18)'; g.arc(x + q / 2, y + q / 2, q * .44, 0, 7); g.stroke(); }
+    else { g.arc(x + q / 2, y + q / 2, q * .16, 0, 7); g.fill(); }
+  }
   if (conAranas) {
     // Juega quien no tiene el turno: lanza su hilo a la casilla donde dejó la pieza
+    let hasta = null;
+    if (ultima) { const [x, y] = XY(ultima.charCodeAt(2) - 97, 8 - +ultima[3]); hasta = [x + q / 2, y + q / 2]; }
     const mueveNegra = fen.split(' ')[1] === 'w', pB = [14, 226], pN = [226, 14];
     if (hasta) {
-      const o = mueveNegra ? pN : pB;
-      g.strokeStyle = mueveNegra ? 'rgba(255,79,163,.85)' : 'rgba(94,232,255,.85)'; g.lineWidth = 1.2; g.setLineDash([3, 3]);
-      g.beginPath(); g.moveTo(o[0], o[1]); g.lineTo(hasta[0], hasta[1]); g.stroke(); g.setLineDash([]);
-      g.beginPath(); g.arc(hasta[0], hasta[1], 2.5, 0, 7); g.fillStyle = g.strokeStyle; g.fill();
+      const or = mueveNegra ? pN : pB;
+      g.strokeStyle = mueveNegra ? 'rgba(255,79,163,.9)' : 'rgba(94,232,255,.9)'; g.lineWidth = 1.2; g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(or[0], or[1]); g.lineTo(hasta[0], hasta[1]); g.stroke(); g.setLineDash([]);
     }
     (pezEn === 'w' ? pez : arana)(g, pB[0], pB[1], 8, '#5ee8ff', !mueveNegra && hasta ? hasta : [120, 120]);
     (pezEn === 'b' ? pez : arana)(g, pN[0], pN[1], 8, '#ff4fa3', mueveNegra && hasta ? hasta : [120, 120]);
   }
+}
+function casillaOcupada(fen, sq) {
+  const filas = fen.split(' ')[0].split('/'), r = 7 - (sq >> 4), c = sq & 7; let k = 0;
+  for (const ch of filas[r]) { if (ch >= '1' && ch <= '8') { k += +ch; if (k > c) return false; continue; } if (k === c) return true; k++; }
+  return false;
+}
+
+/* ═════════ El visor de partidas: tablero grande, jugadas en inglés y análisis de Stockfish ═════════ */
+let visor = null;
+function verPartida(o) {
+  const v = Object.assign({ fen0: M.INICIO, ucis: [], idx: null, girar: false, info: {} }, o);
+  if (v.idx == null) v.idx = v.ucis.length;
+  hoja(`<h3>${esc(v.titulo || 'Partida')}</h3><div class="sub" id="vSub">${esc(v.sub || '')}</div>
+    <div class="ana" id="vAna"></div>
+    <canvas id="vCv" class="tabg" width="240" height="240" aria-label="Tablero"></canvas>
+    <div class="rep"><button id="v0" aria-label="Al principio">⏮</button><button id="v1" aria-label="Jugada anterior">◀</button><button id="v2" aria-label="Jugada siguiente">▶</button><button id="v3" aria-label="Al final">⏭</button><button id="vG" aria-label="Girar el tablero">⇅</button></div>
+    <div class="jugadas" id="vLista"></div>
+    <div class="ctrl" style="margin-top:12px"><button class="btn sec" id="vSF" aria-pressed="${!!opc.ana}">Análisis de Stockfish</button><button class="btn sec" id="vPgn">Copiar PGN</button><button class="btn sec" data-cerrar>Cerrar</button></div>`);
+  visor = v;
+  const ir = n => { visor.idx = Math.max(0, Math.min(visor.ucis.length, n)); pintarVisor(); };
+  $('#v0').onclick = () => ir(0); $('#v1').onclick = () => ir(visor.idx - 1); $('#v2').onclick = () => ir(visor.idx + 1); $('#v3').onclick = () => ir(visor.ucis.length);
+  $('#vG').onclick = () => { visor.girar = !visor.girar; pintarVisor(); };
+  $('#vSF').onclick = () => { opc.ana = opc.ana ? 0 : 1; guardarOpc(); $('#vSF').setAttribute('aria-pressed', String(!!opc.ana)); if (!opc.ana) anaParar(); pintarVisor(); };
+  $('#vPgn').onclick = () => copiar(M.pgn(visor.fen0, visor.ucis, visor.info), $('#vPgn'));
+  $('#vLista').onclick = e => { const b = e.target.closest('[data-i]'); if (b) ir(+b.dataset.i); };
+  pintarVisor();
+}
+function posEn(fen0, ucis, n) { const pos = new M.Pos(fen0); for (let i = 0; i < n; i++) { const m = M.parseUci(pos, ucis[i]); if (!m) break; pos.make(m); } return pos; }
+function pintarVisor() {
+  if (!visor || !$('#vCv')) return;
+  const pos = posEn(visor.fen0, visor.ucis, visor.idx), fen = pos.fen();
+  tablero($('#vCv'), fen, null, false, null, { coords: true, girar: visor.girar, base: 1.6 });
+  $('#vLista').innerHTML = listaHTML(visor.fen0, visor.ucis, visor.idx);
+  const cur = $('#vLista .cur'); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  if (visor.estado) $('#vSub').textContent = visor.estado();
+  if (opc.ana) analizar(fen, '#vAna'); else $('#vAna').innerHTML = '';
+}
+/* Las jugadas numeradas, en inglés: 1. e4 e5 2. Nf3 Nc6 */
+function listaHTML(fen0, ucis, idx) {
+  const ss = M.sanLista(fen0, ucis), p0 = new M.Pos(fen0); let n = p0.full, h = '';
+  if (!ss.length) return '<span class="nota">Aún no hay jugadas.</span>';
+  ss.forEach((x, k) => {
+    const blancas = (p0.side === 0) === (k % 2 === 0);
+    if (blancas) h += `<span class="n">${n}.</span>`; else if (k === 0) h += `<span class="n">${n}…</span>`;
+    h += `<button data-i="${k + 1}"${k + 1 === idx ? ' class="cur"' : ''}>${esc(x)}</button>`;
+    if (!blancas) n++;
+  });
+  return h;
+}
+function actualizarVisor() {
+  if (!visor || !visor.fuente) return;
+  const u = visor.fuente(); if (!u) return;
+  if (u.length === visor.ucis.length) { if (visor.estado && $('#vSub')) $('#vSub').textContent = visor.estado(); return; }
+  const alFinal = visor.idx === visor.ucis.length; visor.ucis = u.slice(); if (alFinal) visor.idx = u.length;
+  pintarVisor();
+}
+async function copiar(t, boton) {
+  let ok = false;
+  try { if (navigator.clipboard) { await navigator.clipboard.writeText(t); ok = true; } } catch (e) {}
+  if (!ok) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { ok = document.execCommand('copy'); } catch (e) {} a.remove(); }
+  if (boton) { const v = boton.textContent; boton.textContent = ok ? 'Copiado' : 'No he podido copiar'; setTimeout(() => { boton.textContent = v; }, 1500); }
+}
+
+/* ───── Análisis de Stockfish (un Stockfish aparte del de la escalera): valoración y las 2 mejores líneas ───── */
+const ana = { w: null, fallo: '', corriendo: false, pend: null, fen: null, lineas: [], destino: null, t: 0 };
+function analizar(fen, destino) {
+  ana.destino = destino;
+  if (ana.fallo) return pintarAnalisis();
+  if (!ana.w) {
+    try {
+      ana.w = new Worker('stockfish/stockfish-19-lite-single.js');
+      ana.w.onmessage = e => anaLinea(String(e.data));
+      ana.w.onerror = e => { ana.fallo = (e && e.message) || 'no carga'; pintarAnalisis(); };
+      ana.w.postMessage('uci'); ana.w.postMessage('setoption name MultiPV value 2');
+    } catch (e) { ana.fallo = 'no carga'; return pintarAnalisis(); }
+  }
+  if (fen === ana.fen && !ana.pend) return pintarAnalisis();
+  ana.pend = fen;
+  if (ana.corriendo) { ana.w.postMessage('stop'); pintarAnalisis(); return; }
+  anaArrancar();
+}
+function anaArrancar() {
+  const fen = ana.pend; ana.pend = null; if (!fen) return;
+  ana.fen = fen; ana.lineas = [];
+  const p = new M.Pos(fen); if (M.fin(p)) { ana.corriendo = false; return pintarAnalisis(); }
+  ana.corriendo = true; ana.w.postMessage('position fen ' + fen); ana.w.postMessage('go depth 18 movetime 4000'); pintarAnalisis();
+}
+function anaParar() { ana.pend = null; ana.destino = null; if (ana.corriendo && ana.w) ana.w.postMessage('stop'); }
+function anaLinea(l) {
+  if (l.startsWith('bestmove')) { ana.corriendo = false; if (ana.pend) anaArrancar(); else pintarAnalisis(); return; }
+  if (!ana.corriendo || ana.pend || !l.startsWith('info ') || l.indexOf(' pv ') < 0) return;
+  const k = +(/ multipv (\d+)/.exec(l) || [0, 1])[1], d = +(/ depth (\d+)/.exec(l) || [0, 0])[1], sc = / score (cp|mate) (-?\d+)/.exec(l); if (!sc) return;
+  ana.lineas[k - 1] = { depth: d, cp: sc[1] === 'cp' ? +sc[2] : null, mate: sc[1] === 'mate' ? +sc[2] : null, pv: l.slice(l.indexOf(' pv ') + 4).trim().split(/\s+/) };
+  const t = Date.now(); if (t - ana.t > 300) { ana.t = t; pintarAnalisis(); }
+}
+function pintarAnalisis() {
+  const el = ana.destino && $(ana.destino); if (!el) return;
+  if (ana.fallo) { el.innerHTML = '<p class="nota">Stockfish no carga en este aparato: sin análisis.</p>'; return; }
+  const fen = ana.fen; if (!fen) { el.innerHTML = ''; return; }
+  const p = new M.Pos(fen), f = M.fin(p), negras = p.side === 1;
+  if (f) { el.innerHTML = `<div class="evbar"><b style="width:${f.res === 1 ? 100 : f.res === 0 ? 0 : 50}%"></b><span>${f.motivo === 'mate' ? 'Jaque mate' : 'Tablas'}</span></div>`; return; }
+  const val = x => { const cp = x.cp == null ? null : negras ? -x.cp : x.cp, mt = x.mate == null ? null : negras ? -x.mate : x.mate; return { cp, mt, txt: mt != null ? (mt > 0 ? '#' : '#-') + Math.abs(mt) : (cp > 0 ? '+' : '') + fmt(cp / 100, 2), pct: mt != null ? (mt > 0 ? 100 : 0) : 100 / (1 + Math.pow(10, -cp / 400)) }; };
+  const ls = ana.lineas.filter(Boolean);
+  if (!ls.length) { el.innerHTML = '<div class="evbar"><b style="width:50%"></b><span>…</span></div><p class="nota">Stockfish está pensando…</p>'; return; }
+  const v0 = val(ls[0]);
+  el.innerHTML = `<div class="evbar"><b style="width:${v0.pct.toFixed(1)}%"></b><span>${v0.txt}</span></div>` +
+    ls.slice(0, 2).map(x => { const v = val(x); return `<div class="linea"><span class="ev">${v.txt}</span><span>${esc(lineaSAN(fen, x.pv.slice(0, 10)))}</span></div>`; }).join('') +
+    `<p class="nota" style="margin:4px 0 0">Stockfish 19 · profundidad ${ls[0].depth}${ana.corriendo ? '…' : ''}</p>`;
+}
+function lineaSAN(fen, pv) {
+  const ss = M.sanLista(fen, pv), p0 = new M.Pos(fen); let n = p0.full, t = '';
+  ss.forEach((x, k) => { const bl = (p0.side === 0) === (k % 2 === 0); if (bl) t += n + '. '; else if (k === 0) t += n + '… '; t += x + ' '; if (!bl) n++; });
+  return t.trim();
 }
 let sucio = new Set(), pedido = false, redibujarSF = false;
 function marcar(j) { if (j && j.tipo === 'caza') { cazaVista = j; cazaSucio = true; return pedir(); } if (j) sucio.add(j.mesa); else { mesas.forEach((_, m) => sucio.add(m)); cazaSucio = true; } pedir(); }
@@ -612,10 +778,26 @@ function pintarMesa(m) {
 }
 lienzo.addEventListener('click', e => {
   const pl = e.target.closest('.pl'); if (pl && pl.dataset.id && nivel !== 'lejos') return ficha(pl.dataset.id);
-  if (e.target.closest('.zona')) return;
+  const z = e.target.closest('.zona');
+  if (z) { if (nivel !== 'lejos' && e.target.tagName === 'CANVAS') { if (z.id === 'zsf') verSF(); else if (z.id === 'zcz' && cazaVista) verJuego(cazaVista); } return; }
   const me = e.target.closest('.mesa'); if (!me) return;
-  if (nivel !== 'cerca') acercarMesa(+me.dataset.mesa);
+  if (nivel !== 'cerca') return acercarMesa(+me.dataset.mesa);
+  if (e.target.tagName === 'CANVAS') { const js = juegosDeMesa(+me.dataset.mesa), j = js.find(x => x.estado === 'juega') || js.slice().reverse().find(x => x.estado === 'fin'); if (j) verJuego(j); }
 });
+const resTxt = r => r === 1 ? '1-0' : r === 0 ? '0-1' : r === .5 ? '½-½' : '*';
+function verJuego(j) {
+  const a = ind(j.w), b = ind(j.b); if (!a || !b) return;
+  verPartida({ titulo: `${a.nombre} – ${b.nombre}`, fen0: j.fen, ucis: (j.lista || j.jugadas || []).slice(), fuente: () => j.lista || j.jugadas,
+    info: { blancas: a.nombre, negras: b.nombre, resultado: resTxt(j.res), evento: 'Araña · generación ' + est.gen },
+    estado: () => (j.tipo === 'caza' ? 'Cazadora contra la élite · ' : `Generación ${est.gen} · mesa ${+j.mesa + 1} · `) + (j.estado === 'fin' ? `${resTxt(j.res)} (${j.motivo})` : j.estado === 'juega' ? (opc.directo ? 'en directo' : 'jugando (active «Directo» para verla en vivo)') : 'en espera') });
+}
+function verSF() {
+  const v = sfVista; if (!v || !v.jug) return;
+  const yo = v.ind.nombre, sfN = 'Stockfish (peldaño ' + v.E.n + ')';
+  verPartida({ titulo: `${yo} contra Stockfish`, fen0: v.fen0, ucis: v.jug.slice(), fuente: () => sfVista && sfVista.ind === v.ind && sfVista.fen0 === v.fen0 ? sfVista.jug : null,
+    info: { blancas: v.yoB ? yo : sfN, negras: v.yoB ? sfN : yo, evento: 'Araña · escalera de Stockfish' }, girar: !v.yoB,
+    estado: () => `Peldaño ${v.E.n}: ${v.E.nombre} · ${yo} con ${v.yoB ? 'blancas' : 'negras'}` });
+}
 
 /* ───── Resumen ───── */
 function pintarResumen() {
@@ -644,8 +826,8 @@ function pintarEstado() {
 }
 
 /* ═════════ La hoja ═════════ */
-function hoja(html) { $('#hojac').innerHTML = html; $('#hoja').classList.add('on'); $('#hojac').scrollTop = 0; const b = $('#hojac button'); if (b) b.focus(); }
-function cerrarHoja() { $('#hoja').classList.remove('on'); clearInterval(repTimer); }
+function hoja(html) { visor = null; anaParar(); $('#hojac').innerHTML = html; $('#hoja').classList.add('on'); $('#hojac').scrollTop = 0; const b = $('#hojac button'); if (b) b.focus(); }
+function cerrarHoja() { $('#hoja').classList.remove('on'); clearInterval(repTimer); visor = null; anaParar(); }
 const CERRAR = '<div class="ctrl" style="margin-top:14px"><button class="btn sec" data-cerrar>Cerrar</button></div>';
 $('#hoja').addEventListener('click', e => {
   if (e.target.id === 'hoja' || e.target.closest('[data-cerrar]')) return cerrarHoja();
@@ -748,6 +930,7 @@ function bloqueNombre(k) { if (k === 'jugada') return 'Valor de cada jugada'; if
 /* ═════════ Vistas auxiliares ═════════ */
 const AUX = {
   biblioteca() { return biblioteca(); },
+  registro() { return registro(); },
   grafica() {
     if (historial.length < 2) return hoja('<h3>Gráfica</h3><p class="nota">Hacen falta al menos dos generaciones terminadas.</p>' + CERRAR);
     const g = historial.slice(-200), W = 340, H = 150, eje = (vals, cs) => {
@@ -809,27 +992,25 @@ const AUX = {
     hoja(`<h3>Mapa de estilos</h3><div class="sub">Las ${pts.length} arañas vivas. Más grande = más Elo; con borde verde, la mejor. Toque una para su ficha.</div>${s}</svg>
       <p class="nota">Si los puntos se juntan, la población se parece demasiado; si se reparten, hay variedad para seguir evolucionando.</p>` + CERRAR);
   },
-  async partidas() {
-    const ps = (await todos('partidas')).sort((a, b) => b.gen - a.gen).slice(0, 40);
-    if (!ps.length) return hoja('<h3>Partidas</h3><p class="nota">Al terminar cada generación guardo su mejor partida. Aún no hay ninguna.</p>' + CERRAR);
-    const ops = []; for (const p of ps) { ops.push(`<option value="g${p.gen}">Gen ${p.gen}: ${esc(p.wn)} – ${esc(p.bn)} · ${p.res === 1 ? '1-0' : p.res === 0 ? '0-1' : '½-½'} (${esc(p.motivo)})</option>`); if (p.sf) ops.push(`<option value="s${p.gen}">Gen ${p.gen}: ${esc(p.sf.nombre)} contra Stockfish (peldaño ${p.sf.peldano}) · ${p.sf.res === 1 ? 'gana' : p.sf.res === .5 ? 'tablas' : 'pierde'}</option>`); }
-    hoja(`<h3>Las mejores partidas</h3><select class="full" id="repSel" aria-label="Elegir partida">${ops.join('')}</select>
-      <canvas id="repCv" width="240" height="240" style="width:100%;max-width:340px;aspect-ratio:1;display:block;margin:0 auto;border-radius:8px"></canvas>
-      <div class="rep"><button id="r0" aria-label="Al principio">⏮</button><button id="r1" aria-label="Jugada anterior">◀</button><button id="rp" aria-label="Reproducir">▶</button><button id="r2" aria-label="Jugada siguiente">▶︎|</button><button id="r3" aria-label="Al final">⏭</button></div>
-      <div class="nota" id="repTxt" style="text-align:center"></div>` + CERRAR);
-    const porG = new Map(ps.map(p => [p.gen, p])); let partida = null, fens = [], ucis = [], i = 0, pezEn = null;
-    const cargarP = v => {
-      const g = porG.get(+v.slice(1)); partida = v[0] === 's' ? g.sf : g; pezEn = v[0] === 's' ? (g.sf.yoB ? 'b' : 'w') : null;
-      const pos = new M.Pos(partida.fen); fens = [pos.fen()]; ucis = [null];
-      for (const u of partida.jugadas || []) { const m = M.parseUci(pos, u); if (!m) break; pos.make(m); fens.push(pos.fen()); ucis.push(u); }
-      i = 0; pintar();
-    };
-    const pintar = () => { const cv = $('#repCv'); if (!cv) return; const e0 = esc0; esc0 = 1.4; tablero(cv, fens[i], ucis[i], true, pezEn); esc0 = e0; $('#repTxt').textContent = `Jugada ${Math.ceil(i / 2)} de ${Math.ceil((fens.length - 1) / 2)}${i === fens.length - 1 ? ' · ' + partida.motivo : ''}`; };
-    const ir = n => { i = Math.max(0, Math.min(fens.length - 1, n)); pintar(); };
-    $('#repSel').onchange = e => { clearInterval(repTimer); $('#rp').textContent = '▶'; cargarP(e.target.value); };
-    $('#r0').onclick = () => ir(0); $('#r1').onclick = () => ir(i - 1); $('#r2').onclick = () => ir(i + 1); $('#r3').onclick = () => ir(fens.length - 1);
-    $('#rp').onclick = () => { if (repTimer) { clearInterval(repTimer); repTimer = 0; $('#rp').textContent = '▶'; return; } $('#rp').textContent = '⏸'; repTimer = setInterval(() => { if (i >= fens.length - 1) { clearInterval(repTimer); repTimer = 0; $('#rp').textContent = '▶'; return; } ir(i + 1); }, 650); };
-    cargarP('g' + ps[0].gen);
+  async partidas(genElegida) {
+    const ps = (await todos('partidas')).sort((a, b) => b.gen - a.gen);
+    if (!ps.length) return hoja('<h3>Partidas</h3><p class="nota">Al terminar cada generación guardo sus partidas. Aún no hay ninguna.</p>' + CERRAR);
+    const g = ps.find(x => x.gen === genElegida) || ps[0];
+    const lista = g.todas ? g.todas.map(x => Object.assign({}, x, { jugadas: typeof x.jugadas === 'string' ? (x.jugadas ? x.jugadas.split(' ') : []) : x.jugadas || [] }))
+      : [{ wn: g.wn, bn: g.bn, fen: g.fen, jugadas: g.jugadas, res: g.res, motivo: g.motivo, tipo: '' }].concat(g.sf ? [{ tipo: 'sf', wn: g.sf.yoB ? g.sf.nombre : 'Stockfish', bn: g.sf.yoB ? 'Stockfish' : g.sf.nombre, fen: g.sf.fen, jugadas: g.sf.jugadas, res: g.sf.yoB ? g.sf.res : 1 - g.sf.res, motivo: g.sf.motivo, peldano: g.sf.peldano }] : []);
+    const grupo = { '': 'Torneo', caza: 'Contra las cazadoras', sf: 'Contra Stockfish' };
+    let h = `<h3>Partidas</h3><select class="full" id="pGen" aria-label="Generación">${ps.slice(0, 300).map(x => `<option value="${x.gen}"${x === g ? ' selected' : ''}>Generación ${x.gen}${x.todas ? ` · ${x.todas.length} partidas` : ' · la mejor'}</option>`).join('')}</select>`;
+    for (const t of ['sf', 'caza', '']) {
+      const ls = lista.map((x, k) => [x, k]).filter(([x]) => (x.tipo || '') === t); if (!ls.length) continue;
+      h += `<h2>${grupo[t]} · ${ls.length}</h2><div class="det">` + ls.map(([x, k]) => `<span data-par="${k}" style="cursor:pointer">${esc(x.wn)} – ${esc(x.bn)}${x.peldano ? ` <i style="font-style:normal;color:var(--muted)">(peldaño ${x.peldano})</i>` : ''}</span><span class="v">${resTxt(x.res)} · ${Math.ceil((x.jugadas || []).length / 2)} jug.</span>`).join('') + '</div>';
+    }
+    hoja(h + '<p class="nota">Toque una partida para verla jugada a jugada, con su análisis de Stockfish.</p>' + CERRAR);
+    $('#pGen').onchange = e => AUX.partidas(+e.target.value);
+    $('#hojac').querySelectorAll('[data-par]').forEach(b => b.onclick = () => {
+      const x = lista[+b.dataset.par];
+      verPartida({ titulo: `${x.wn} – ${x.bn}`, sub: `Generación ${g.gen} · ${resTxt(x.res)} (${x.motivo})`, fen0: x.fen || M.INICIO, ucis: x.jugadas || [], idx: 0, girar: x.tipo === 'sf' && x.bn !== 'Stockfish',
+        info: { blancas: x.wn, negras: x.bn, resultado: resTxt(x.res), evento: 'Araña · generación ' + g.gen } });
+    });
   },
   escalera() {
     const con = est.escalera.conquistas, act = est.escalera.peldano, gs = historial.filter(g => g.sf);
@@ -956,7 +1137,7 @@ function aplicarPendientes() {
     }
   }
   byId = new Map(pop.map(p => [p.id, p]));
-  escribir(muertas.map(p => ['individuos', conHuella(p)])).catch(() => {});   // se guardan con sus genes: se puede volver a ellas
+  escribir(muertas.map(p => { p.murio = est.gen; return ['individuos', conHuella(p)]; })).catch(() => {});   // se guardan con sus genes: se puede volver a ellas
   if (HITOS.find(h => h.id === 'sangre').ok()) darHito('sangre');
 }
 
@@ -972,8 +1153,12 @@ let ph = null;
 function partidaHumana(p, color) {
   ph = { p, color, pos: new M.Pos(), jug: [], sel: -1, ultima: null, piensa: false, fin: null };
   hoja(`<h3>Usted contra ${esc(p.nombre)}</h3><div class="sub" id="phTxt"></div>
-    <canvas id="phCv" width="320" height="320" style="width:100%;max-width:360px;aspect-ratio:1;display:block;margin:0 auto;border-radius:8px;touch-action:manipulation"></canvas>
-    <div class="ctrl" style="justify-content:center;margin-top:10px"><button class="btn sec" id="phRend">Me rindo</button><button class="btn sec" id="phNueva">Otra partida</button></div>` + CERRAR);
+    <div class="ana" id="phAna"></div>
+    <canvas id="phCv" class="tabg" width="320" height="320" style="touch-action:manipulation"></canvas>
+    <div class="jugadas" id="phLista"></div>
+    <div class="ctrl" style="justify-content:center;margin-top:10px"><button class="btn sec" id="phRend">Me rindo</button><button class="btn sec" id="phNueva">Otra partida</button><button class="btn sec" id="phAn" aria-pressed="false">Análisis</button><button class="btn sec" id="phPgn">Copiar PGN</button></div>` + CERRAR);
+  $('#phAn').onclick = () => { ph.ana = !ph.ana; $('#phAn').setAttribute('aria-pressed', String(ph.ana)); if (!ph.ana) anaParar(); pintarHumana(); };
+  $('#phPgn').onclick = () => copiar(M.pgn(M.INICIO, ph.jug, { blancas: ph.color === 'w' ? 'Juan' : p.nombre, negras: ph.color === 'w' ? p.nombre : 'Juan' }), $('#phPgn'));
   $('#phCv').addEventListener('click', toqueHumano);
   $('#phRend').onclick = () => { if (!ph.fin) acabarHumana({ res: ph.color === 'w' ? 0 : 1, motivo: 'se rinde' }); };
   $('#phNueva').onclick = () => elegirColor(p);
@@ -982,26 +1167,11 @@ function partidaHumana(p, color) {
 }
 function pintarHumana() {
   const cv = $('#phCv'); if (!cv || !ph) return;
-  const g = cv.getContext('2d'), W = cv.width, q = W / 8, gir = ph.color === 'b', pos = ph.pos;
-  const xy = sq => { const c = sq & 7, r = 7 - (sq >> 4); return gir ? [(7 - c) * q, (7 - r) * q] : [c * q, r * q]; };
-  g.clearRect(0, 0, W, W);
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { g.fillStyle = (r + c) % 2 ? 'rgba(94,232,255,.07)' : 'rgba(94,232,255,.2)'; g.fillRect(c * q, r * q, q, q); }
-  if (ph.ultima) { g.fillStyle = 'rgba(61,255,153,.25)'; for (const s of [ph.ultima.slice(0, 2), ph.ultima.slice(2, 4)]) { const [x, y] = xy((s.charCodeAt(0) - 97) + (+s[1] - 1) * 16); g.fillRect(x, y, q, q); } }
-  if (ph.sel >= 0) {
-    const [x, y] = xy(ph.sel); g.strokeStyle = '#ff4fa3'; g.lineWidth = 3; g.strokeRect(x + 1.5, y + 1.5, q - 3, q - 3);
-    g.fillStyle = 'rgba(255,79,163,.55)';
-    for (const m of M.legal(pos)) if (M.mFrom(m) === ph.sel) { const [a, b] = xy(M.mTo(m)); g.beginPath(); g.arc(a + q / 2, b + q / 2, q * .14, 0, 7); g.fill(); }
-  }
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 ' + Math.round(q * .5) + 'px ui-monospace,Menlo,monospace';
-  for (let s = 0; s < 128; s++) {
-    if (s & 0x88) { s += 7; continue; }
-    const pz = pos.b[s]; if (!pz) continue;
-    const blanca = !(pz >> 3), [x, y] = xy(s), cx = x + q / 2, cy = y + q / 2;
-    g.beginPath(); g.arc(cx, cy, q * .38, 0, 7); g.fillStyle = blanca ? '#e9f6ff' : '#1b1430'; g.fill();
-    g.lineWidth = Math.max(1, q * .06); g.strokeStyle = blanca ? '#5ee8ff' : '#ff4fa3'; g.stroke();
-    g.fillStyle = blanca ? '#0a0c15' : '#ffd6ea'; g.fillText(LET['pnbrqk'[(pz & 7) - 1]], cx, cy + q * .03);
-  }
+  const pos = ph.pos, dest = ph.sel >= 0 ? M.legal(pos).filter(m => M.mFrom(m) === ph.sel).map(M.mTo) : null;
+  tablero(cv, pos.fen(), null, false, null, { girar: ph.color === 'b', coords: true, sel: ph.sel, destinos: dest, base: 1.6 });
   const t = $('#phTxt'); if (t) t.textContent = ph.fin ? ph.fin : ph.piensa ? `${ph.p.nombre} está pensando…` : M.inCheck(pos) ? 'Le toca. ¡Está en jaque!' : 'Le toca. Toque una pieza y luego su casilla.';
+  const l = $('#phLista'); if (l) l.innerHTML = listaHTML(M.INICIO, ph.jug, ph.jug.length);
+  if (ph.ana) analizar(pos.fen(), '#phAna'); else { const a = $('#phAna'); if (a) a.innerHTML = ''; }
 }
 function toqueHumano(e) {
   if (!ph || ph.fin || ph.piensa) return;
@@ -1031,7 +1201,7 @@ function turnoArana() {
 }
 async function acabarHumana(f) {
   const yoB = ph.color === 'w', mio = yoB ? f.res : 1 - f.res;
-  ph.fin = (mio === 1 ? '¡Ha ganado usted!' : mio === 0 ? `Gana ${ph.p.nombre}.` : 'Tablas.') + ` (${f.motivo})`; ph.piensa = false; pintarHumana();
+  ph.fin = (mio === 1 ? '¡Ha ganado usted!' : mio === 0 ? `Gana ${ph.p.nombre}.` : 'Tablas.') + ` (${f.motivo})`; ph.piensa = false; ph.ana = true; const b = $('#phAn'); if (b) b.setAttribute('aria-pressed', 'true'); pintarHumana();
   const p = ph.p; recordarRival(p, 'juan', 1 - mio);
   if (!byId.has(p.id) && !cazById.has(p.id)) await escribir([['individuos', p]]).catch(() => {}); else guardarEstado().catch(() => {});
   darHito(mio === 1 ? 'juan-gana' : mio === 0 ? 'gano-juan' : '');
@@ -1042,7 +1212,7 @@ async function duelo(a, b) {
   hoja(`<h3>${esc(a.nombre)} contra ${esc(b.nombre)}</h3><div class="sub" id="duTxt">Empieza el duelo…</div>
     <canvas id="duCv" width="240" height="240" style="width:100%;max-width:340px;aspect-ratio:1;display:block;margin:0 auto;border-radius:8px"></canvas><div class="det" id="duRes" style="margin-top:10px"></div>` + CERRAR);
   const f1 = M.aperturaAleatoria(rng, 4), f2 = M.aperturaAleatoria(rng, 4), partidas = [[a, b, f1], [b, a, f1], [a, b, f2], [b, a, f2]];
-  let pa = 0, pb = 0; const filas = [];
+  let pa = 0, pb = 0; const filas = [], jugadasDu = [];
   for (let i = 0; i < partidas.length; i++) {
     const [w, n, fen] = partidas[i];
     if (!$('#duCv')) return;   // cerró la hoja
@@ -1052,13 +1222,129 @@ async function duelo(a, b) {
       aparte.set(id, { jugada: d => { const cv = $('#duCv'); if (cv) { const e0 = esc0; esc0 = 1.4; tablero(cv, d.fen, d.uci, true); esc0 = e0; } }, fin: ok });
       hiloAparte().postMessage({ t: 'partida', id, w: { id: w.id, genes: w.genes }, b: { id: n.id, genes: n.genes }, fen, opc: { ms: opc.ms, prof: opc.prof, maxPlies: opc.maxPlies }, directo: true, flags: flagsDe() });
     });
-    const ra = w === a ? r.res : 1 - r.res; pa += ra; pb += 1 - ra;
-    filas.push(`<span>${i + 1}. ${esc(w.nombre)} – ${esc(n.nombre)}</span><span class="v">${r.res === 1 ? '1-0' : r.res === 0 ? '0-1' : '½-½'} · ${esc(r.motivo)}</span>`);
-    const dr = $('#duRes'); if (dr) dr.innerHTML = filas.join('');
+    const ra = w === a ? r.res : 1 - r.res; pa += ra; pb += 1 - ra; jugadasDu.push({ w, n, fen, r });
+    filas.push(`<span data-du="${i}" style="cursor:pointer">${i + 1}. ${esc(w.nombre)} – ${esc(n.nombre)}</span><span class="v">${resTxt(r.res)} · ${esc(r.motivo)}</span>`);
+    const dr = $('#duRes'); if (dr) { dr.innerHTML = filas.join(''); dr.onclick = e => { const x = e.target.closest('[data-du]'); if (!x) return; const g = jugadasDu[+x.dataset.du]; verPartida({ titulo: `${g.w.nombre} – ${g.n.nombre}`, sub: `Duelo · ${resTxt(g.r.res)} (${g.r.motivo})`, fen0: g.fen, ucis: g.r.jugadas, idx: 0, info: { blancas: g.w.nombre, negras: g.n.nombre, resultado: resTxt(g.r.res), evento: 'Araña · duelo' } }); }; }
   }
   const t = $('#duTxt'); if (t) t.textContent = `Final: ${a.nombre} ${fmt(pa, 1)} – ${fmt(pb, 1)} ${b.nombre}` + (pa > pb ? ' · gana la campeona' : pa < pb ? ` · ¡gana ${b.nombre}!` : ' · empate');
   (est.duelos = est.duelos || []).push({ a: a.nombre, b: b.nombre, pa, pb, fecha: new Date().toISOString(), gen: est.gen });
   est.duelos = est.duelos.slice(-30); guardarEstado().catch(() => {});
+}
+
+/* ═════════ Menú de evoluciones ═════════ */
+function cambiarA(id) { entrenar(false); slotId = id; guardarSlots(); hilos.forEach(w => w.terminate()); if (db) db.close(); location.reload(); }
+function nuevaEvolucion() {
+  const nombre = prompt('¿Cómo llamo a la nueva evolución? La de ahora queda guardada tal cual.', 'Evolución ' + (slots.length + 1));
+  if (nombre == null) return;
+  const id = Date.now().toString(36);
+  slots.push({ id, nombre: (nombre.trim() || 'Evolución ' + (slots.length + 1)).slice(0, 40), creada: new Date().toISOString() });
+  cambiarA(id);
+}
+async function resumenDe(sl) {
+  if (sl.id === slotId) return { gen: est.gen, peldano: est.escalera.peldano, campeona: (campeona() || {}).nombre, arañas: pop.length };
+  try {
+    const d = await abrirDB(dbNombre(sl.id)); if (!d) return null;
+    const e = await req(d.transaction('estado').objectStore('estado').get('actual')); d.close();
+    return e ? { gen: e.gen, peldano: e.escalera ? migrarEscalera(e.escalera).peldano : 1, arañas: (e.pop || []).length } : null;
+  } catch (e) { return null; }
+}
+async function evoluciones() {
+  const res = await Promise.all(slots.map(resumenDe));
+  hoja(`<h3>Evoluciones</h3><div class="sub">Cada evolución tiene sus propias arañas, su escalera y sus partidas. Cambiar de una a otra no borra nada.</div>
+    <div class="ctrl" style="margin-bottom:12px"><button class="btn" id="eNueva">Nueva evolución desde cero</button><button class="btn sec" id="eDup">Duplicar la de ahora</button></div>` +
+    slots.map((sl, i) => { const r = res[i], act = sl.id === slotId; return `<div class="hito${act ? ' si' : ''}" style="align-items:center"><span class="m"></span><span style="flex:1">${esc(sl.nombre)}${act ? ' · abierta' : ''}<small>${r ? `Generación ${r.gen} · peldaño ${r.peldano} de Stockfish${r.campeona ? ' · campeona ' + esc(r.campeona) : ''}` : 'Sin empezar'} · creada el ${new Date(sl.creada).toLocaleDateString('es-ES')}</small></span>
+      <span class="ctrl" style="flex:none">${act ? '' : `<button class="btn sec" data-eab="${sl.id}" style="min-height:34px;padding:4px 10px">Abrir</button>`}<button class="btn sec" data-ere="${sl.id}" style="min-height:34px;padding:4px 10px">Renombrar</button>${act ? '' : `<button class="btn sec" data-ebo="${sl.id}" style="min-height:34px;padding:4px 10px">Borrar</button>`}</span></div>`; }).join('') + CERRAR);
+  $('#eNueva').onclick = nuevaEvolucion;
+  $('#eDup').onclick = duplicarEvolucion;
+  $('#hojac').querySelectorAll('[data-eab]').forEach(b => b.onclick = () => cambiarA(b.dataset.eab));
+  $('#hojac').querySelectorAll('[data-ere]').forEach(b => b.onclick = () => { const sl = slots.find(x => x.id === b.dataset.ere), n = prompt('Nuevo nombre:', sl.nombre); if (n && n.trim()) { sl.nombre = n.trim().slice(0, 40); guardarSlots(); ponerTitulo(); evoluciones(); } });
+  $('#hojac').querySelectorAll('[data-ebo]').forEach(b => b.onclick = async () => {
+    const sl = slots.find(x => x.id === b.dataset.ebo);
+    if (!confirm(`¿Borro para siempre la evolución «${sl.nombre}» con todas sus arañas? Si la quiere, exporte antes una copia desde ella.`)) return;
+    await new Promise(ok => { const r = indexedDB.deleteDatabase(dbNombre(sl.id)); r.onsuccess = r.onerror = r.onblocked = ok; });
+    slots = slots.filter(x => x !== sl); guardarSlots(); evoluciones();
+  });
+}
+async function duplicarEvolucion() {
+  const nombre = prompt('¿Cómo llamo a la copia? Seguirá desde la misma generación, por su cuenta.', slotActual().nombre + ' (copia)');
+  if (nombre == null) return;
+  entrenar(false);
+  const id = Date.now().toString(36), stores = ['individuos', 'generaciones', 'partidas'], datos = {};
+  await guardarEstado().catch(() => {});
+  for (const st of stores) datos[st] = await todos(st);
+  const d = await abrirDB(dbNombre(id));
+  await new Promise((ok, ko) => { const tx = d.transaction(['estado'].concat(stores), 'readwrite'); tx.objectStore('estado').put(JSON.parse(JSON.stringify(est)), 'actual'); for (const st of stores) for (const v of datos[st]) tx.objectStore(st).put(v); tx.oncomplete = ok; tx.onerror = () => ko(tx.error); });
+  d.close();
+  slots.push({ id, nombre: (nombre.trim() || slotActual().nombre + ' (copia)').slice(0, 40), creada: new Date().toISOString() }); guardarSlots();
+  if (confirm('Copia hecha. ¿La abro ahora?')) cambiarA(id); else evoluciones();
+}
+function ponerTitulo() { $('header h1').textContent = slots.length > 1 ? 'Sala · ' + slotActual().nombre : 'Sala de partidas'; }
+
+/* ═════════ Registro: todas las arañas que han existido, en tabla, y comparar ═════════ */
+const RCOLS = [
+  ['nombre', 'Araña', p => p.nombre, v => esc(v)],
+  ['gen', 'Gen', p => p.gen],
+  ['estado', 'Estado', p => estadoDe(p)],
+  ['origen', 'Origen', p => p.origen],
+  ['elo', 'Elo', p => Math.round(p.elo)],
+  ['par', 'Partidas', p => p.partidas ? p.partidas.g + p.partidas.e + p.partidas.p : null],
+  ['gan', '% puntos', p => p.partidas && (p.partidas.g + p.partidas.e + p.partidas.p) ? Math.round((p.partidas.g + p.partidas.e / 2) / (p.partidas.g + p.partidas.e + p.partidas.p) * 100) : null],
+  ['sf', 'Stockfish', p => p.sf && p.sf.mejorPeldano ? p.sf.mejorPeldano : null, (v, p) => v == null ? '—' : `${p.sf.mejor === 'victoria' ? 'gana' : 'tablas'} p${v}`],
+  ...['P', 'N', 'B', 'R', 'Q'].map((l, i) => ['v' + l, l, p => { const h = huellaDe(p); return h ? h.p[i] / 100 : null; }, v => v == null ? '—' : fmt(v, 2)]),
+  ['det', 'Detect.', p => { const h = huellaDe(p); return h ? Object.values(h.d).filter(x => x[0]).length : null; }],
+  ['neu', 'Neuronas', p => { const h = huellaDe(p); return h && h.r != null ? h.r : null; }],
+  ['agr', 'Agresiv.', p => { const h = huellaDe(p); return h && h.c ? h.c[0] : null; }, v => v == null ? '—' : fmt(v, 2)],
+  ['sac', 'Sacrif.', p => { const h = huellaDe(p); return h && h.c ? h.c[1] : null; }, v => v == null ? '—' : fmt(v, 2)],
+  ['rie', 'Riesgo', p => { const h = huellaDe(p); return h && h.c ? h.c[2] : null; }, v => v == null ? '—' : fmt(v, 2)],
+  ['ant', 'Anti-mot.', p => { const h = huellaDe(p); return h && h.s ? h.s[0] : null; }, v => v == null ? '—' : fmt(v, 2)],
+  ['cao', 'Caos', p => { const h = huellaDe(p); return h && h.s ? h.s[1] : null; }, v => v == null ? '—' : fmt(v, 2)],
+  ['aza', 'Azar', p => { const h = huellaDe(p); return h && h.z != null ? h.z : null; }, v => v == null ? '—' : fmt(v, 2)],
+  ['nov', 'Novedad', p => p.novedad != null ? p.novedad : null, v => v == null ? '—' : fmt(v, 3)],
+];
+function estadoDe(p) { if (byId.has(p.id)) return 'viva'; if (cazById.has(p.id)) return 'cazadora viva'; if (p.importada) return 'importada'; return p.murio ? '† g' + p.murio : 'élite guardada'; }
+let regOrden = { k: 'elo', dir: -1 }, regFiltro = 'todas', regBuscar = '', regSel = new Set();
+async function registro() {
+  const mapa = new Map(); for (const p of await todos('individuos')) mapa.set(p.id, p); for (const p of pop.concat(cazadoras)) mapa.set(p.id, p);
+  const todas = [...mapa.values()];
+  const F = { todas: () => true, vivas: p => byId.has(p.id), muertas: p => !byId.has(p.id) && !cazById.has(p.id) && !p.importada, cazadoras: p => p.origen === 'cazadora', importadas: p => !!p.importada };
+  const col = RCOLS.find(c => c[0] === regOrden.k) || RCOLS[4], b = regBuscar.toLowerCase();
+  const filas = todas.filter(F[regFiltro] || F.todas).filter(p => !b || p.nombre.toLowerCase().includes(b)).map(p => [p, col[2](p)])
+    .sort((x, y) => { const a = x[1], c = y[1]; if (a == null && c == null) return 0; if (a == null) return 1; if (c == null) return -1; return (typeof a === 'string' ? a.localeCompare(c) : a - c) * regOrden.dir; });
+  const vistas = filas.slice(0, 200);
+  hoja(`<h3>Registro de arañas</h3><div class="sub">Las ${todas.length} que han existido en esta evolución, también las que murieron. Toque una columna para ordenar.</div>
+    <div class="ctrl" style="margin-bottom:8px"><input id="rBus" type="search" placeholder="Buscar por nombre" value="${esc(regBuscar)}" style="flex:1;min-width:140px;font:14px var(--mono);background:#141832;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px">
+      <select id="rFil" style="font:14px var(--mono);background:#141832;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px">${Object.keys(F).map(k => `<option value="${k}"${k === regFiltro ? ' selected' : ''}>${k[0].toUpperCase() + k.slice(1)} · ${todas.filter(F[k]).length}</option>`).join('')}</select>
+      <button class="btn" id="rCmp"${regSel.size < 2 ? ' aria-disabled="true"' : ''}>Comparar (${regSel.size})</button></div>
+    <div class="tabla"><table><thead><tr><th></th>${RCOLS.map(c => `<th data-ord="${c[0]}" class="${typeof col[2](vistas[0] ? vistas[0][0] : {}) === 'string' && c === col ? '' : ''}${c[0] === regOrden.k ? 'ord' : ''}">${c[1]}${c[0] === regOrden.k ? (regOrden.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead><tbody>
+    ${vistas.map(([p]) => `<tr><td><input type="checkbox" data-sel="${esc(p.id)}"${regSel.has(p.id) ? ' checked' : ''} aria-label="Elegir ${esc(p.nombre)} para comparar"></td>${RCOLS.map(c => { const v = c[2](p); return `<td${c[0] === 'nombre' ? ` data-ficha="${esc(p.id)}" class="nom"` : ''}>${c[3] ? c[3](v, p) : v == null ? '—' : esc(v)}</td>`; }).join('')}</tr>`).join('')}
+    </tbody></table></div>${filas.length > 200 ? `<p class="nota">Enseño las 200 primeras de ${filas.length}: ordene o busque para ver otras.</p>` : ''}
+    <p class="nota">Valores de las piezas en el medio juego (P peón, N caballo, B alfil, R rook/torre, Q dama). Toque un nombre para su ficha. De las que murieron se guardan sus cualidades${genesTodas() ? ' y sus genes' : ', no sus genes (se puede cambiar en Opciones)'}.</p>` + CERRAR);
+  $('#hojac').querySelectorAll('[data-ord]').forEach(th => th.onclick = () => { const k = th.dataset.ord; regOrden = { k, dir: regOrden.k === k ? -regOrden.dir : (k === 'nombre' || k === 'origen' || k === 'estado' ? 1 : -1) }; registro(); });
+  $('#rBus').onchange = e => { regBuscar = e.target.value.trim(); registro(); };
+  $('#rFil').onchange = e => { regFiltro = e.target.value; registro(); };
+  $('#hojac').querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { if (c.checked) { if (regSel.size >= 4) { c.checked = false; return avisar('Como mucho cuatro a la vez.'); } regSel.add(c.dataset.sel); } else regSel.delete(c.dataset.sel); const bt = $('#rCmp'); bt.textContent = `Comparar (${regSel.size})`; bt.setAttribute('aria-disabled', String(regSel.size < 2)); });
+  $('#rCmp').onclick = () => { if (regSel.size >= 2) comparar([...regSel].map(id => mapa.get(id)).filter(Boolean)); else avisar('Elija al menos dos arañas.'); };
+}
+function comparar(ps) {
+  const filaNum = (nombre, vals, d, mayorMejor) => {
+    const nums = vals.filter(v => typeof v === 'number'), mx = nums.length > 1 && mayorMejor !== false ? Math.max(...nums) : null;
+    return `<tr><th>${esc(nombre)}</th>${vals.map(v => `<td${v === mx && nums.filter(x => x === mx).length === 1 ? ' class="mejor"' : ''}>${v == null ? '—' : typeof v === 'number' ? fmt(v, d == null ? 2 : d) : esc(v)}</td>`).join('')}</tr>`;
+  };
+  const hs = ps.map(huellaDe);
+  let h = `<h3>Comparar ${ps.length} arañas</h3><div class="tabla"><table class="cmp"><thead><tr><th></th>${ps.map(p => `<th data-ficha="${esc(p.id)}" class="nom">${esc(p.nombre)}</th>`).join('')}</tr></thead><tbody>`;
+  h += filaNum('Generación', ps.map(p => p.gen), 0, false) + filaNum('Estado', ps.map(estadoDe)) + filaNum('Origen', ps.map(p => p.origen)) + filaNum('Elo', ps.map(p => Math.round(p.elo)), 0);
+  h += filaNum('Partidas', ps.map(p => p.partidas ? p.partidas.g + p.partidas.e + p.partidas.p : null), 0, false) + filaNum('Ganadas', ps.map(p => p.partidas ? p.partidas.g : null), 0) + filaNum('Tablas', ps.map(p => p.partidas ? p.partidas.e : null), 0, false) + filaNum('Perdidas', ps.map(p => p.partidas ? p.partidas.p : null), 0, false);
+  h += filaNum('Mejor peldaño de Stockfish', ps.map(p => p.sf && p.sf.mejorPeldano ? p.sf.mejorPeldano : null), 0) + filaNum('Puntos contra Stockfish', ps.map(p => p.sf ? p.sf.puntos : null), 1);
+  h += '<tr><th colspan="9" class="sec">Valor de las piezas (medio juego)</th></tr>' + ['Pawn (peón)', 'Knight (caballo)', 'Bishop (alfil)', 'Rook (torre)', 'Queen (dama)'].map((n, i) => filaNum(n, hs.map(x => x ? x.p[i] / 100 : null), 2, false)).join('');
+  h += '<tr><th colspan="9" class="sec">Cómo piensa</th></tr>' + M.PIENSA.map((n, i) => filaNum(n, hs.map(x => x ? x.k[i] : null), 2, false)).join('');
+  h += '<tr><th colspan="9" class="sec">Distópicas</th></tr>' + filaNum('Neuronas de su red', hs.map(x => x && x.r != null ? x.r : null), 0) +
+    M.CARACTER.map((n, i) => filaNum(n[0].toUpperCase() + n.slice(1), hs.map(x => x && x.c ? x.c[i] : null), 2, false)).join('') +
+    M.SESGO.map((n, i) => filaNum(n[0].toUpperCase() + n.slice(1), hs.map(x => x && x.s ? x.s[i] : null), 2, false)).join('') +
+    M.AUTOMUT.map((n, i) => filaNum(n[0].toUpperCase() + n.slice(1) + ' (×)', hs.map(x => x && x.a ? Math.exp(x.a[i]) : null), 2, false)).join('') +
+    filaNum('Azar', hs.map(x => x && x.z != null ? x.z : null), 2, false) + filaNum('Novedad', ps.map(p => p.novedad != null ? p.novedad : null), 3);
+  h += `<tr><th colspan="9" class="sec">Detectores (peso de su primera medida; — apagado)</th></tr>` + M.DET.filter(d => d.n !== 1 && d.n !== 4).map(d => filaNum(d.n + '. ' + d.nombre, hs.map(x => x && x.d[d.n] ? (x.d[d.n][0] ? x.d[d.n][1] : null) : null), 1, false)).join('');
+  hoja(h + '</tbody></table></div><p class="nota">En verde, el valor más alto en las filas donde más es mejor. Toque un nombre para su ficha.</p><div class="ctrl" style="margin-top:12px"><button class="btn sec" id="cVolver">Volver al registro</button><button class="btn sec" data-cerrar>Cerrar</button></div>');
+  $('#cVolver').onclick = registro;
 }
 
 /* ───── Opciones ───── */
@@ -1077,19 +1363,17 @@ function opciones() {
     <h2>Distópicas</h2>
     ${M.DIST.map(([n, nombre]) => `<label class="op">${n}. ${nombre} <select data-dist="${n}"><option value="1"${flagsDe()[n] ? ' selected' : ''}>Sí</option><option value="0"${flagsDe()[n] ? '' : ' selected'}>No</option></select></label>`).join('')}
     <label class="op">Peso de la novedad ${sel('novPeso', [0, 0.05, 0.15, 0.3], v => Math.round(v * 100) + ' %', est.opc)}</label>
+    <label class="op">Guardar los genes de las que mueren ${sel('genesTodas', [0, 1], v => v ? 'Sí (ocupa más)' : 'No, solo sus cualidades', est.opc)}</label>
     <p class="nota">Apagar una distópica no borra sus genes: siguen heredándose y vuelven a contar si la enciende. Los parásitos añaden 16 partidas por generación.</p>
     <p class="nota">Más tiempo por jugada juega mejor pero evoluciona más despacio. Con ${NHILOS} hilos, una generación de ${pop.length} arañas tarda unos ${Math.max(1, Math.round(pop.length * opc.rondas * (opc.maxPlies * .45) * opc.ms / 1000 / NHILOS / 60))} min.</p>
-    <div class="ctrl"><button class="btn sec" id="exp">Exportar copia</button><button class="btn sec" id="reset">Empezar de cero</button><button class="btn" data-cerrar>Hecho</button></div>`);
+    <div class="ctrl"><button class="btn sec" id="exp">Exportar copia</button><button class="btn sec" id="reset">Nueva evolución desde cero</button><button class="btn" data-cerrar>Hecho</button></div>`);
   $('#hojac').querySelectorAll('select').forEach(s => s.onchange = () => {
     if (s.dataset.dist) { est.opc.dist = Object.assign({}, est.opc.dist || {}, { [s.dataset.dist]: +s.value }); compilados.clear(); guardarEstado().catch(() => {}); marcar(); return; }
     if (s.hasAttribute('data-evo')) { est.opc[s.dataset.k] = +s.value; guardarEstado().catch(() => {}); } else { opc[s.dataset.k] = +s.value; guardarOpc(); marcarSF(); }
   });
   $('#exp').onclick = exportar;
   $('#reset').onclick = async () => {
-    if (!confirm('¿Borro todas las arañas y empiezo en la generación 1? Haga antes una copia si la quiere.')) return;
-    entrenar(false); hilos.forEach(w => w.terminate()); hilos.length = 0;
-    if (db) { db.close(); await new Promise(ok => { const r = indexedDB.deleteDatabase('arana-ajedrez'); r.onsuccess = r.onerror = r.onblocked = ok; }); }
-    location.reload();
+    nuevaEvolucion();
   };
 }
 async function exportar() {
@@ -1114,15 +1398,16 @@ function ponerVista() {
 $('#go').onclick = () => entrenar(!entrenando);
 $('#vista').onclick = () => { opc.directo = !opc.directo; guardarOpc(); ponerVista(); pintarEstado(); };
 $('#opc').onclick = opciones;
+$('#evo').onclick = evoluciones;
 $('#salir').onclick = () => { entrenar(false); if (!avisarApp({ tipo: 'salir' })) location.href = '../'; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarHoja(); });
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 cargar().then(() => {
-  crearHilos(); construirPlano(); ponerVista(); pintarEstado();
+  ponerTitulo(); crearHilos(); construirPlano(); ponerVista(); pintarEstado();
   if (qs.get('entrenar') === '1') entrenar(true);
 }).catch(e => { $('#estado').textContent = 'No he podido abrir la sala: ' + e.message; });
 })();

@@ -58,25 +58,48 @@ header h1{flex:1; margin:0; font:600 16px/1.2 var(--mono); letter-spacing:.02em;
 .mesa .res{font:600 calc(11px*var(--k)) var(--mono); color:var(--green); text-align:right}
 #lienzo.lejos .mesa > :not(.lejos){visibility:hidden} #lienzo.lejos .mesa .lejos{display:flex} #lienzo.lejos .mesa{cursor:zoom-in}
 #lienzo.cerca .mesa .info{display:block}
-.zona{position:absolute; border:1.5px dashed var(--line); border-radius:18px; padding:24px; color:var(--muted)}
-.zona h3{margin:0 0 6px; font:600 calc(15px*var(--k)) var(--mono); color:var(--ink)}
-.zona p{margin:0; font:calc(12px*var(--k))/1.4 var(--mono)}
-.zona svg{position:absolute; right:24px; bottom:20px}
-#lienzo.lejos .zona h3{font-size:calc(13px*var(--k))} #lienzo.lejos .zona p{display:none}
-.zsf canvas{position:absolute; left:24px; top:62px; width:240px; height:240px; border-radius:6px}
-.zsf .sfi{position:absolute; left:288px; top:62px; width:216px; font:calc(12px*var(--k))/1.45 var(--mono); color:var(--muted)}
-.zsf .sfi b{color:var(--ink)} .zsf .sfi small{display:block; margin-top:6px; color:var(--dim)}
-.zsf .bar{display:grid; grid-template-columns:auto 1fr auto; gap:6px; align-items:center; margin-top:6px}
-.zsf .ev{height:calc(8px*var(--k)); border-radius:3px; background:#2a1838; overflow:hidden} .zsf .ev b{display:block; height:100%; background:var(--green)}
+.zona{position:absolute; border:1.5px dashed var(--line); border-radius:18px; padding:20px 24px; color:var(--muted); overflow:hidden}
+/* El texto de las zonas va en tamaño fijo del plano (crece y encoge con el zoom, como los tableros): así nunca se sale ni se corta */
+.zona h3{margin:0 0 6px; font:600 24px var(--mono); color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.zona p{margin:0; font:16px/1.4 var(--mono)}
+.zsf canvas{position:absolute; left:24px; top:68px; width:260px; height:260px; border-radius:6px; cursor:zoom-in}
+.zsf .sfi{position:absolute; left:308px; top:70px; width:280px; bottom:20px; overflow:hidden; font:16px/1.45 var(--mono); color:var(--muted)}
+.zsf .sfi b{color:var(--ink)} .zsf .sfi small{display:block; margin-top:8px; color:var(--dim); font-size:14px}
+.zsf .bar{display:grid; grid-template-columns:96px 1fr 64px; gap:8px; align-items:center; margin-top:8px}
+.zsf .ev{height:10px; border-radius:3px; background:#403e3b; overflow:hidden} .zsf .ev b{display:block; height:100%; background:#fff}
 .zsf .esc{position:absolute; right:24px; top:110px}
-#lienzo.lejos .zsf .sfi{display:none}
-.zcz canvas{position:absolute; left:24px; top:50px; width:220px; height:220px; border-radius:6px}
-.zcz .czi{position:absolute; left:268px; top:54px; width:300px; font:calc(12px*var(--k))/1.45 var(--mono); color:var(--muted)}
-.zcz .czi b{color:var(--ink)} .zcz .czi small{display:block; margin-top:6px; color:var(--dim)}
-.zcz .czl{position:absolute; left:600px; top:50px; right:24px; display:grid; grid-template-columns:1fr 1fr; gap:2px 16px}
-.zcz .pl{display:flex; justify-content:space-between; border:0; background:none; font:500 calc(12px*var(--k)) var(--mono); padding:calc(3px*var(--k)) 0; color:var(--ink)}
-.zcz .pl i{font-style:normal; color:#ff5c5c}
-#lienzo.lejos .zcz .czi, #lienzo.lejos .zcz .czl{display:none}
+.zcz canvas{position:absolute; left:24px; top:62px; width:240px; height:240px; border-radius:6px; cursor:zoom-in}
+.zcz .czi{position:absolute; left:288px; top:66px; width:280px; bottom:20px; overflow:hidden; font:16px/1.45 var(--mono); color:var(--muted)}
+.zcz .czi b{color:var(--ink)} .zcz .czi small{display:block; margin-top:8px; color:var(--dim); font-size:14px}
+.zcz .czl{position:absolute; left:600px; top:62px; right:24px; display:grid; grid-template-columns:1fr 1fr; gap:4px 20px}
+.zcz .pl{display:flex; justify-content:space-between; gap:8px; border:0; background:none; font:500 16px var(--mono); padding:6px 0; color:var(--ink); min-width:0}
+.zcz .pl span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap} .zcz .pl i{font-style:normal; color:#ff5c5c}
+#lienzo.lejos .zona p, #lienzo.lejos .zsf .sfi, #lienzo.lejos .zcz .czi, #lienzo.lejos .zcz .czl{display:none}
+/* Tablero grande, análisis de Stockfish y jugadas (visor, partida contra la araña) */
+.tabg{width:100%; max-width:420px; aspect-ratio:1; display:block; margin:0 auto; border-radius:4px}
+.ana{margin:0 0 10px; min-height:8px}
+.evbar{position:relative; height:28px; border-radius:4px; background:#403e3b; overflow:hidden; margin-bottom:6px}
+.evbar b{position:absolute; left:0; top:0; bottom:0; background:#fff; transition:width .3s}
+.evbar span{position:absolute; left:6px; top:4px; font:700 13px/20px var(--sys); color:#111; background:rgba(255,255,255,.9); padding:0 7px; border-radius:3px}
+.linea{display:flex; gap:8px; align-items:center; font:13px/1.4 var(--mono); margin:4px 0; min-width:0}
+.linea .ev{flex:none; background:#eee; color:#111; font-weight:700; border-radius:4px; padding:3px 7px; font-family:var(--sys)}
+.linea span:last-child{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink)}
+.jugadas{max-height:150px; overflow:auto; font:14px/1.9 var(--mono); margin-top:8px; padding:6px 2px; border-top:1px solid var(--line)}
+.jugadas .n{color:var(--muted); margin:0 2px 0 8px} .jugadas .n:first-child{margin-left:0}
+.jugadas button{border:0; background:none; padding:1px 4px; border-radius:4px; font:inherit; color:var(--ink)}
+.jugadas button.cur{background:rgba(255,255,255,.18)}
+/* Tablas del registro y de comparar */
+.tabla{overflow:auto; max-height:58vh; border:1px solid var(--line); border-radius:8px; -webkit-overflow-scrolling:touch}
+.tabla table{border-collapse:collapse; font:12.5px/1.3 var(--mono); width:max-content; min-width:100%}
+.tabla th,.tabla td{padding:7px 9px; border-bottom:1px solid rgba(94,232,255,.12); white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums}
+.tabla th{position:sticky; top:0; background:var(--sheet); color:var(--muted); font-weight:500; z-index:1}
+.tabla th[data-ord]{cursor:pointer} .tabla th.ord{color:var(--cyan)}
+.tabla td.nom,.tabla th.nom{text-align:left; color:var(--ink); cursor:pointer; text-decoration:underline; text-decoration-color:rgba(94,232,255,.35)}
+.tabla td:nth-child(2),.tabla th:nth-child(2){text-align:left}
+.cmp th:first-child{position:sticky; left:0; background:var(--sheet); text-align:left; color:var(--muted); z-index:2}
+.cmp th.sec{color:var(--cyan); text-transform:uppercase; letter-spacing:.05em; font-weight:600; padding-top:14px}
+.cmp td.mejor{color:var(--green); font-weight:700}
+.tabla input[type=checkbox]{width:18px; height:18px; accent-color:var(--pink)}
 /* ── Resumen ── */
 #resumen{flex:1; min-height:0; overflow:auto; padding:12px 16px 24px}
 #resumen table{width:100%; border-collapse:collapse; font:13px/1.35 var(--mono)}
@@ -93,7 +116,7 @@ h2{font:600 13px var(--mono); color:var(--cyan); margin:18px 0 8px; letter-spaci
 /* ── Hoja ── */
 #hoja{position:fixed; inset:0; z-index:10; background:rgba(0,0,0,.5); display:none; align-items:flex-end; justify-content:center}
 #hoja.on{display:flex}
-#hoja .c{width:100%; max-width:640px; max-height:90vh; overflow:auto; background:var(--sheet); border:1px solid var(--line); border-bottom:0; border-radius:16px 16px 0 0; padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 20px)}
+#hoja .c{width:100%; max-width:680px; max-height:88vh; max-height:88dvh; overflow:auto; background:var(--sheet); border:1px solid var(--line); border-bottom:0; border-radius:16px 16px 0 0; padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 20px)}
 #hoja h3{margin:0 0 2px; font:600 20px var(--mono)}
 #hoja .sub{color:var(--muted); font:13px/1.4 var(--mono); margin-bottom:12px}
 .kv{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font:14px/1.35 var(--mono); margin:6px 0 4px}
@@ -130,6 +153,7 @@ select.full{width:100%; font:14px var(--mono); background:#141832; color:var(--i
 <header>
   <button class="ib" id="salir" aria-label="Salir de la sala">←</button>
   <h1>Sala de partidas</h1>
+  <button class="ib" id="evo" aria-label="Evoluciones">▤</button>
   <button class="ib" id="opc" aria-label="Opciones de entrenamiento">⚙</button>
 </header>
 <div id="barra">
@@ -145,6 +169,7 @@ select.full{width:100%; font:14px var(--mono); background:#141832; color:var(--i
 <div id="resumen" hidden></div>
 <nav id="aux" aria-label="Vistas de la evolución">
   <button data-aux="biblioteca">Biblioteca</button>
+  <button data-aux="registro">Registro</button>
   <button data-aux="escalera">Escalera</button>
   <button data-aux="grafica">Gráfica</button>
   <button data-aux="arbol">Árbol</button>
@@ -155,6 +180,7 @@ select.full{width:100%; font:14px var(--mono); background:#141832; color:var(--i
 </nav>
 <div id="hoja" role="dialog" aria-modal="true"><div class="c" id="hojac"></div></div>
 <div id="aviso" role="status" aria-live="polite"></div>
+<script src="piezas.js"></script>
 <script src="motor.js"></script>
 <script src="sala.js"></script>
 </body>

@@ -1,7 +1,12 @@
 {
- "version": "0.28.0",
+ "version": "0.29.0",
  "date": "2026-10-21",
  "notes": [
+  "Mi tablero ya es verde y crema, con piezas de verdad y sus coordenadas.",
+  "Toque cualquier partida para verla jugada a jugada en notación inglesa (e4, Nf3, O-O) con el análisis de Stockfish y sus dos mejores líneas. Se puede copiar en PGN.",
+  "Mi escalera tiene ahora 20 peldaños, y he guardado lo que ya había conquistado.",
+  "Puede tener varias evoluciones a la vez: empiece otra desde cero o duplique la de ahora sin perder nada.",
+  "Recuerdo a todas mis arañas, también a las que murieron, y puede verlas en una tabla y compararlas.",
   "Ya tengo mi biblioteca de arañas: traiga las de otro aparato y rételas, mézclelas con las mías o retome la evolución desde cualquiera.",
   "Ya puede jugar usted contra cualquiera de mis arañas: toque una pieza y luego su casilla.",
   "Mi sala de ajedrez ya está también en mi app de iPhone: dígame «vamos a jugar al ajedrez». En Android guardo e importo copias y no dejo que se apague la pantalla mientras entreno.",

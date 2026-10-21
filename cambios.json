@@ -1,5 +1,32 @@
 [
  {
+  "v": "0.29.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.29.0-1",
+    "tipo": "diseño",
+    "titulo": "Tablero verde y crema con piezas de verdad",
+    "detalle": "A petición de Juan: tablero clásico de torneo con las piezas cburnett (las de Lichess, GPLv2+), coordenadas en los bordes y, al jugar, la casilla elegida en amarillo y las posibles marcadas. En las mesas de cerca siguen las arañas con su hilo, fuera del tablero. Las zonas de Stockfish y de las cazadoras ya no se cortan: su texto crece y encoge con el zoom, como los tableros.",
+    "probar": "Abra la sala y acérquese a una mesa."
+   },
+   {
+    "id": "0.29.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Jugadas en notación inglesa y análisis de Stockfish",
+    "detalle": "Al tocar el tablero de una mesa de cerca, la partida contra Stockfish o la de una cazadora (o cualquiera guardada): tablero grande, jugadas en inglés (K Q R B N, O-O, exd5, e8=Q+) para ir adelante y atrás, barra de valoración y las dos mejores líneas de Stockfish en directo, girar el tablero y copiar en PGN. Se guardan todas las partidas de cada generación (torneo, cazadoras y Stockfish). Al jugar usted, sus jugadas y el análisis cuando acaba (o cuando lo pida).",
+    "probar": "Pulse «Partidas», elija una y pulse ⏭."
+   },
+   {
+    "id": "0.29.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Escalera de 20 peldaños, varias evoluciones y registro en tabla",
+    "detalle": "La escalera pasa de 12 a 20 peldaños (nuevos en medio y uno final, Stockfish a plena potencia sin prisa); lo conquistado se conserva. Botón ▤: evoluciones, cada una con sus arañas: empezar otra desde cero, duplicar la de ahora, abrir, renombrar y borrar. «Registro»: todas las arañas que han existido, también las muertas (con la generación en que murieron), en una tabla que se ordena por cualquier columna, y comparar hasta 4 en una tabla con todas sus cualidades y detectores.",
+    "probar": "Pulse ▤ arriba y luego «Registro» abajo; marque dos arañas y «Comparar»."
+   }
+  ]
+ },
+ {
   "v": "0.28.0",
   "fecha": "2026-10-21",
   "mejoras": [

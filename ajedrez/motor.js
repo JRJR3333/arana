@@ -188,6 +188,46 @@ function perft(pos, d) {
   return n;
 }
 const uci = m => sqName(mFrom(m)) + sqName(mTo(m)) + (mPro(m) ? LETRA[mPro(m)] : '');
+/* Notación algebraica en inglés (K Q R B N): e4, Nf3, exd5, O-O, e8=Q+, Qh5# */
+const SAN_L = ' PNBRQK';
+function san(pos, m, legales) {
+  const f = mFrom(m), t = mTo(m), p = pos.b[f] & 7, fl = mFl(m); let s;
+  if (fl & 4) s = t > f ? 'O-O' : 'O-O-O';
+  else {
+    const cap = (fl & 1) !== 0;
+    if (p === P) s = (cap ? 'abcdefgh'[f & 7] + 'x' : '') + sqName(t) + (mPro(m) ? '=' + SAN_L[mPro(m)] : '');
+    else {
+      const otras = (legales || legal(pos)).filter(x => x !== m && mTo(x) === t && (pos.b[mFrom(x)] & 7) === p);
+      let dis = '';
+      if (otras.length) {
+        const misma = c => otras.some(x => c(mFrom(x)));
+        if (!misma(q => (q & 7) === (f & 7))) dis = 'abcdefgh'[f & 7];
+        else if (!misma(q => (q >> 4) === (f >> 4))) dis = String((f >> 4) + 1);
+        else dis = sqName(f);
+      }
+      s = SAN_L[p] + dis + (cap ? 'x' : '') + sqName(t);
+    }
+  }
+  pos.make(m);
+  if (inCheck(pos)) s += hasLegal(pos) ? '+' : '#';
+  pos.unmake();
+  return s;
+}
+/* De una lista de jugadas UCI a su notación, desde la posición fen0 */
+function sanLista(fen0, ucis) {
+  const pos = new Pos(fen0 || INICIO), r = [];
+  for (const u of ucis) { const ls = legal(pos), m = ls.find(x => uci(x) === u); if (!m) break; r.push(san(pos, m, ls)); pos.make(m); }
+  return r;
+}
+/* PGN para copiar en cualquier visor (Lichess, chess.com…) */
+function pgn(fen0, ucis, info) {
+  const i = info || {}, ss = sanLista(fen0, ucis), pos = new Pos(fen0 || INICIO), num = pos.full, negras = pos.side === 1;
+  const tags = [['Event', i.evento || 'Araña'], ['White', i.blancas || '?'], ['Black', i.negras || '?'], ['Result', i.resultado || '*']];
+  if (fen0 && fen0 !== INICIO) tags.push(['SetUp', '1'], ['FEN', fen0]);
+  let txt = tags.map(([k, v]) => `[${k} "${String(v).replace(/"/g, "'")}"]`).join('\n') + '\n\n', n = num;
+  ss.forEach((x, k) => { const blanca = negras ? k % 2 === 1 : k % 2 === 0; if (blanca) txt += n + '. '; else if (k === 0) txt += n + '... '; txt += x + ' '; if (!blanca) n++; });
+  return txt + (i.resultado || '*') + '\n';
+}
 function parseUci(pos, s) { for (const m of legal(pos)) if (uci(m) === s) return m; return 0; }
 function insuficiente(pos) {
   const b = pos.b; let menores = 0, alfiles = [[], []];
@@ -1262,7 +1302,7 @@ function siguienteGeneracion(est, pop, rng) {
 }
 
 const API = {
-  Pos, INICIO, legal, perft, uci, parseUci, fin, inCheck, attacked, sqName, insuficiente, mFrom, mTo,
+  Pos, INICIO, legal, perft, uci, parseUci, san, sanLista, pgn, fin, inCheck, attacked, sqName, insuficiente, mFrom, mTo,
   DET, DET_BY, COSTE, JUGADA, PIENSA, OPC_EVO, DIST, RASGOS, RED_N, RED_W, CARACTER, SESGO, AUTOMUT, todasDist, completar, neutros,
   genomaClasico, genomaAzar, compilar, evaluar, explicar, Buscador, jugar, aperturaAleatoria,
   huella, estilo, ESTILO, mulberry, nombre, nuevoIndividuo, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion
