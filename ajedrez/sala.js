@@ -10,6 +10,14 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const COLOR_ORIGEN = { iphone: '#5ee8ff', android: '#ffb340', web: '#a99bff', inmigrante: '#9a9aa8', cazadora: '#ff5c5c' };
 const colorDe = p => p.mut && p.mut.nacio === 'inmigrante' ? COLOR_ORIGEN.inmigrante : COLOR_ORIGEN[p.origen] || '#9a9aa8';
 const fmt = (v, d) => (+v).toFixed(d == null ? 1 : d).replace('.', ',');
+/* Las apps nativas: el iPhone habla por window.webkit.messageHandlers.arana; Android, por AranaAndroid (también desde el iframe) */
+const IOS_APP = () => window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.arana;
+const ANDROID = () => { try { return window.AranaAndroid || (window.parent !== window && window.parent.AranaAndroid) || null; } catch (e) { return null; } };
+function avisarApp(msg) {
+  const io = IOS_APP(); if (io) { try { io.postMessage(msg); } catch (e) {} return true; }
+  if (window.parent !== window) { window.parent.postMessage(Object.assign({ arana: 'ajedrez-' + msg.tipo }, msg), '*'); return true; }
+  return false;
+}
 
 /* Los 12 peldaños de la escalera de Stockfish (nivel de Stockfish y cuánto piensa) */
 const ESCALERA = [
@@ -109,6 +117,7 @@ function asegurarCazadoras() {
   cazById = new Map(cazadoras.map(c => [c.id, c]));
 }
 function prepararGeneracion() {
+  aplicarPendientes();
   pop.forEach(p => { p.pts = 0; p.sfb = 0; p.nov = 0; p.plyT = 0; p.nJ = 0; });
   juegos = M.emparejar(pop, opc.rondas, rng).map(j => Object.assign(j, { id: ++sigId, estado: 'cola', fenAhora: j.fen, ultima: null, res: null, eval: 0 }));
   asegurarCazadoras();
@@ -247,6 +256,10 @@ const HITOS = [
   { id: 'inmigrante', texto: 'Una inmigrante llega a la élite', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.mut && p.mut.nacio === 'inmigrante'; }) },
   { id: 'red3', texto: 'Una araña de la élite con 3 neuronas ocultas propias', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.genes && M.huella(p.genes).r >= 3; }) },
   { id: 'caza', texto: 'Una cazadora gana a la campeona', ok: () => !!est.cazaGana },
+  { id: 'importa', texto: 'Llega una araña de otro aparato', ok: () => false },
+  { id: 'sangre', texto: 'Corre por mi población sangre de otro aparato', ok: () => pop.some(p => p.origen !== ORIGEN && p.origen !== 'cazadora') },
+  { id: 'juan-gana', texto: 'Juan me gana una partida', ok: () => false },
+  { id: 'gano-juan', texto: 'Le gano una partida a Juan', ok: () => false },
   { id: 'ligera', texto: 'Una campeona sin ningún detector caro', ok: r => { const p = byId.get(r.mejor.id); return p && p.genes && M.DET.every(d => d.coste < 2 ? true : !(p.genes['d' + d.n][0] > 0)); } },
 ];
 function revisarHitos(r) {
@@ -257,8 +270,9 @@ function revisarHitos(r) {
 function anunciarHito(h) {
   const a = $('#aviso'); a.textContent = '✦ Hito: ' + h.texto; a.classList.add('on');
   clearTimeout(anunciarHito.t); anunciarHito.t = setTimeout(() => a.classList.remove('on'), 3000);
-  if (window.parent !== window) window.parent.postMessage({ arana: 'ajedrez-hito', texto: h.texto }, '*');
+  avisarApp({ tipo: 'hito', texto: h.texto });
 }
+function darHito(id) { const h = HITOS.find(x => x.id === id); if (!h || est.hitos[id]) return; est.hitos[id] = { fecha: new Date().toISOString(), gen: est.gen }; guardarEstado().catch(() => {}); anunciarHito(h); pintarEstado(); }
 
 /* ───── Mantener la pantalla encendida mientras entrena ───── */
 let candado = null;
@@ -267,6 +281,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 function entrenar(si) {
   entrenando = si;
   $('#go').textContent = si ? '⏸ Pausar' : '▶ Entrenar';
+  const aa = ANDROID(); if (aa && typeof aa.pantalla === 'function') { try { aa.pantalla(!!si); } catch (e) {} }
   if (si) { pedirCandado(); if (sfFase) faseStockfish(); else { if (!juegos.length) prepararGeneracion(); repartir(); } }
   else if (candado) { candado.release().catch(() => {}); candado = null; }
   pintarEstado();
@@ -732,6 +747,7 @@ function bloqueNombre(k) { if (k === 'jugada') return 'Valor de cada jugada'; if
 
 /* ═════════ Vistas auxiliares ═════════ */
 const AUX = {
+  biblioteca() { return biblioteca(); },
   grafica() {
     if (historial.length < 2) return hoja('<h3>Gráfica</h3><p class="nota">Hacen falta al menos dos generaciones terminadas.</p>' + CERRAR);
     const g = historial.slice(-200), W = 340, H = 150, eje = (vals, cs) => {
@@ -834,6 +850,217 @@ const AUX = {
 let repTimer = 0;
 $('#aux').addEventListener('click', e => { const b = e.target.closest('[data-aux]'); if (b) AUX[b.dataset.aux](); });
 
+/* ═════════ Biblioteca de arañas ═════════
+   Todas las arañas con genes (vivas, élite de cada generación, cazadoras e importadas de otros aparatos).
+   Con cada una: jugar contra ella, duelo con la campeona, mezclarla en la población, retomar desde ella o exportarla. */
+let filtroBib = 'todas';
+const etiquetaOrigen = p => p.importada ? `importada de ${esc(p.importada.de || p.origen)}` : p.origen === 'cazadora' ? 'cazadora' : byId.has(p.id) ? 'viva' : 'élite guardada';
+async function conGenes() {
+  const vistas = new Map();
+  for (const p of await todos('individuos')) if (p.genes) vistas.set(p.id, p);
+  for (const p of pop.concat(cazadoras)) vistas.set(p.id, p);
+  return [...vistas.values()];
+}
+async function biblioteca() {
+  const todas = await conGenes(), F = {
+    todas: () => true, vivas: p => byId.has(p.id), elite: p => !byId.has(p.id) && !p.importada && p.origen !== 'cazadora',
+    importadas: p => !!p.importada, cazadoras: p => p.origen === 'cazadora' };
+  const lista = todas.filter(F[filtroBib] || F.todas).sort((a, b) => b.elo - a.elo);
+  const chip = (k, t) => `<button class="btn sec" data-bf="${k}" aria-pressed="${filtroBib === k}" style="padding:4px 10px;min-height:32px">${t} · ${todas.filter(F[k]).length}</button>`;
+  hoja(`<h3>Biblioteca de arañas</h3><div class="sub">Elija una para jugar contra ella, retarla, mezclarla en su población o retomar desde ella</div>
+    <div class="ctrl" style="margin-bottom:10px"><button class="btn" id="bImp">Importar arañas</button><button class="btn sec" id="bExp">Exportar copia</button><input type="file" id="bFile" accept=".json,application/json" hidden></div>
+    <div class="ctrl" style="margin-bottom:8px">${chip('todas', 'Todas')}${chip('vivas', 'Vivas')}${chip('elite', 'Élite guardada')}${chip('importadas', 'Importadas')}${chip('cazadoras', 'Cazadoras')}</div>
+    <table style="width:100%;border-collapse:collapse;font:13px/1.35 var(--mono)">${lista.slice(0, 80).map(p => `<tr data-bib="${esc(p.id)}" style="cursor:pointer;border-bottom:1px solid var(--line)"><td style="padding:7px 4px"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorDe(p)};margin-right:6px"></i>${esc(p.nombre)}<div style="color:var(--muted);font-size:11.5px">g${p.gen} · ${etiquetaOrigen(p)}${p.sf && p.sf.mejor ? ` · ${p.sf.mejor} en el peldaño ${p.sf.mejorPeldano}` : ''}</div></td><td class="num" style="padding:7px 4px">${Math.round(p.elo)}</td></tr>`).join('') || '<tr><td class="nota">No hay ninguna en este grupo.</td></tr>'}</table>
+    ${lista.length > 80 ? `<p class="nota">Enseño las 80 de más Elo de ${lista.length}.</p>` : ''}
+    ${(est.duelos || []).length ? '<h2>Últimos duelos</h2><div class="det">' + est.duelos.slice(-6).reverse().map(d => `<span>${esc(d.a)} contra ${esc(d.b)}</span><span class="v">${fmt(d.pa, 1)} – ${fmt(d.pb, 1)}</span>`).join('') + '</div>' : ''}` + CERRAR);
+  $('#hojac').querySelectorAll('[data-bf]').forEach(b => b.onclick = () => { filtroBib = b.dataset.bf; biblioteca(); });
+  $('#bImp').onclick = () => $('#bFile').click();
+  $('#bFile').onchange = async e => { const f = e.target.files && e.target.files[0]; if (!f) return; const t = await f.text(); const r = await importarTexto(t, f.name); avisar(r); biblioteca(); };
+  $('#bExp').onclick = exportar;
+  $('#hojac').querySelectorAll('[data-bib]').forEach(r => r.onclick = () => accionesDe(r.dataset.bib));
+}
+function avisar(t) { const a = $('#aviso'); a.textContent = t; a.classList.add('on'); clearTimeout(avisar.t); avisar.t = setTimeout(() => a.classList.remove('on'), 3500); }
+async function importarTexto(texto, nombreArchivo) {
+  let d; try { d = JSON.parse(texto); } catch (e) { return 'Ese archivo no es una copia de arañas.'; }
+  const inds = d && d.app === 'arana-ajedrez' && Array.isArray(d.individuos) ? d.individuos.filter(p => p && p.id && p.genes) : null;
+  if (!inds || !inds.length) return 'Ese archivo no trae arañas con genes.';
+  const ops = [], fecha = new Date().toISOString(); let n = 0;
+  for (const p0 of inds) {
+    const p = JSON.parse(JSON.stringify(p0)); M.completar(p.genes);
+    if (byId.has(p.id) || cazById.has(p.id)) continue;          // ya está viva aquí
+    const ya = await leer('individuos', p.id);
+    if (ya) continue;                                            // ya la tengo (de este aparato o importada antes)
+    p.importada = { archivo: nombreArchivo, fecha, de: d.origen || p.origen };
+    delete p.pts; delete p.sfb; delete p.nov;
+    ops.push(['individuos', conHuella(p)]); n++;
+  }
+  if (!n) return 'Esas arañas ya estaban en la biblioteca.';
+  await escribir(ops);
+  darHito('importa');
+  return `He traído ${n} arañas de ${d.origen || 'otro aparato'}.`;
+}
+async function accionesDe(id) {
+  const p = await individuo(id); if (!p || !p.genes) return;
+  const viva = byId.has(p.id), camp = campeona();
+  hoja(`<h3>${esc(p.nombre)}</h3><div class="sub">g${p.gen} · ${etiquetaOrigen(p)} · Elo ${Math.round(p.elo)}</div>
+    <div style="display:grid;gap:8px">
+      <button class="btn" data-ac="jugar">Jugar yo contra ella</button>
+      ${camp && camp.id !== p.id ? `<button class="btn sec" data-ac="duelo">Duelo contra mi campeona (${esc(camp.nombre)}), 4 partidas</button>` : ''}
+      ${viva ? '' : `<button class="btn sec" data-ac="mezclar">Mezclarla en mi población</button><button class="btn sec" data-ac="retomar">Retomar la evolución desde ella</button>`}
+      <button class="btn sec" data-ac="exportar">Exportar esta araña</button>
+      <button class="btn sec" data-ac="ficha">Ver su ficha</button>
+    </div>
+    <p class="nota">Mezclar: entra en su población en lugar de la araña con menos Elo y se cruza con las suyas. Retomar: su población pasa a ser ella y 31 hijas suyas con mutaciones; la población de ahora queda guardada en la biblioteca.</p>` + CERRAR);
+  $('#hojac').querySelectorAll('[data-ac]').forEach(b => b.onclick = async () => {
+    const ac = b.dataset.ac;
+    if (ac === 'ficha') return ficha(p.id);
+    if (ac === 'jugar') return elegirColor(p);
+    if (ac === 'duelo') return duelo(camp, p);
+    if (ac === 'exportar') return guardarArchivo(`arana-${p.nombre.toLowerCase()}-${ORIGEN}.json`, JSON.stringify({ app: 'arana-ajedrez', v: 2, origen: ORIGEN, fecha: new Date().toISOString(), individuos: [p] }));
+    if (ac === 'retomar' && !confirm(`¿Retomo la evolución desde ${p.nombre}? Su población de ahora queda guardada en la biblioteca.`)) return;
+    encolar(ac, p);
+  });
+}
+const campeona = () => { const id = est.campeon; return (id && byId.get(id)) || pop.slice().sort((a, b) => b.elo - a.elo)[0]; };
+function encolar(tipo, p) {
+  est.pendientes = (est.pendientes || []).filter(x => !(x.tipo === 'retomar' && tipo === 'retomar'));
+  est.pendientes.push({ tipo, src: { id: p.id, nombre: p.nombre, origen: p.origen, gen: p.gen, elo: p.elo, genes: JSON.parse(JSON.stringify(p.genes)), rivales: p.rivales || null } });
+  const libre = !entrenando && !juegos.some(j => j.estado !== 'cola') && !sfFase;
+  if (libre) { juegos = []; aplicarPendientes(); construirPlano(); avisar(tipo === 'retomar' ? `Retomo desde ${p.nombre}.` : `${p.nombre} ya está en su población.`); }
+  else avisar(`Lo haré al empezar la próxima generación.`);
+  guardarEstado().catch(() => {}); cerrarHoja();
+}
+function copiaDe(src, nacio) {
+  const c = M.nuevoIndividuo(rng, est.gen, src.origen === 'cazadora' ? 'cazadora' : src.origen, M.completar(JSON.parse(JSON.stringify(src.genes))), [src.id], { nacio });
+  c.nombre = src.nombre; c.elo = src.elo || 1200; if (src.rivales) c.rivales = JSON.parse(JSON.stringify(src.rivales));
+  return c;
+}
+function aplicarPendientes() {
+  const ps = est.pendientes || []; if (!ps.length) return;
+  est.pendientes = [];
+  const muertas = [];
+  for (const { tipo, src } of ps) {
+    if (tipo === 'mezclar') {
+      const peor = pop.slice(Math.min(4, pop.length - 1)).sort((a, b) => a.elo - b.elo)[0];
+      const c = copiaDe(src, 'mezclada desde ' + src.nombre);
+      if (peor) { pop[pop.indexOf(peor)] = c; muertas.push(peor); } else pop.push(c);
+    } else if (tipo === 'retomar') {
+      const base = copiaDe(src, 'retoma desde ' + src.nombre), n = pop.length || M.OPC_EVO.poblacion, F = flagsDe(), nueva = [base];
+      while (nueva.length < n) {
+        const g = JSON.parse(JSON.stringify(base.genes)), m = M.mutar(g, M.OPC_EVO.sigma0 * .5, M.OPC_EVO.pm, rng, F);
+        const h = M.nuevoIndividuo(rng, est.gen, base.origen, g, [base.id], { cruce: { a: 1, b: 0 }, cambios: m.cambio, total: m.total, sigma: M.OPC_EVO.sigma0 * .5 });
+        h.elo = base.elo; if (base.rivales) h.rivales = JSON.parse(JSON.stringify(base.rivales)); nueva.push(h);
+      }
+      muertas.push(...pop); pop = nueva; est.sigma = M.OPC_EVO.sigma0 * .5; est.racha = 0;
+      (est.retomas = est.retomas || []).push({ gen: est.gen, desde: src.nombre, fecha: new Date().toISOString() });
+    }
+  }
+  byId = new Map(pop.map(p => [p.id, p]));
+  escribir(muertas.map(p => ['individuos', conHuella(p)])).catch(() => {});   // se guardan con sus genes: se puede volver a ellas
+  if (HITOS.find(h => h.id === 'sangre').ok()) darHito('sangre');
+}
+
+/* ───── Jugar contra una araña ───── */
+let hiloPropio = null;
+function hiloAparte() { if (!hiloPropio) { hiloPropio = new Worker('worker.js'); hiloPropio.onmessage = e => { const d = e.data; const f = aparte.get(d.id); if (f) { if (d.t === 'jugada') f.jugada && f.jugada(d); else { aparte.delete(d.id); f.fin(d); } } }; } return hiloPropio; }
+const aparte = new Map(); let sigAparte = 0;
+function elegirColor(p) {
+  hoja(`<h3>Contra ${esc(p.nombre)}</h3><div class="sub">¿Con qué color juega usted?</div><div class="ctrl"><button class="btn" data-col="w">Blancas</button><button class="btn sec" data-col="b">Negras</button><button class="btn sec" data-col="r">Al azar</button></div>` + CERRAR);
+  $('#hojac').querySelectorAll('[data-col]').forEach(b => b.onclick = () => partidaHumana(p, b.dataset.col === 'r' ? (Math.random() < .5 ? 'w' : 'b') : b.dataset.col));
+}
+let ph = null;
+function partidaHumana(p, color) {
+  ph = { p, color, pos: new M.Pos(), jug: [], sel: -1, ultima: null, piensa: false, fin: null };
+  hoja(`<h3>Usted contra ${esc(p.nombre)}</h3><div class="sub" id="phTxt"></div>
+    <canvas id="phCv" width="320" height="320" style="width:100%;max-width:360px;aspect-ratio:1;display:block;margin:0 auto;border-radius:8px;touch-action:manipulation"></canvas>
+    <div class="ctrl" style="justify-content:center;margin-top:10px"><button class="btn sec" id="phRend">Me rindo</button><button class="btn sec" id="phNueva">Otra partida</button></div>` + CERRAR);
+  $('#phCv').addEventListener('click', toqueHumano);
+  $('#phRend').onclick = () => { if (!ph.fin) acabarHumana({ res: ph.color === 'w' ? 0 : 1, motivo: 'se rinde' }); };
+  $('#phNueva').onclick = () => elegirColor(p);
+  pintarHumana();
+  if (color === 'b') turnoArana();
+}
+function pintarHumana() {
+  const cv = $('#phCv'); if (!cv || !ph) return;
+  const g = cv.getContext('2d'), W = cv.width, q = W / 8, gir = ph.color === 'b', pos = ph.pos;
+  const xy = sq => { const c = sq & 7, r = 7 - (sq >> 4); return gir ? [(7 - c) * q, (7 - r) * q] : [c * q, r * q]; };
+  g.clearRect(0, 0, W, W);
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { g.fillStyle = (r + c) % 2 ? 'rgba(94,232,255,.07)' : 'rgba(94,232,255,.2)'; g.fillRect(c * q, r * q, q, q); }
+  if (ph.ultima) { g.fillStyle = 'rgba(61,255,153,.25)'; for (const s of [ph.ultima.slice(0, 2), ph.ultima.slice(2, 4)]) { const [x, y] = xy((s.charCodeAt(0) - 97) + (+s[1] - 1) * 16); g.fillRect(x, y, q, q); } }
+  if (ph.sel >= 0) {
+    const [x, y] = xy(ph.sel); g.strokeStyle = '#ff4fa3'; g.lineWidth = 3; g.strokeRect(x + 1.5, y + 1.5, q - 3, q - 3);
+    g.fillStyle = 'rgba(255,79,163,.55)';
+    for (const m of M.legal(pos)) if (M.mFrom(m) === ph.sel) { const [a, b] = xy(M.mTo(m)); g.beginPath(); g.arc(a + q / 2, b + q / 2, q * .14, 0, 7); g.fill(); }
+  }
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 ' + Math.round(q * .5) + 'px ui-monospace,Menlo,monospace';
+  for (let s = 0; s < 128; s++) {
+    if (s & 0x88) { s += 7; continue; }
+    const pz = pos.b[s]; if (!pz) continue;
+    const blanca = !(pz >> 3), [x, y] = xy(s), cx = x + q / 2, cy = y + q / 2;
+    g.beginPath(); g.arc(cx, cy, q * .38, 0, 7); g.fillStyle = blanca ? '#e9f6ff' : '#1b1430'; g.fill();
+    g.lineWidth = Math.max(1, q * .06); g.strokeStyle = blanca ? '#5ee8ff' : '#ff4fa3'; g.stroke();
+    g.fillStyle = blanca ? '#0a0c15' : '#ffd6ea'; g.fillText(LET['pnbrqk'[(pz & 7) - 1]], cx, cy + q * .03);
+  }
+  const t = $('#phTxt'); if (t) t.textContent = ph.fin ? ph.fin : ph.piensa ? `${ph.p.nombre} está pensando…` : M.inCheck(pos) ? 'Le toca. ¡Está en jaque!' : 'Le toca. Toque una pieza y luego su casilla.';
+}
+function toqueHumano(e) {
+  if (!ph || ph.fin || ph.piensa) return;
+  const pos = ph.pos; if ((pos.side === 0) !== (ph.color === 'w')) return;
+  const r = e.currentTarget.getBoundingClientRect(), q = (r.width || 320) / 8, gir = ph.color === 'b';
+  let c = Math.floor((e.clientX - r.left) / q), f = 7 - Math.floor((e.clientY - r.top) / q); if (gir) { c = 7 - c; f = 7 - f; }
+  if (c < 0 || c > 7 || f < 0 || f > 7) return;
+  moverHumano(c + f * 16);
+}
+function moverHumano(sq) {
+  const pos = ph.pos, mia = pos.b[sq] && (pos.b[sq] >> 3) === pos.side;
+  if (ph.sel < 0 || mia) { ph.sel = mia ? sq : -1; return pintarHumana(); }
+  const ms = M.legal(pos).filter(m => M.mFrom(m) === ph.sel && M.mTo(m) === sq);
+  ph.sel = -1; if (!ms.length) return pintarHumana();
+  const m = ms.find(x => (x >> 14 & 7) === 5) || ms[0];   // corona en dama
+  jugarEn(m); if (!ph.fin) turnoArana();
+}
+function jugarEn(m) {
+  const u = M.uci(m); ph.pos.make(m); ph.jug.push(u); ph.ultima = u;
+  const f = M.fin(ph.pos); if (f) acabarHumana(f); else pintarHumana();
+}
+function turnoArana() {
+  ph.piensa = true; pintarHumana();
+  const id = 'h' + (++sigAparte), yo = ph;
+  aparte.set(id, { fin: d => { if (ph !== yo || ph.fin) return; ph.piensa = false; const m = d.uci && M.parseUci(ph.pos, d.uci); if (!m) return acabarHumana({ res: .5, motivo: 'la araña no encuentra jugada' }); jugarEn(m); } });
+  hiloAparte().postMessage({ t: 'pensar', id, ind: { id: yo.p.id, genes: yo.p.genes }, fen0: M.INICIO, jugadas: yo.jug.slice(), ms: Math.max(400, opc.ms * 10), prof: 8, flags: flagsDe(), aj: ajusteContra(yo.p, 'juan') });
+}
+async function acabarHumana(f) {
+  const yoB = ph.color === 'w', mio = yoB ? f.res : 1 - f.res;
+  ph.fin = (mio === 1 ? '¡Ha ganado usted!' : mio === 0 ? `Gana ${ph.p.nombre}.` : 'Tablas.') + ` (${f.motivo})`; ph.piensa = false; pintarHumana();
+  const p = ph.p; recordarRival(p, 'juan', 1 - mio);
+  if (!byId.has(p.id) && !cazById.has(p.id)) await escribir([['individuos', p]]).catch(() => {}); else guardarEstado().catch(() => {});
+  darHito(mio === 1 ? 'juan-gana' : mio === 0 ? 'gano-juan' : '');
+}
+
+/* ───── Duelo: la campeona contra otra araña, 4 partidas (blancas y negras, dos aperturas) ───── */
+async function duelo(a, b) {
+  hoja(`<h3>${esc(a.nombre)} contra ${esc(b.nombre)}</h3><div class="sub" id="duTxt">Empieza el duelo…</div>
+    <canvas id="duCv" width="240" height="240" style="width:100%;max-width:340px;aspect-ratio:1;display:block;margin:0 auto;border-radius:8px"></canvas><div class="det" id="duRes" style="margin-top:10px"></div>` + CERRAR);
+  const f1 = M.aperturaAleatoria(rng, 4), f2 = M.aperturaAleatoria(rng, 4), partidas = [[a, b, f1], [b, a, f1], [a, b, f2], [b, a, f2]];
+  let pa = 0, pb = 0; const filas = [];
+  for (let i = 0; i < partidas.length; i++) {
+    const [w, n, fen] = partidas[i];
+    if (!$('#duCv')) return;   // cerró la hoja
+    $('#duTxt').textContent = `Partida ${i + 1} de 4 · ${w.nombre} con blancas · ${fmt(pa, 1)} – ${fmt(pb, 1)}`;
+    const r = await new Promise(ok => {
+      const id = 'd' + (++sigAparte);
+      aparte.set(id, { jugada: d => { const cv = $('#duCv'); if (cv) { const e0 = esc0; esc0 = 1.4; tablero(cv, d.fen, d.uci, true); esc0 = e0; } }, fin: ok });
+      hiloAparte().postMessage({ t: 'partida', id, w: { id: w.id, genes: w.genes }, b: { id: n.id, genes: n.genes }, fen, opc: { ms: opc.ms, prof: opc.prof, maxPlies: opc.maxPlies }, directo: true, flags: flagsDe() });
+    });
+    const ra = w === a ? r.res : 1 - r.res; pa += ra; pb += 1 - ra;
+    filas.push(`<span>${i + 1}. ${esc(w.nombre)} – ${esc(n.nombre)}</span><span class="v">${r.res === 1 ? '1-0' : r.res === 0 ? '0-1' : '½-½'} · ${esc(r.motivo)}</span>`);
+    const dr = $('#duRes'); if (dr) dr.innerHTML = filas.join('');
+  }
+  const t = $('#duTxt'); if (t) t.textContent = `Final: ${a.nombre} ${fmt(pa, 1)} – ${fmt(pb, 1)} ${b.nombre}` + (pa > pb ? ' · gana la campeona' : pa < pb ? ` · ¡gana ${b.nombre}!` : ' · empate');
+  (est.duelos = est.duelos || []).push({ a: a.nombre, b: b.nombre, pa, pb, fecha: new Date().toISOString(), gen: est.gen });
+  est.duelos = est.duelos.slice(-30); guardarEstado().catch(() => {});
+}
+
 /* ───── Opciones ───── */
 function opciones() {
   const sel = (k, vals, fmtv, obj) => { const o = obj || opc, cur = o[k] != null ? o[k] : k === 'novPeso' ? 0.15 : M.OPC_EVO[k]; return `<select data-k="${k}"${obj ? ' data-evo' : ''}>${vals.map(v => `<option value="${v}"${cur === v ? ' selected' : ''}>${fmtv(v)}</option>`).join('')}</select>`; };
@@ -868,7 +1095,12 @@ function opciones() {
 async function exportar() {
   const datos = { app: 'arana-ajedrez', v: 2, origen: ORIGEN, fecha: new Date().toISOString(), estado: est, individuos: await todos('individuos'), generaciones: await todos('generaciones'), partidas: await todos('partidas') };
   if (!db) datos.individuos = pop;
-  const nombreF = `arana-ajedrez-${ORIGEN}-gen${est.gen}.json`, blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
+  return guardarArchivo(`arana-ajedrez-${ORIGEN}-gen${est.gen}.json`, JSON.stringify(datos));
+}
+async function guardarArchivo(nombreF, texto) {
+  const io = IOS_APP(); if (io) { io.postMessage({ tipo: 'guardar', nombre: nombreF, texto }); return; }
+  const aa = ANDROID(); if (aa && typeof aa.guardarArchivo === 'function') { aa.guardarArchivo(nombreF, texto); return; }
+  const blob = new Blob([texto], { type: 'application/json' });
   try { const f = new File([blob], nombreF, { type: 'application/json' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: nombreF }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombreF; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
@@ -882,12 +1114,12 @@ function ponerVista() {
 $('#go').onclick = () => entrenar(!entrenando);
 $('#vista').onclick = () => { opc.directo = !opc.directo; guardarOpc(); ponerVista(); pintarEstado(); };
 $('#opc').onclick = opciones;
-$('#salir').onclick = () => { entrenar(false); if (window.parent !== window) window.parent.postMessage({ arana: 'ajedrez-salir' }, '*'); else location.href = '../'; };
+$('#salir').onclick = () => { entrenar(false); if (!avisarApp({ tipo: 'salir' })) location.href = '../'; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarHoja(); });
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 cargar().then(() => {
   crearHilos(); construirPlano(); ponerVista(); pintarEstado();

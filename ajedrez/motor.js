@@ -1265,7 +1265,7 @@ const API = {
   Pos, INICIO, legal, perft, uci, parseUci, fin, inCheck, attacked, sqName, insuficiente, mFrom, mTo,
   DET, DET_BY, COSTE, JUGADA, PIENSA, OPC_EVO, DIST, RASGOS, RED_N, RED_W, CARACTER, SESGO, AUTOMUT, todasDist, completar, neutros,
   genomaClasico, genomaAzar, compilar, evaluar, explicar, Buscador, jugar, aperturaAleatoria,
-  huella, estilo, ESTILO, mulberry, nombre, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion
+  huella, estilo, ESTILO, mulberry, nombre, nuevoIndividuo, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.AjedrezMotor = API;
 })(typeof self !== 'undefined' ? self : this);

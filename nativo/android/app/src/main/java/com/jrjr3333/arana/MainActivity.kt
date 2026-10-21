@@ -14,6 +14,9 @@ import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.view.KeyEvent
+import android.view.WindowManager
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -34,6 +37,9 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private var tts: TextToSpeech? = null
     private var ttsLista = false
+    // 0.28.0: el ajedrez importa y guarda copias de sus arañas
+    private var archivoCb: ValueCallback<Array<Uri>>? = null
+    private var porGuardar: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +51,14 @@ class MainActivity : Activity() {
         web.settings.mediaPlaybackRequiresUserGesture = false
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean = abrir(req.url)
+        }
+        web.webChromeClient = object : WebChromeClient() {
+            // Elegir un archivo (importar arañas de otro aparato)
+            override fun onShowFileChooser(view: WebView, cb: ValueCallback<Array<Uri>>, p: FileChooserParams): Boolean {
+                archivoCb?.onReceiveValue(null); archivoCb = cb
+                val i = Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+                return try { @Suppress("DEPRECATION") startActivityForResult(i, ABRIR); true } catch (e: ActivityNotFoundException) { archivoCb = null; false }
+            }
         }
         web.addJavascriptInterface(Puente(), "AranaAndroid")
         tts = TextToSpeech(this) { ok ->
@@ -74,6 +88,18 @@ class MainActivity : Activity() {
             }
         }
         @JavascriptInterface fun capacidades(): String = CAPACIDADES
+        /** 0.28.0: guardar la copia de las arañas donde diga usted (Descargas, Drive…). */
+        @JavascriptInterface fun guardarArchivo(nombre: String, texto: String) {
+            runOnUiThread {
+                porGuardar = texto
+                val i = Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json").putExtra(Intent.EXTRA_TITLE, nombre)
+                try { @Suppress("DEPRECATION") startActivityForResult(i, GUARDAR) } catch (e: ActivityNotFoundException) { porGuardar = null; Toast.makeText(this@MainActivity, "Este móvil no deja elegir dónde guardar.", Toast.LENGTH_LONG).show() }
+            }
+        }
+        /** 0.28.0: mientras entrena al ajedrez, la pantalla no se apaga. */
+        @JavascriptInterface fun pantalla(encendida: Boolean) {
+            runOnUiThread { if (encendida) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        }
     }
 
     private fun decir(texto: String) {
@@ -99,6 +125,20 @@ class MainActivity : Activity() {
     @Deprecated("Resultado del micrófono")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION") super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == ABRIR) {
+            val u = if (resultCode == RESULT_OK) data?.data else null
+            archivoCb?.onReceiveValue(if (u != null) arrayOf(u) else null); archivoCb = null
+            return
+        }
+        if (requestCode == GUARDAR) {
+            val u = if (resultCode == RESULT_OK) data?.data else null
+            val t = porGuardar; porGuardar = null
+            if (u != null && t != null) {
+                val ok = try { contentResolver.openOutputStream(u)?.use { it.write(t.toByteArray(Charsets.UTF_8)) } != null } catch (e: Exception) { false }
+                Toast.makeText(this, if (ok) "Copia de las arañas guardada." else "No he podido guardar la copia.", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
         if (requestCode != OIR) return
         val dicho = if (resultCode == RESULT_OK) data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() else null
         web.evaluateJavascript("window.__aranaOir&&window.__aranaOir(" + JSONObject.quote(dicho ?: "") + ")", null)
@@ -222,6 +262,8 @@ class MainActivity : Activity() {
 
     companion object {
         const val OIR = 7
+        const val ABRIR = 8
+        const val GUARDAR = 9
         const val FONDO = 0xFF090A14.toInt()
         const val HOST = "jrjr3333.github.io"
         const val SITE = "https://jrjr3333.github.io/arana/?app=android"

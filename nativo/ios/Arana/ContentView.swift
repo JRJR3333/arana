@@ -13,6 +13,9 @@ struct ContentView: View {
     @State private var bubble = "Buenas. Soy su araña, ya fuera de la web."
     @State private var thinking = false
     @State private var showSettings = false
+    // 0.28.0: la sala de ajedrez (la araña juega y su cerebro evoluciona)
+    @State private var showAjedrez = false
+    @State private var entrenarAjedrez = false
     @State private var key = Keychain.load()
     @State private var ghToken = Keychain.load(account: Peticiones.cuenta)
     @StateObject private var ear = Listener()
@@ -91,6 +94,11 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: typing)
         .sheet(isPresented: $showSettings) { settings }
+        .fullScreenCover(isPresented: $showAjedrez) {
+            SalaAjedrez(entrenar: entrenarAjedrez,
+                        cerrar: { showAjedrez = false; bubble = "He vuelto de la sala. Mis arañas me esperan allí." },
+                        hito: { t in Memory.addThread(); hilos = UserDefaults.standard.integer(forKey: "arana.hilos"); bubble = "Hito de ajedrez: \(t)." })
+        }
         .task { await vida() }
         .onChange(of: typing) { _, t in if t { idleSince = Date(); if escondida || off != .zero { off = .zero; escondida = false } } }
         .onOpenURL { u in
@@ -169,6 +177,13 @@ struct ContentView: View {
                     }
                     Text("Con token, lo que no sé hacer se lo pido a Claude yo sola. Créelo en github.com → Settings → Developer settings → Fine-grained tokens, solo para «arana», con permiso Issues: Read and write. Sin token, le abro GitHub y usted pulsa «Create».").font(.footnote)
                 }
+                Section("Ajedrez") {
+                    Button("Abrir la sala de partidas") {
+                        showSettings = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { abrirAjedrez(entrenar: false) }
+                    }
+                    Text("Mis arañas juegan al ajedrez y su cerebro evoluciona. También se abre diciendo «vamos a jugar al ajedrez». Entrenar necesita la pantalla encendida; mientras la sala está abierta, la mantengo yo.").font(.footnote)
+                }
                 Section("Cómo me porto") {
                     Toggle("Pasear por la pantalla cuando no hago nada", isOn: $pasear)
                     Toggle("Hacerle preguntas de vez en cuando", isOn: $preguntar)
@@ -195,6 +210,7 @@ struct ContentView: View {
             return
         }
         let n = Self.normal(t)
+        if let a = SalaAjedrez.orden(n) { typing = false; abrirAjedrez(entrenar: a); return }
         if let m = Movimiento.desde(n) { typing = false; Task { await mover(m) }; return }
         if ["preguntame algo", "hazme una pregunta", "hazme preguntas", "preguntame"].contains(n) { typing = false; preguntarAlgo(forzar: true); return }
         thinking = true
@@ -207,6 +223,13 @@ struct ContentView: View {
             for m in movs.compactMap(Movimiento.init(rawValue:)) { await mover(m, callada: true) }
             if let d = Brain.deseo { Brain.deseo = nil; ofrecerClaude(d.frase, d.motivo) }
         }
+    }
+
+    private func abrirAjedrez(entrenar: Bool) {
+        let t = ["Voy a la sala de partidas.", "A mi mesa de ajedrez.", "Me siento a jugar."].randomElement()!
+        bubble = t; Voice.shared.say(t)
+        entrenarAjedrez = entrenar
+        showAjedrez = true
     }
 
     static func normal(_ t: String) -> String {

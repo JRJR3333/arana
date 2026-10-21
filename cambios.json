@@ -1,5 +1,32 @@
 [
  {
+  "v": "0.28.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.28.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "Biblioteca de arañas",
+    "detalle": "A petición de Juan (fase 5 del ajedrez). Botón «Biblioteca»: todas las arañas con genes (vivas, élite guardada, cazadoras e importadas), con filtros. Importar la copia de otro aparato (no duplica). Con cada araña: duelo de 4 partidas contra la campeona, mezclarla en la población (sustituye a la de menos Elo), retomar la evolución desde ella (ella y 31 hijas con mutaciones; la población anterior queda guardada), exportar solo esa araña y ver su ficha. Si está entrenando, mezclar y retomar se aplican al empezar la siguiente generación.",
+    "probar": "Exporte una copia en el iPhone, impórtela en el Android (o al revés) y pulse una araña importada."
+   },
+   {
+    "id": "0.28.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Jugar contra una araña",
+    "detalle": "Desde la biblioteca: elija color y juegue tocando la pieza y luego su casilla (se ven las casillas posibles). La araña piensa en un hilo aparte, así que no frena el entrenamiento. Recuerda cómo le va contra Juan (memoria del rival). Hitos: «Juan me gana una partida» y «Le gano una partida a Juan».",
+    "probar": "Biblioteca → una araña → «Jugar yo contra ella»."
+   },
+   {
+    "id": "0.28.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "La sala en las apps de iPhone y Android",
+    "detalle": "App de iPhone: «vamos a jugar al ajedrez», «entrena» o Ajustes → Ajedrez abren la sala a pantalla completa (la misma de la web), con la pantalla encendida, la telaraña que crece con cada hito y la copia por la hoja de compartir. Android: elegir archivo para importar, guardar la copia donde diga usted (también Drive) y pantalla encendida mientras entrena (hace falta el APK nuevo).",
+    "probar": "En la app de iPhone diga «vamos a jugar al ajedrez»."
+   }
+  ]
+ },
+ {
   "v": "0.27.0",
   "fecha": "2026-10-21",
   "mejoras": [
