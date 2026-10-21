@@ -1107,6 +1107,27 @@ function diversidad(pop, rng) {
   }
   return n ? s / n : 0;
 }
+/* Huella: lo esencial de los genes, pequeño para guardarlo de todas las arañas (también de las que mueren).
+   p: valor de las piezas en el medio juego; k: cómo piensa; d: por detector [encendido, peso de su 1.ª medida en el medio juego] */
+function huella(genes) {
+  const d = {};
+  for (const x of DET) { const a = genes['d' + x.n]; d[x.n] = [a[0] > 0 ? 1 : 0, r4(x.n === 4 ? 0 : a[2])]; }
+  return { p: [0, 1, 2, 3, 4].map(i => r4(genes.d1[1 + i * 5 + 1])), k: (genes.piensa || PIENSA_INIT).slice(), d };
+}
+/* Estilo (0–1 en cada eje), calculado de los genes: ataque, defensa, posición, material y táctica */
+const ESTILO = [['ataque', [9, 48, 55, 10, 21]], ['defensa', [8, 57, 11, 54]], ['posición', [5, 6, 7, 16, 14, 15]], ['material', [2, 3, 41]], ['táctica', [18, 19, 20, 56, 58, 59, 60]]];
+function estilo(genes) {
+  return ESTILO.map(([nombre, ns]) => {
+    let v = 0, n = 0;
+    for (const k of ns) {
+      const det = DET_BY['d' + k], a = genes['d' + k]; if (!det || !a) continue;
+      n++; if (!(a[0] > 0)) continue;
+      const base = Math.abs(det.init[0][1]) || 1;
+      v += clamp(Math.abs(a[2]) / base, 0, 2) / 2;
+    }
+    return { eje: nombre, v: n ? r4(v / n) : 0 };
+  });
+}
 /* Recibe la población con sus resultados (pts) y devuelve la siguiente generación y el resumen */
 function siguienteGeneracion(est, pop, rng) {
   const O = Object.assign({}, OPC_EVO, est.opc || {}), gen = est.gen;
@@ -1121,7 +1142,8 @@ function siguienteGeneracion(est, pop, rng) {
     gen, fecha: new Date().toISOString(), mejor: { id: mejor.id, nombre: mejor.nombre, pts: mejor.pts, elo: Math.round(mejor.elo) },
     mediaPts: pop.reduce((s, p) => s + (p.pts || 0), 0) / pop.length, mediaElo: pop.reduce((s, p) => s + p.elo, 0) / pop.length,
     sigma: est.sigma, diversidad: div, encendidos: pop.reduce((s, p) => s + DET.filter(d => p.genes['d' + d.n][0] > 0).length, 0) / pop.length,
-    elite: orden.slice(0, O.elite).map(p => p.id), inmigrantes: 0
+    elite: orden.slice(0, O.elite).map(p => p.id), inmigrantes: 0,
+    adn: DET.map(d => { let on = 0, w = 0; for (const p of pop) { const a = p.genes['d' + d.n]; if (a[0] > 0) { on++; w += a[2]; } } return [d.n, r4(on / pop.length), r4(on ? w / on : 0)]; })
   };
   const nueva = orden.slice(0, O.elite).map(p => { p.pts = 0; return p; });
   const elegir = () => { let b = null; for (let i = 0; i < O.torneo; i++) { const c = pop[Math.floor(rng() * pop.length)]; if (!b || c.fit > b.fit) b = c; } return b; };
@@ -1141,7 +1163,7 @@ const API = {
   Pos, INICIO, legal, perft, uci, parseUci, fin, inCheck, attacked, sqName, insuficiente, mFrom, mTo,
   DET, DET_BY, COSTE, JUGADA, PIENSA, OPC_EVO,
   genomaClasico, genomaAzar, compilar, evaluar, explicar, Buscador, jugar, aperturaAleatoria,
-  mulberry, nombre, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion
+  huella, estilo, ESTILO, mulberry, nombre, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.AjedrezMotor = API;
 })(typeof self !== 'undefined' ? self : this);

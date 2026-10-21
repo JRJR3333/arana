@@ -1,5 +1,32 @@
 [
  {
+  "v": "0.25.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.25.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "La sala de partidas es un plano con zoom",
+    "detalle": "A petición de Juan (fase 2 del ajedrez): plano que se mueve en horizontal y vertical y se amplía con dos dedos. Lejos, mesas como puntos de color; medio, mini-tableros con nombre y Elo; cerca, el tablero con las dos arañas lanzando su hilo a la pieza movida, la barra de evaluación y los detectores que más pesan. Se abre viendo la sala entera. Zona de Stockfish y rincón de cazadoras reservados para las fases 3 y 4.",
+    "probar": "Diga «vamos a jugar al ajedrez», pulse Entrenar y pellizque sobre una mesa (o tóquela) hasta verla de cerca."
+   },
+   {
+    "id": "0.25.0-2",
+    "tipo": "grafica",
+    "titulo": "La ficha enseña cómo evolucionan sus genes",
+    "detalle": "Al tocar una araña: su linaje por el padre que más le dio, cada gen (piezas, cómo piensa y los 43 detectores) con su línea de generación en generación, si está encendido, y un radar de estilo (ataque, defensa, posición, material, táctica). Se guarda una huella pequeña de los genes de todas las arañas, también de las que mueren.",
+    "probar": "Tras dos o tres generaciones, toque una araña nueva y abra «Valor de las piezas»."
+   },
+   {
+    "id": "0.25.0-3",
+    "tipo": "grafica",
+    "titulo": "Vistas de la evolución e hitos",
+    "detalle": "Botones de abajo: gráfica (Elo, mutación, diversidad, detectores), árbol en telaraña de las últimas 5 generaciones, ADN (qué detectores usa la población, generación a generación), mapa de estilos, la mejor partida de cada generación para verla jugada a jugada, e hitos. Cada hito hace crecer un hilo de la telaraña de Araña.",
+    "probar": "Pulse «Árbol» y toque un punto; luego «Partidas» y ▶."
+   }
+  ]
+ },
+ {
   "v": "0.24.0",
   "fecha": "2026-10-21",
   "mejoras": [

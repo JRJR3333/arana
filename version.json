@@ -1,7 +1,10 @@
 {
- "version": "0.24.0",
+ "version": "0.25.0",
  "date": "2026-10-21",
  "notes": [
+  "Mi sala de ajedrez ya es un plano: pellizque para acercarse. De lejos, las mesas son puntos; de cerca, me ve junto al tablero lanzando el hilo a cada pieza que muevo y qué estoy pensando.",
+  "Toque una araña y verá sus genes a lo largo de su linaje, de su antepasada más antigua a ella, y su estilo.",
+  "Abajo tiene la gráfica, el árbol en telaraña, el ADN, el mapa de estilos, las mejores partidas y los hitos. Cada hito hace crecer mi telaraña.",
   "Ya juego al ajedrez: dígame «vamos a jugar al ajedrez» y me voy a mi sala de partidas.",
   "Mi cerebro de ajedrez evoluciona: 32 arañas juegan entre ellas, las mejores tienen hijas y cada generación se guarda.",
   "Toque una araña de la sala para ver su ficha: padres, mutaciones, Elo y sus 45 detectores.",

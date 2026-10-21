@@ -2,73 +2,114 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#090a14">
 <title>Sala de partidas</title>
 <style>
-/* La sala de partidas de la araña (fase 1). Mismo estilo que Araña: rejilla, puntos y líneas. */
+/* La sala de partidas de la araña. Mismo estilo que Araña: rejilla, puntos y líneas.
+   Fase 2: plano con zoom (lejos, medio, cerca), ficha con genes por generación y vistas auxiliares. */
 :root{
-  --home:#090a14; --pink:#ff4fa3; --green:#3dff99; --cyan:#5ee8ff; --amber:#ffb340;
-  --ink:#fff; --muted:rgba(235,235,245,.6); --line:rgba(94,232,255,.22); --card:rgba(10,13,23,.86);
+  --home:#090a14; --pink:#ff4fa3; --green:#3dff99; --cyan:#5ee8ff; --amber:#ffb340; --violet:#a99bff;
+  --ink:#fff; --muted:rgba(235,235,245,.6); --dim:rgba(235,235,245,.35); --line:rgba(94,232,255,.22); --card:rgba(10,13,23,.9); --sheet:#0d1020;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
 }
 *{box-sizing:border-box}
-html,body{margin:0; min-height:100%; background:var(--home); color:var(--ink); font-family:var(--sys); font-size:16px; -webkit-tap-highlight-color:transparent}
-body{background:
+html,body{margin:0; height:100%; background:var(--home); color:var(--ink); font-family:var(--sys); font-size:16px; -webkit-tap-highlight-color:transparent; overflow:hidden}
+body{display:flex; flex-direction:column; height:100dvh; background:
   repeating-linear-gradient(0deg,rgba(94,232,255,.05) 0 1px,transparent 1px 28px),
   repeating-linear-gradient(90deg,rgba(94,232,255,.05) 0 1px,transparent 1px 28px),
   radial-gradient(420px circle at 15% 5%,#33205e,transparent),
-  radial-gradient(420px circle at 95% 95%,#0e4152,transparent),var(--home); background-attachment:fixed}
+  radial-gradient(420px circle at 95% 95%,#0e4152,transparent),var(--home)}
 button{font:inherit; color:inherit; cursor:pointer}
-header{position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px;
-  padding:calc(env(safe-area-inset-top,0px) + 8px) 16px 8px; background:rgba(9,10,20,.88); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
-header h1{flex:1; margin:0; font:600 17px/1.2 var(--mono); letter-spacing:.02em}
-.ib{border:1px solid var(--line); background:none; border-radius:10px; min-width:44px; height:40px; padding:0 12px; font:500 15px var(--mono)}
-.ib:focus-visible,.btn:focus-visible,.mesa button:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
-main{padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 24px); max-width:1100px; margin:0 auto}
-#estado{font:500 14px/1.4 var(--mono); color:var(--muted); margin:2px 0 12px}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
+header{flex:none; display:flex; align-items:center; gap:8px; padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px; background:rgba(9,10,20,.9); border-bottom:1px solid var(--line)}
+header h1{flex:1; margin:0; font:600 16px/1.2 var(--mono); letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ib{border:1px solid var(--line); background:none; border-radius:10px; min-width:40px; height:40px; padding:0 10px; font:500 15px var(--mono)}
+#barra{flex:none; padding:8px 12px 6px; background:rgba(9,10,20,.75); border-bottom:1px solid var(--line)}
+#estado{font:500 12.5px/1.4 var(--mono); color:var(--muted); margin:0 0 8px}
 #estado b{color:var(--ink); font-weight:600}
-.ctrl{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px}
-.btn{border:1px solid var(--pink); background:rgba(255,79,163,.12); border-radius:10px; padding:10px 16px; font:600 15px var(--mono)}
+.ctrl{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+.btn{border:1px solid var(--pink); background:rgba(255,79,163,.12); border-radius:10px; padding:8px 14px; min-height:40px; font:600 14px var(--mono)}
 .btn.sec{border-color:var(--line); background:none; font-weight:500}
 .btn[aria-pressed=true]{border-color:var(--cyan); background:rgba(94,232,255,.12)}
-#mesas{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px}
-.mesa{border:1px solid var(--line); border-radius:10px; background:var(--card); padding:8px; position:relative}
-.mesa.juega{border-color:var(--cyan); box-shadow:0 0 14px -6px var(--cyan)}
-.mesa canvas{display:block; width:100%; aspect-ratio:1; border-radius:4px}
-.mesa .n{font:600 10px var(--mono); color:var(--muted); margin-bottom:6px; display:flex; justify-content:space-between}
-.mesa button{display:flex; justify-content:space-between; gap:6px; width:100%; border:0; background:none; padding:4px 2px; font:500 13px var(--mono); text-align:left}
-.mesa button span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.mesa button i{font-style:normal; color:var(--muted)}
-.dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:0}
-.dot.w{background:#e9f6ff} .dot.b{background:#1b1430; border:1.5px solid var(--pink)}
-.res{font:600 11px var(--mono); color:var(--green)}
+.sp{flex:1}
+#zoom{display:flex; gap:6px}
+/* ── El plano ── */
+#plano{flex:1; min-height:0; overflow:auto; position:relative; touch-action:pan-x pan-y; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
+#tam{position:relative}
+#lienzo{position:absolute; left:0; top:0; transform-origin:0 0; --k:1}
+.mesa{position:absolute; width:260px; height:360px; border:1px solid var(--line); border-radius:14px; background:var(--card); padding:10px; display:flex; flex-direction:column; gap:4px}
+.mesa.juega{border-color:var(--cyan)}
+.mesa .pl{display:flex; justify-content:space-between; gap:6px; width:100%; border:0; background:none; padding:calc(3px*var(--k)) 2px; font:500 calc(13px*var(--k))/1.25 var(--mono); text-align:left; min-height:calc(30px*var(--k))}
+.mesa .pl span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mesa .pl i{font-style:normal; color:var(--muted)}
+.mesa canvas{display:block; width:240px; height:240px; border-radius:6px; cursor:zoom-in}
+.mesa .info{display:none; font:calc(11px*var(--k))/1.35 var(--mono); color:var(--muted)}
+.mesa .ev{height:calc(8px*var(--k)); border-radius:3px; background:#2a1838; overflow:hidden; margin:calc(4px*var(--k)) 0}
+.mesa .ev b{display:block; height:100%; background:#e9f6ff; transition:width .3s}
+.mesa .chips span{display:inline-block; margin:0 calc(4px*var(--k)) calc(3px*var(--k)) 0; padding:calc(1px*var(--k)) calc(6px*var(--k)); border-radius:calc(5px*var(--k)); border:1px solid var(--line); color:var(--ink)}
+.mesa .chips span.neg{border-color:rgba(255,79,163,.5)}
+.mesa .lejos{display:none; position:absolute; inset:0; align-items:center; justify-content:center; flex-direction:column; gap:22px}
+.mesa .lejos .o{width:130px; height:130px; border-radius:50%; border:6px solid var(--dim); display:flex; align-items:center; justify-content:center; font:700 44px var(--mono); color:var(--muted)}
+.mesa .lejos .t{font:600 calc(12px*var(--k)) var(--mono); color:var(--muted)}
+.mesa.juega .lejos .o{border-color:var(--cyan); color:var(--cyan)}
+.mesa.r1 .lejos .o{border-color:#e9f6ff; color:#e9f6ff} .mesa.r0 .lejos .o{border-color:var(--pink); color:var(--pink)} .mesa.rh .lejos .o{border-color:var(--amber); color:var(--amber)}
+.mesa .res{font:600 calc(11px*var(--k)) var(--mono); color:var(--green); text-align:right}
+#lienzo.lejos .mesa > :not(.lejos){visibility:hidden} #lienzo.lejos .mesa .lejos{display:flex} #lienzo.lejos .mesa{cursor:zoom-in}
+#lienzo.cerca .mesa .info{display:block}
+.zona{position:absolute; border:1.5px dashed var(--line); border-radius:18px; padding:24px; color:var(--muted)}
+.zona h3{margin:0 0 6px; font:600 calc(15px*var(--k)) var(--mono); color:var(--ink)}
+.zona p{margin:0; font:calc(12px*var(--k))/1.4 var(--mono)}
+.zona svg{position:absolute; right:24px; bottom:20px}
+#lienzo.lejos .zona h3{font-size:calc(13px*var(--k))} #lienzo.lejos .zona p{display:none}
+/* ── Resumen ── */
+#resumen{flex:1; min-height:0; overflow:auto; padding:12px 16px 24px}
 #resumen table{width:100%; border-collapse:collapse; font:13px/1.35 var(--mono)}
 #resumen th,#resumen td{padding:7px 6px; border-bottom:1px solid var(--line); text-align:left}
 #resumen th{color:var(--muted); font-weight:500}
-#resumen td.num,#resumen th.num{text-align:right; font-variant-numeric:tabular-nums}
-#resumen tr[data-id]{cursor:pointer}
-h2{font:600 14px var(--mono); color:var(--cyan); margin:18px 0 8px; letter-spacing:.04em; text-transform:uppercase}
-/* Hoja inferior: ficha de una araña y opciones */
-#hoja{position:fixed; inset:0; z-index:10; background:rgba(0,0,0,.45); display:none; align-items:flex-end; justify-content:center}
+.num{text-align:right!important; font-variant-numeric:tabular-nums}
+tr[data-id]{cursor:pointer}
+h2{font:600 13px var(--mono); color:var(--cyan); margin:18px 0 8px; letter-spacing:.05em; text-transform:uppercase}
+/* ── Botones auxiliares ── */
+#aux{flex:none; display:flex; gap:6px; overflow-x:auto; padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 8px); background:rgba(9,10,20,.92); border-top:1px solid var(--line); scrollbar-width:none}
+#aux::-webkit-scrollbar{display:none}
+#aux button{flex:none; border:1px solid var(--line); background:none; border-radius:10px; padding:7px 12px; min-height:40px; font:500 13px var(--mono); white-space:nowrap}
+#aux button b{color:var(--green); font-weight:600}
+/* ── Hoja ── */
+#hoja{position:fixed; inset:0; z-index:10; background:rgba(0,0,0,.5); display:none; align-items:flex-end; justify-content:center}
 #hoja.on{display:flex}
-#hoja .c{width:100%; max-width:640px; max-height:88vh; overflow:auto; background:#0d1020; border:1px solid var(--line); border-bottom:0; border-radius:16px 16px 0 0;
-  padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 20px)}
+#hoja .c{width:100%; max-width:640px; max-height:90vh; overflow:auto; background:var(--sheet); border:1px solid var(--line); border-bottom:0; border-radius:16px 16px 0 0; padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 20px)}
 #hoja h3{margin:0 0 2px; font:600 20px var(--mono)}
 #hoja .sub{color:var(--muted); font:13px/1.4 var(--mono); margin-bottom:12px}
 .kv{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font:14px/1.35 var(--mono); margin:6px 0 4px}
 .kv dt{color:var(--muted)} .kv dd{margin:0}
-.det{display:grid; grid-template-columns:1fr auto; gap:2px 10px; font:13px/1.5 var(--mono)}
-.det .off{color:rgba(235,235,245,.35)}
-.det .on::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin-right:7px}
-.det .off::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; border:1px solid rgba(235,235,245,.35); margin-right:7px}
+.det{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 10px; font:13px/1.5 var(--mono)}
 .det .v{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted)}
+.gen{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 56px; gap:2px 10px; align-items:center; font:12.5px/1.3 var(--mono); padding:3px 0; border-bottom:1px solid rgba(94,232,255,.08)}
+.gen .v{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted)}
+.gen.off span:first-child{color:var(--dim)}
+.gen svg{width:100%; height:20px; display:block}
+.dotc{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; background:var(--green); vertical-align:1px}
+.gen.off .dotc{background:none; border:1px solid var(--dim)}
+details{margin:10px 0} summary{font:600 13px var(--mono); color:var(--cyan); cursor:pointer; padding:6px 0; text-transform:uppercase; letter-spacing:.05em}
+.lin{font:12.5px/1.6 var(--mono); color:var(--muted)} .lin b{color:var(--ink); font-weight:500}
 label.op{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); font:14px var(--mono)}
 label.op select{font:inherit; background:#141832; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 8px}
 .nota{font:12.5px/1.45 var(--mono); color:var(--muted); margin:10px 0}
 svg.spark{width:100%; height:56px; display:block}
-@media (prefers-reduced-motion:reduce){ .mesa.juega{box-shadow:none} }
+.ley{display:flex; flex-wrap:wrap; gap:12px; font:12px var(--mono); color:var(--muted); margin:6px 0}
+.ley i{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px}
+.hito{display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--line); font:13.5px/1.4 var(--mono)}
+.hito .m{flex:none; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--dim); margin-top:1px}
+.hito.si .m{border-color:var(--green); background:rgba(61,255,153,.2)}
+.hito:not(.si){color:var(--dim)} .hito small{display:block; color:var(--muted); font-size:12px}
+#aviso{position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 70px); transform:translateX(-50%); z-index:12; background:var(--sheet); border:1px solid var(--green); border-radius:12px; padding:10px 14px; font:600 13px/1.35 var(--mono); max-width:calc(100% - 32px); display:none}
+#aviso.on{display:block}
+.rep{display:flex; gap:6px; justify-content:center; margin:10px 0}
+.rep button{border:1px solid var(--line); background:none; border-radius:10px; min-width:44px; height:40px; font:500 15px var(--mono)}
+select.full{width:100%; font:14px var(--mono); background:#141832; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px; margin:4px 0 8px}
+@media (prefers-reduced-motion:reduce){ .mesa .ev b{transition:none} }
 </style>
 </head>
 <body>
@@ -77,16 +118,27 @@ svg.spark{width:100%; height:56px; display:block}
   <h1>Sala de partidas</h1>
   <button class="ib" id="opc" aria-label="Opciones de entrenamiento">⚙</button>
 </header>
-<main>
+<div id="barra">
   <div id="estado">Preparando la sala…</div>
   <div class="ctrl">
     <button class="btn" id="go">▶ Entrenar</button>
     <button class="btn sec" id="vista" aria-pressed="true">Directo</button>
+    <span class="sp"></span>
+    <div id="zoom"><button class="ib" id="zm" aria-label="Alejar">−</button><button class="ib" id="zt" aria-label="Ver toda la sala">◻</button><button class="ib" id="zp" aria-label="Acercar">+</button></div>
   </div>
-  <div id="mesas" aria-label="Mesas de la ronda actual"></div>
-  <div id="resumen" hidden></div>
-</main>
+</div>
+<div id="plano" aria-label="Plano de la sala"><div id="tam"><div id="lienzo"></div></div></div>
+<div id="resumen" hidden></div>
+<nav id="aux" aria-label="Vistas de la evolución">
+  <button data-aux="grafica">Gráfica</button>
+  <button data-aux="arbol">Árbol</button>
+  <button data-aux="adn">ADN</button>
+  <button data-aux="estilos">Estilos</button>
+  <button data-aux="partidas">Partidas</button>
+  <button data-aux="hitos">Hitos</button>
+</nav>
 <div id="hoja" role="dialog" aria-modal="true"><div class="c" id="hojac"></div></div>
+<div id="aviso" role="status" aria-live="polite"></div>
 <script src="motor.js"></script>
 <script src="sala.js"></script>
 </body>

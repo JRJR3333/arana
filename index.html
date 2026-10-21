@@ -861,7 +861,11 @@ function closeChess(){
   const f=document.getElementById('ajz'); if(!f) return; f.remove(); goHome();
   const t=pick(['He vuelto de la sala.','Ya estoy aquí. Mis arañas me esperan en la sala.','Vuelvo a su servicio.']); say(t); speak(t);
 }
-window.addEventListener('message',e=>{ if(e.data&&e.data.arana==='ajedrez-salir') closeChess(); });
+window.addEventListener('message',e=>{ const d=e.data; if(!d) return;
+  if(d.arana==='ajedrez-salir') closeChess();
+  // 0.25.0: cada hito de ajedrez hace crecer un hilo de mi telaraña
+  if(d.arana==='ajedrez-hito'&&d.texto){ addThread(); say('Hito de ajedrez: '+String(d.texto).slice(0,120)+'.'); }
+});
 function moveCmd(l){
   if(/\b(deja de seguir\w*|para de seguir\w*|no me sigas|no me persigas|quieta|quieto|estate quiet[ao]|no te muevas|para quieta)\b/.test(l)) return 'stay';
   if(/\b(sigueme|seguirme|sigue (mi|el) dedo|persigueme|ven conmigo)\b/.test(l)) return 'follow';
