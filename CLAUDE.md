@@ -4,11 +4,15 @@ Araña es la app personal de Juan para iPhone. Desde el 2026-10-20 el objetivo e
 
 ## Una sola pantalla, tres plataformas (desde la 0.22.0)
 
-- **El aspecto manda la app de iPhone** (`nativo/ios/Arana/ContentView.swift`): fondo de rejilla, telaraña que crece (`arana.hilos`), bocadillo, la araña de puntos y líneas en el centro, y abajo micro, campo «Dígame qué hacer» e «Ir». `index.html` la copia con los mismos números (`drawSpider`, `drawTela`). Si cambia algo visible en `ContentView.swift`, se cambia igual en `index.html`, y al revés.
-- **Todo lo demás vive en Ajustes** (la rueda): cerebro, lo que sabe de Juan, Evolución, Valorar mejoras, lo aprendido, el bolsillo, permisos y memoria. No se vuelve a poner una pantalla de iconos ni a mover la araña por la pantalla.
+- **El aspecto manda la app de iPhone** (`nativo/ios/Arana/ContentView.swift`): fondo de rejilla, telaraña que crece (`arana.hilos`), bocadillo, la araña de puntos y líneas en el centro, y abajo micro, campo «Dígame qué hacer» e «Ir». `index.html` la copia con los mismos números (`ANG`, `REST`, `L1`, `L2` en `draw`; `drawTela`). Si cambia algo visible en `ContentView.swift`, se cambia igual en `index.html`, y al revés.
+- **Todo lo demás vive en Ajustes** (la rueda): cerebro, lo que sabe de Juan, Evolución, Valorar mejoras, lo aprendido, el bolsillo, permisos y memoria. No se vuelve a poner una pantalla de iconos.
+- **La araña camina por toda la pantalla (desde la 0.23.0, lo pidió Juan).** Su sitio es el nido del centro (`#nest`), pero pasea, curiosea, lanza la red, baila, sigue el dedo y se esconde en el borde. En la web es un lienzo a pantalla completa (`#cv`, motor `update`/`draw`) con `#hit` para tocarla; en la app de iPhone, `off`/`heading`/`walking` en `ContentView.swift`. No se vuelve a quitar. Toques: uno escucha, dos salta, tres baila, mantener pulsada abre su menú, arrastrar la mueve.
+- **Lo que no se puede perder** (Juan lo reclamó cuando la 0.22 lo quitó): caminar, bailar, que haga preguntas (`askQuestion` / `preguntarAlgo`), y que lo que no sabe se lo pida a Claude (`offerClaude` / `Peticiones.swift`; con token de GitHub lo crea sola). Antes de quitar o «limpiar» algo visible, preguntar a Juan.
+- **Teclado:** la web ajusta `#app` y `#sheet` a `visualViewport` (`fitViewport`, clase `kb`) y la app de iPhone encoge araña y bocadillo con el campo enfocado. Cualquier cambio de la pantalla se prueba también con el teclado abierto.
 - **Lo que cambia es lo que puede hacer cada una**, según lo que permite el aparato:
   - `CAPS` en `index.html` dice qué pasos hay en `android` (la app de Android: la que más hace), `ios` (la web en el iPhone) y `web` (un ordenador). *Ajustes → Lo que puedo hacer en…* sale de `CAP_LIST`.
   - El cerebro solo recibe los pasos de su plataforma (`STEP_TYPES`).
+  - El paso `spider` (moverse: `MOVES` en la web, `Movimiento` en Swift) está en todas las plataformas.
   - La app de Android hace sus órdenes con `AranaAndroid.orden(id, 'arana://…')` y contesta en `window.__aranaRes`. `BRIDGE2` distingue la app 0.22.0 de la anterior.
 - **Prioridad:** lo nuevo va primero a Android si Android lo permite. Juan pidió que Android tenga más que nadie.
 

@@ -18,6 +18,8 @@ struct Plan: Codable {
     var say: String
     var steps: [Step]?
     var remember: String?     // algo de Juan que conviene recordar
+    var cannot: String?       // 0.23.0: lo que no puede hacer, en una frase
+    var skill_request: String? // 0.23.0: la habilidad que Claude podría programar para lograrlo
 }
 
 enum BrainError: LocalizedError {
@@ -34,6 +36,9 @@ enum BrainError: LocalizedError {
 /// El cerebro: manda la orden a Claude y recibe un plan. Gastar poco: respuestas cortas y sin historial largo.
 enum Brain {
     static let model = "claude-haiku-5-5"
+    /// 0.23.0: lo que la pantalla tiene que hacer después de contestar: movimientos de la araña y lo que no supo hacer.
+    @MainActor static var movimientos: [String] = []
+    @MainActor static var deseo: (frase: String, motivo: String)?
 
     static let system = """
     Eres «Araña», el mayordomo de Juan dentro de su iPhone: serio, trata de usted, frases cortas. \
@@ -42,7 +47,9 @@ enum Brain {
     reminder (text y minutes), timer (minutes y/o seconds, text opcional: temporizador o alarma dentro de un rato), \
     call (phone), message (phone y text), event (text, when AAAA-MM-DDTHH:MM o minutes, duration: cita en el calendario), \
     agenda (days 0 hoy, 1 mañana: leer el calendario), \
-    music (action play|pause|next|previous; text opcional: canción, artista o disco de su biblioteca). Si no hace falta ningún paso, steps vacío. \
+    music (action play|pause|next|previous; text opcional: canción, artista o disco de su biblioteca), \
+    spider (action dance|walk|spin|jump|come|hide|bow: lo que hace usted con su cuerpo en la pantalla: bailar, pasear, dar una vuelta, saltar, volver a su sitio, esconderse, reverencia). Si no hace falta ningún paso, steps vacío. \
+    Si le piden HACER algo que estos pasos no permiten, no finja que lo hace: explíquelo en cannot y, si una habilidad nueva programable lo resolvería, descríbala en skill_request (Claude la programará). \
     Siga el hilo de la conversación. Si Juan le cuenta algo duradero de sí mismo (gustos, personas, costumbres), \
     póngalo en remember como frase corta en tercera persona.
     """
@@ -57,14 +64,16 @@ enum Brain {
                 "steps": ["type": "array", "items": [
                     "type": "object",
                     "properties": [
-                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda", "music"]],
+                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda", "music", "spider"]],
                         "url": ["type": "string"], "text": ["type": "string"],
                         "minutes": ["type": "integer"], "seconds": ["type": "integer"], "phone": ["type": "string"],
                         "when": ["type": "string"], "duration": ["type": "integer"], "days": ["type": "integer"], "action": ["type": "string"]
                     ],
                     "required": ["type"]
                 ]],
-                "remember": ["type": "string"]
+                "remember": ["type": "string"],
+                "cannot": ["type": "string"],
+                "skill_request": ["type": "string"]
             ],
             "required": ["say", "steps"]
         ]
@@ -78,7 +87,10 @@ enum Brain {
         defer { Isla.end() }
         do {
             let plan = try await think(text)
-            let fails = await Actions.run(plan.steps ?? [])
+            let pasos = plan.steps ?? []
+            movimientos = pasos.filter { $0.type == "spider" }.compactMap { $0.action }
+            if let no = plan.cannot, !no.isEmpty { deseo = (text, plan.skill_request ?? no) }
+            let fails = await Actions.run(pasos.filter { $0.type != "spider" })
             let reply = ([plan.say] + fails).joined(separator: " ")
             if let f = plan.remember { Memory.remember(f) }
             Memory.addTurn(user: text, reply: reply)

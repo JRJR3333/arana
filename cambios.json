@@ -1,5 +1,46 @@
 [
  {
+  "v": "0.23.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.23.0-1",
+    "tipo": "arreglo",
+    "titulo": "La araña vuelve a caminar por la pantalla",
+    "detalle": "A petición de Juan: se recupera la araña de la 0.21 en la pantalla única. Pasea cuando no hace nada, pisa los bordes del bocadillo y los botones, curiosea, lanza la red a las opciones y a lo que va a abrir, le sigue el dedo («sígueme» / «quieta») y se esconde en el borde si se aburre. Se puede arrastrar. En la web, en Android y en la app de iPhone.",
+    "probar": "Abra la araña y espere unos segundos sin tocar nada: debe ponerse a pasear. Diga «sígueme» y toque la pantalla."
+   },
+   {
+    "id": "0.23.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Bailar, saltar y su menú",
+    "detalle": "Tres toques: baila. Dos toques: salta. Mantenerla pulsada: menú con Bailar, Sígame, Paseo, Pregúnteme algo, Evolución y Ajustes. También por voz o texto: «baila», «camina», «da una vuelta», «salta», «ven», «escóndete», sin gastar consulta. El cerebro tiene el paso nuevo «spider» para usarlos en sus planes.",
+    "probar": "Toque la araña tres veces seguidas."
+   },
+   {
+    "id": "0.23.0-3",
+    "tipo": "iniciativa",
+    "titulo": "Vuelve a hacerle preguntas",
+    "detalle": "Cuando no hace nada, de vez en cuando le pregunta algo con opciones (música, café o té, deporte, cómo se mueve…) y lo recuerda en «Lo que sé de usted». A veces le pregunta qué quiere que aprenda y se lo pasa a Claude. Con «Sorpresa» alta pregunta más; se apaga en Ajustes.",
+    "probar": "Diga «pregúntame algo»."
+   },
+   {
+    "id": "0.23.0-4",
+    "tipo": "funcionalidad",
+    "titulo": "Lo que no sabe, a Claude, ella sola",
+    "detalle": "Siempre que no sabe hacer algo (también cuando el cerebro dice que no puede) se lo pide a Claude. Con un token de GitHub en Ajustes → Claude, mi profesor, crea la petición ella misma sin abrir GitHub; sin token, abre GitHub para que usted pulse «Create». No repite peticiones ya hechas.",
+    "probar": "Ponga el token en Ajustes y pídale algo que no sepa hacer."
+   },
+   {
+    "id": "0.23.0-5",
+    "tipo": "arreglo",
+    "titulo": "El teclado ya no corta la pantalla",
+    "detalle": "Con el teclado abierto la pantalla se ajusta a lo que queda visible: la araña se hace pequeña, el bocadillo se encoge y la barra queda justo encima del teclado. En la app de iPhone, igual.",
+    "probar": "Toque «Dígame qué hacer»: todo debe verse entero."
+   }
+  ]
+ },
+ {
   "v": "0.22.0",
   "fecha": "2026-10-21",
   "mejoras": [

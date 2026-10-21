@@ -1,18 +1,18 @@
 {
-  "version": "0.22.0",
-  "date": "2026-10-21",
-  "notes": [
-    "Ya me veo igual en la web, en el iPhone y en Android: mi pantalla de siempre, con todo lo demás en Ajustes.",
-    "En Android ya enciendo la linterna, cambio el brillo y pongo No molestar yo misma.",
-    "En Android ya pauso y paso canciones, apunto citas, llamo y preparo mensajes.",
-    "En Android ya abro sus apps de verdad, le oigo con el micro y le hablo en voz alta.",
-    "En Android ya salgo de mi app y me quedo flotando sobre las demás: pídame «flota».",
-    "Ya estoy en el Centro de control y en el botón de Acción: un toque y le escucho (en mi app).",
-    "Ya digo la hora, la fecha, hago cuentas y cuento los días que faltan, sin gastar consultas (en mi app).",
-    "Ya tiro dados y monedas (en mi app).",
-    "Ya tengo widget: un toque en la pantalla de inicio y le escucho (en mi app).",
-    "Ya pongo, pauso y busco su música (en mi app).",
-    "En Android ya sé dónde estoy, salir de la app y poner temporizadores y alarmas del reloj.",
-    "Ya marco el compás: pídame «metrónomo a 90» (en mi app)."
-  ]
+ "version": "0.23.0",
+ "date": "2026-10-21",
+ "notes": [
+  "Vuelvo a caminar por toda la pantalla: paseo, curioseo, le sigo el dedo y me escondo en el borde.",
+  "Vuelvo a bailar: tres toques o «baila». Dos toques, salto; mantenerme pulsada, mi menú; y me puede arrastrar.",
+  "Vuelvo a hacerle preguntas de vez en cuando para conocerle mejor (se apaga en Ajustes).",
+  "Lo que no sé hacer se lo paso a Claude; con un token de GitHub en Ajustes, lo pido yo sola.",
+  "Con el teclado abierto ya no se corta la pantalla: me hago pequeña y todo cabe.",
+  "En mi app de iPhone también camino, bailo, pregunto y le pido a Claude lo que no sé.",
+  "Ya me veo igual en la web, en el iPhone y en Android: mi pantalla de siempre, con todo lo demás en Ajustes.",
+  "En Android ya enciendo la linterna, cambio el brillo y pongo No molestar yo misma.",
+  "En Android ya pauso y paso canciones, apunto citas, llamo y preparo mensajes.",
+  "En Android ya abro sus apps de verdad, le oigo con el micro y le hablo en voz alta.",
+  "En Android ya salgo de mi app y me quedo flotando sobre las demás: pídame «flota».",
+  "Ya estoy en el Centro de control y en el botón de Acción: un toque y le escucho (en mi app)."
+ ]
 }

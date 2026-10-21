@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -33,7 +33,8 @@
 :root{ --app-1:var(--tint); --app-3:var(--okc); --app-4:var(--red); --ring:#ff9f0a; --bg:var(--fill) }
 *{box-sizing:border-box}
 html,body{height:100%; margin:0}
-body{background:var(--home); color:#fff; font-family:var(--sys); font-size:17px; line-height:1.3; overflow:hidden;
+/* 0.23.0: el cuerpo no se mueve nunca; con el teclado abierto #app se ajusta a lo que queda visible (visualViewport) */
+body{position:fixed; inset:0; background:var(--home); color:#fff; font-family:var(--sys); font-size:17px; line-height:1.3; overflow:hidden;
   -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; overscroll-behavior:none; -webkit-touch-callout:none}
 /* Wallpaper(): rejilla fina y brillos violeta y verde azulado */
 #wall{position:fixed; inset:0; background:
@@ -42,21 +43,38 @@ body{background:var(--home); color:#fff; font-family:var(--sys); font-size:17px;
   radial-gradient(420px circle at 15% 5%,#33205e,transparent),
   radial-gradient(420px circle at 95% 95%,#0e4152,transparent),var(--home)}
 #tela{position:fixed; inset:0; width:100%; height:100%; pointer-events:none}
-#app{position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; gap:18px;
-  padding:calc(env(safe-area-inset-top,0px) + 8px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+#app{position:fixed; left:0; right:0; top:var(--vt,0px); height:var(--vh,100%); display:flex; flex-direction:column; align-items:center; gap:18px;
+  padding:calc(env(safe-area-inset-top,0px) + 8px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
 .top{align-self:stretch; display:flex; justify-content:flex-end; padding:0 16px}
 .top button{border:0; background:none; padding:4px; color:rgba(255,255,255,.8); line-height:0}
 .grow{flex:1; min-height:0}
 #say{max-width:min(560px,calc(100% - 32px)); margin:0 16px; padding:14px; border-radius:10px; border:1px solid var(--pink);
   background:rgba(10,13,23,.9); color:#fff; text-align:center; font:500 16px/1.35 var(--mono); white-space:pre-line;
   max-height:38vh; overflow:auto; -webkit-user-select:text; user-select:text}
-#spider{width:240px; height:240px; flex:none; touch-action:manipulation}
+/* El nido: el sitio de la araña en el centro. La araña camina libre por toda la pantalla (#cv) y vuelve aquí. */
+#nest{width:240px; height:240px; flex:none; pointer-events:none; transition:height .2s}
+#cv{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:20}
+#hit{position:fixed; left:0; top:0; width:72px; height:72px; margin:-36px 0 0 -36px; border-radius:50%; z-index:21; touch-action:none; -webkit-touch-callout:none}
+#hit:focus-visible{outline:2px solid var(--cyan); outline-offset:4px}
+.tagbox{position:fixed; z-index:19; pointer-events:none; border:1.5px solid var(--cyan); border-radius:6px; box-shadow:0 0 12px -2px var(--cyan); animation:tagIn .2s ease-out, tagOut .4s ease-in 1.5s forwards}
+.tagbox b{position:absolute; bottom:100%; left:-1.5px; margin-bottom:3px; font:600 9.5px/1 var(--mono); letter-spacing:.06em; color:#0a0c15; background:var(--cyan); padding:3px 6px; border-radius:3px; white-space:nowrap}
+.tagbox.pink{border-color:var(--pink); box-shadow:0 0 12px -2px var(--pink)} .tagbox.pink b{background:var(--pink)}
+.tagbox.orange{border-color:#ff9a3d; box-shadow:0 0 12px -2px #ff9a3d} .tagbox.orange b{background:#ff9a3d}
+.tagbox.green{border-color:var(--green); box-shadow:0 0 12px -2px var(--green)} .tagbox.green b{background:var(--green)}
+@keyframes tagIn{from{opacity:0; transform:scale(1.08)}} @keyframes tagOut{to{opacity:0}}
+/* Teclado abierto: todo más compacto para que nada se corte */
+body.kb #app{gap:8px; padding-top:calc(env(safe-area-inset-top,0px) + 2px)}
+body.kb #nest{height:120px}
+body.kb #hit{pointer-events:none}
+body.kb #say{max-height:24vh; padding:10px; font-size:15px}
+body.kb #bar{padding:8px 16px}
 #thinking{font-size:12px; font-weight:700; color:rgba(255,255,255,.8); margin-top:-10px}
 #ear{font-size:16px; color:rgba(255,255,255,.85); padding:0 16px; text-align:center}
 #choices{display:flex; flex-wrap:wrap; justify-content:center; gap:8px; padding:0 16px; max-width:600px}
 .choice{font:inherit; font-size:15px; border:0; border-radius:8px; padding:7px 14px; background:rgba(61,255,153,.16); color:var(--green)}
 .choice.yes{background:var(--tint); color:#fff}
-#bar{align-self:center; width:100%; max-width:640px; display:flex; align-items:center; gap:8px; padding:16px}
+#bar{align-self:center; width:100%; max-width:640px; display:flex; align-items:center; gap:8px; padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+body.kb #bar{padding-bottom:8px}
 #mic{border:0; background:none; padding:0; width:34px; height:34px; flex:none; color:#fff; line-height:0}
 #mic.on{color:#ff3b30}
 #cmd{flex:1; min-width:0; height:34px; padding:0 8px; font:inherit; font-size:17px; border-radius:6px; border:.5px solid var(--field-line);
@@ -70,7 +88,7 @@ body{background:var(--home); color:#fff; font-family:var(--sys); font-size:17px;
 @keyframes nod{40%{transform:rotate(-4deg)}}
 
 /* ===== Ajustes: una hoja como la de iOS (Form agrupado) ===== */
-#sheet{position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.4); display:flex; align-items:flex-end; justify-content:center}
+#sheet{position:fixed; left:0; right:0; top:var(--vt,0px); height:var(--vh,100%); z-index:30; background:rgba(0,0,0,.4); display:flex; align-items:flex-end; justify-content:center}
 #sheet .wrap{width:100%; max-width:700px; height:calc(100% - env(safe-area-inset-top,0px) - 14px); background:var(--sheet); color:var(--fg);
   border-radius:12px 12px 0 0; display:flex; flex-direction:column; animation:up .28s ease-out; -webkit-user-select:text; user-select:text}
 @keyframes up{from{transform:translateY(40px); opacity:.4}}
@@ -162,7 +180,7 @@ textarea{min-height:110px; resize:vertical; border:0}
   <div class="top"><button id="gear" type="button" aria-label="Ajustes"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
   <div class="grow"></div>
   <div id="say" aria-live="polite"></div>
-  <canvas id="spider" width="240" height="240" role="button" aria-label="La araña. Toque para hablar." tabindex="0"></canvas>
+  <div id="nest" aria-hidden="true"></div>
   <div id="thinking" hidden>Pensando…</div>
   <div id="ear" hidden>Escuchando…</div>
   <div id="choices" hidden></div>
@@ -173,6 +191,8 @@ textarea{min-height:110px; resize:vertical; border:0}
     <button id="go" type="submit">Ir</button>
   </form>
 </main>
+<canvas id="cv" aria-hidden="true"></canvas>
+<div id="hit" role="button" aria-label="La araña. Toque para hablar; tres toques, baila; mantenga pulsado, menú; arrástrela para moverla." tabindex="0"></div>
 
 <div id="sheet" hidden>
   <div class="wrap" role="dialog" aria-modal="true" aria-label="Ajustes">
@@ -202,7 +222,7 @@ const AND=()=>window.AranaAndroid||null;
 const BRIDGE2=IN_APK&&!!(AND()&&AND().orden);
 const PLAT=IN_APK?'android':ON_IOS?'ios':'web';
 const CAPS={
-  open:IN_APK||ON_IOS, carry:IN_APK||ON_IOS, pocket:true, whatsapp:true,
+  spider:true, open:IN_APK||ON_IOS, carry:IN_APK||ON_IOS, pocket:true, whatsapp:true,
   set:BRIDGE2||ON_IOS, call:IN_APK||ON_IOS||ON_ANDROID, message:IN_APK||ON_IOS||ON_ANDROID,
   timer:IN_APK, alarm:IN_APK, music:BRIDGE2, event:BRIDGE2, float:IN_APK, exit:IN_APK
 };
@@ -411,7 +431,7 @@ const SETS=[
   {id:'datos',name:'Datos',sc:'datos',kind:'onoff',al:['datos moviles','datos']},
 ];
 const appById=id=>APPS.find(a=>a.id===id), setById=id=>SETS.find(s=>s.id===id);
-const actOK=a=>{ if(!a) return false; if(a.t==='open'||a.t==='carry') return CAPS.open&&!!appById(a.id); if(a.t==='set') return CAPS.set&&!!setById(a.id); return a.t==='pocket'||a.t==='wa'||!!CAPS[{call:'call',msg:'message',timer:'timer',alarm:'alarm',music:'music',event:'event'}[a.t]]; };
+const actOK=a=>{ if(!a) return false; if(a.t==='spider') return !!MOVES[a.v]; if(a.t==='open'||a.t==='carry') return CAPS.open&&!!appById(a.id); if(a.t==='set') return CAPS.set&&!!setById(a.id); return a.t==='pocket'||a.t==='wa'||!!CAPS[{call:'call',msg:'message',timer:'timer',alarm:'alarm',music:'music',event:'event'}[a.t]]; };
 const canOpen=a=>IN_APK||!!a.url;
 let APPS=[];
 // Su pantalla de antes (arana.home) ya no se dibuja; de ella solo uso las apps que añadió y los enlaces que cambió.
@@ -475,8 +495,22 @@ function issueURL(phrase,why){
   ].join('\n');
   return `https://github.com/${REPO}/issues/new?labels=nueva-habilidad&title=${encodeURIComponent('Araña quiere aprender: '+phrase)}&body=${encodeURIComponent(body)}`;
 }
-function askClaude(phrase,why){ try{ window.open(issueURL(phrase,why),'_blank'); }catch(e){ location.href=issueURL(phrase,why); }
-  if(wishes[phrase]){ wishes[phrase].sent=true; store.set('wishes',wishes); } logEv('req',null,phrase); }
+/* 0.23.0: con un token de GitHub (Ajustes → Claude, mi profesor) la petición la creo yo sola, sin abrir GitHub.
+   El token se queda solo en este aparato y no viaja con la memoria. */
+let ghTok=store.get('gh','');
+async function fileIssue(phrase,why){
+  const u=new URL(issueURL(phrase,why)), title=u.searchParams.get('title'), body=u.searchParams.get('body');
+  const r=await fetch('https://api.github.com/repos/'+REPO+'/issues',{method:'POST',headers:{'Authorization':'Bearer '+ghTok,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+    body:JSON.stringify({title,body,labels:['nueva-habilidad']})});
+  if(!r.ok) throw new Error(r.status+' '+(await r.text().catch(()=>'')).slice(0,120));
+  return (await r.json()).number;
+}
+function markSent(phrase){ if(!wishes[phrase]) wishes[phrase]={n:1,why:'',sent:false}; wishes[phrase].sent=true; store.set('wishes',wishes); logEv('req',null,phrase); }
+function askClaude(phrase,why){
+  if(ghTok){ fileIssue(phrase,why).then(n=>{ markSent(phrase); happy(); learning(); say('Se lo he pedido a Claude (petición '+n+'). Cuando lo aprenda, se lo diré.'); })
+    .catch(e=>{ console.warn(e); say(/401|403/.test(String(e))?'Mi token de GitHub no vale. Revíselo en Ajustes.':'No he podido pedírselo a Claude ahora. Lo intento otro día.'); }); return; }
+  try{ window.open(issueURL(phrase,why),'_blank'); }catch(e){ location.href=issueURL(phrase,why); }
+  markSent(phrase); }
 const saveAll=()=>{ store.set('mem',mem); store.set('stats',stats); store.set('prefs',prefs); store.set('pocket',pocket); };
 
 const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[¿?¡!.,;:]/g,' ').replace(/\s+/g,' ').trim();
@@ -496,6 +530,7 @@ function label(a){
     case 'music': return {play:'Poner música',pause:'Pausar la música',next:'Siguiente canción',previous:'Canción anterior'}[a.v]||'Música';
     case 'event': return 'Cita: '+(a.text||'');
     case 'plan': return labelSteps(a.steps||[]);
+    case 'spider': return MOVE_NAMES[a.v]||'Moverme';
   }
   return '?';
 }
@@ -521,52 +556,207 @@ function editLink(id){
 }
 
 /* ================= Pantalla: la misma que en el iPhone ================= */
-const sayEl=$('#say'), thinkEl=$('#thinking'), earEl=$('#ear'), choicesEl=$('#choices'), spCv=$('#spider'), telaCv=$('#tela');
-const S={think:false,listen:false};
+const sayEl=$('#say'), thinkEl=$('#thinking'), earEl=$('#ear'), choicesEl=$('#choices'), telaCv=$('#tela'), cv=$('#cv'), hit=$('#hit'), nestEl=$('#nest');
+const ctx=cv.getContext('2d');
 const dpr=()=>Math.min(3,window.devicePixelRatio||1);
-const RGB={pink:[255,79,163],green:[61,255,153],cyan:[94,232,255]};
-const col=(c,a)=>'rgba('+RGB[c].join(',')+','+(a==null?1:a)+')';
-/* SpiderView: cuerpo rectangular, ocho patas de dos tramos que dan pasitos por parejas alternas, articulaciones en verde.
-   Al pensar cambia a cian y gira un anillo de lectura. Mismos números que en Swift. */
+let W=innerWidth, H=innerHeight;
+/* 0.23.0: vuelve la araña que camina (la de la 0.21). Vive en el nido del centro, pero pasea por toda la pantalla,
+   pisa los bordes de lo que ve, lanza la red a lo que toca, baila, le sigue el dedo y se esconde en el borde.
+   Cuerpo y patas con los mismos números que SpiderView (nativo/ios/Arana/ContentView.swift). */
 const ANG=[38,72,110,148], REST=[70,62,60,72], L1=[42,38,38,44], L2=[46,41,41,48], HIPX=[8,3,-3,-8];
-function knee(hx,hy,fx,fy,a,b,bend){
-  const dx=fx-hx, dy=fy-hy, d=Math.min(a+b-.5,Math.max(Math.abs(a-b)+1,Math.hypot(dx,dy)));
-  const c=Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d))), k=Math.atan2(dy,dx)+bend*Math.acos(c);
-  return [hx+Math.cos(k)*a, hy+Math.sin(k)*a];
+const S={x:W/2,y:H*.45,vx:0,vy:0,h:-Math.PI/2,tx:W/2,ty:H*.45,face:null,fl:0,tuck:0,nod:0,hop:0,sag:0,travelFloat:false,hidden:false,user:false,learn:0,scan:0,think:false,listen:false,sz:1};
+const legs=[];
+[-1,1].forEach(side=>[0,1,2,3].forEach(k=>legs.push({side,k,a:side*ANG[k]*Math.PI/180,hx:HIPX[k],hy:side*5.5,r:REST[k],l1:L1[k],l2:L2[k],g:(k+(side>0?1:0))%2,fx:0,fy:0,st:null,el:null,slack:0})));
+let webs=[]; const carry={on:false,x:0,y:0};
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const lerpAng=(a,b,k)=>{ const d=((b-a+Math.PI*3)%(Math.PI*2))-Math.PI; return a+d*k; };
+function initLegs(){ legs.forEach(L=>{ const a=S.h+L.a; L.fx=S.x+Math.cos(a)*L.r*S.sz; L.fy=S.y+Math.sin(a)*L.r*S.sz; }); }
+/* Dónde puede andar: dentro de lo que se ve, sin pisar la barra de abajo (para no tapar el campo ni el micro) */
+function bounds(){ const a=$('#app').getBoundingClientRect(), b=$('#bar').getBoundingClientRect();
+  const g=$('#gear').getBoundingClientRect(), t=Math.max(a.top+40,(g.bottom||a.top+40)+34*S.sz);
+  return {l:28,r:W-28,t,b:Math.max(t+20,b.top-(kbOpen?58:44)*S.sz)}; }
+const clampX=x=>{ const B=bounds(); return Math.max(B.l,Math.min(B.r,x)); }, clampY=y=>{ const B=bounds(); return Math.max(B.t,Math.min(B.b,y)); };
+function nestPos(){ const r=nestEl.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; }
+function goHome(){ S.hidden=false; S.face=null; const p=nestPos(); S.travelFloat=false; S.tx=clampX(p.x); S.ty=clampY(p.y); }
+/* Colores por modo: rosa al caminar, cian al leer o pensar, naranja al lanzar la red */
+const PAL={walk:{leg:[255,79,163],joint:[61,255,154],body:[94,231,255]},scan:{leg:[94,231,255],joint:[255,79,163],body:[255,79,163]},act:{leg:[255,154,61],joint:[61,255,154],body:[255,154,61]}};
+const pal={leg:[...PAL.walk.leg],joint:[...PAL.walk.joint],body:[...PAL.walk.body]};
+const rgba=(c,a)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a==null?1:a})`;
+/* Puntos de apoyo: esquinas y bordes de lo que hay en pantalla (bocadillo, opciones, barra, rueda) */
+let anchors=[], anchorAt=0; const flashes=[], feelers=[];
+const AP=[[0,0],[1,0],[0,1],[1,1],[.5,0],[.5,1],[0,.5],[1,.5]];
+function refreshAnchors(){
+  anchors=[]; if(!$('#sheet').hidden) return;
+  document.querySelectorAll(kbOpen?'#say, #choices:not([hidden]) .choice, #gear':'#say, #choices:not([hidden]) .choice, #cmd, #go, #mic, #gear').forEach(el=>{ const r=el.getBoundingClientRect(); if(!r.width||!r.height) return; for(const [u,v] of AP) anchors.push({x:r.left+r.width*u,y:r.top+r.height*v,el}); });
 }
-const sp=spCv.getContext('2d');
-function sizeSpider(){ const r=dpr(); spCv.width=240*r; spCv.height=240*r; }
-function dot(x,y,r,c){ sp.beginPath(); sp.arc(x,y,r,0,Math.PI*2); sp.fillStyle=c; sp.fill(); }
-function drawSpider(t){
-  const r=dpr(); sp.setTransform(r,0,0,r,0,0); sp.clearRect(0,0,240,240);
-  const th=S.think, legC=th?'cyan':'pink', jointC=col(th?'pink':'green'), bodyC=th?'pink':'cyan';
-  const cx=120, cy=120+Math.sin(t*3.2)*1.5, h=-Math.PI/2+Math.sin(t*.6)*.22, speed=th?2.4:1.2;
-  sp.lineCap='round'; sp.lineJoin='round';
-  for(let i=0;i<8;i++){
-    const side=i<4?-1:1, k=i%4, group=(k+(side>0?1:0))%2, ph=(t*speed+group*.5)%1, stride=10;
-    const off=ph<.7?(.5-ph/.7)*stride:(-.5+(ph-.7)/.3)*stride, lift=ph>=.7?Math.sin((ph-.7)/.3*Math.PI)*6:0;
-    const a=h+side*ANG[k]*Math.PI/180, rr=REST[k]+lift;
-    const fx=cx+Math.cos(a)*rr+Math.cos(h)*off, fy=cy+Math.sin(a)*rr+Math.sin(h)*off;
-    const hx0=HIPX[k], hy0=side*5.5, hx=cx+hx0*Math.cos(h)-hy0*Math.sin(h), hy=cy+hx0*Math.sin(h)+hy0*Math.cos(h);
-    const [kx,ky]=knee(hx,hy,fx,fy,L1[k],L2[k],side*(k<2?-1:1));
-    sp.save(); sp.shadowColor=col(legC,.7); sp.shadowBlur=6*r; sp.strokeStyle=col(legC); sp.lineWidth=1.7;
-    sp.beginPath(); sp.moveTo(hx,hy); sp.lineTo(kx,ky); sp.lineTo(fx,fy); sp.stroke(); sp.restore();
-    dot(kx,ky,2.8,jointC); dot(fx,fy,lift>0?3.2:2.4,jointC);
+function snapTo(p){ let best=null,bd=22*S.sz; for(const a of anchors){ const d=Math.hypot(a.x-p.x,a.y-p.y); if(d<bd){ bd=d; best=a; } } return best; }
+function flashUnder(el,col){ const r=el.getBoundingClientRect(), w=r.width*(.35+Math.random()*.55); flashes.push({x:r.left+Math.random()*Math.max(1,r.width-w),y:Math.random()<.5?r.bottom+3:r.top-6,w,h:3,col:[...col],t:0,life:.7+Math.random()*.5}); }
+function feel(p,life){ feelers.push({x:p.x,y:p.y,t:0,life:life||1}); }
+/* Etiqueta sobre lo que lee o va a usar */
+function tagEl(el,text,color){
+  if(!el) return; const r=el.getBoundingClientRect(); if(!r.width) return;
+  const d=document.createElement('div'); d.className='tagbox '+(color||'cyan');
+  d.style.cssText=`left:${r.left-4}px;top:${r.top-4}px;width:${r.width+8}px;height:${r.height+8}px`;
+  const b=document.createElement('b'); b.textContent=text; d.appendChild(b); document.body.appendChild(d); setTimeout(()=>d.remove(),1900);
+  S.scan=Math.max(S.scan,1.1); feel({x:r.left+r.width/2,y:r.top+r.height/2},1.3);
+}
+const center=el=>{ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; };
+function resize(){
+  W=innerWidth; H=innerHeight; const r=dpr();
+  cv.width=Math.round(W*r); cv.height=Math.round(H*r);
+  ctx.setTransform(r,0,0,r,0,0); S.tx=clampX(S.tx); S.ty=clampY(S.ty);
+}
+/* Teclado: en iPhone el teclado tapa la pantalla sin encogerla. Ajusto #app a lo que se ve y lo compacto todo. */
+let kbOpen=false, baseH=innerHeight;
+function fitViewport(){
+  const vv=window.visualViewport, h=vv?vv.height:innerHeight, top=vv?vv.offsetTop:0;
+  const typing=!!document.activeElement&&/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if(!typing) baseH=Math.max(innerHeight,h); else baseH=Math.max(baseH,innerHeight);
+  const open=typing&&baseH-h>140;
+  document.documentElement.style.setProperty('--vh',Math.round(h)+'px');
+  document.documentElement.style.setProperty('--vt',Math.round(top)+'px');
+  if(open!==kbOpen){ kbOpen=open; document.body.classList.toggle('kb',open); }
+  S.sz=kbOpen?.55:1;
+  // Si estaba en casa, la sigo teniendo en casa (el nido se ha movido)
+  requestAnimationFrame(()=>{ if(!S.user&&!follow&&!busy) goHome(); });
+}
+if(window.visualViewport){ visualViewport.addEventListener('resize',fitViewport); visualViewport.addEventListener('scroll',fitViewport); }
+addEventListener('resize',()=>{ resize(); fitViewport(); drawTela(); });
+// iOS a veces sube la página al enfocar el campo: la devuelvo a su sitio
+addEventListener('scroll',()=>{ if(window.scrollY) window.scrollTo(0,0); },{passive:true});
+document.addEventListener('focusin',()=>setTimeout(fitViewport,60)); document.addEventListener('focusout',()=>setTimeout(fitViewport,120));
+
+let wanderAt=0;
+function update(dt,t){
+  if(!S.user){
+    const dx=S.tx-S.x, dy=S.ty-S.y, d=Math.hypot(dx,dy);
+    const mode=prefs.mv==='auto'||!prefs.mv?(S.travelFloat?'float':'walk'):prefs.mv;
+    const max=(mode==='float'?330:150)*(S.fast||1);
+    let dvx=0,dvy=0; if(d>.5){ const sp=Math.min(max,d*3.2); dvx=dx/d*sp; dvy=dy/d*sp; }
+    const k=Math.min(1,dt*5); S.vx+=(dvx-S.vx)*k; S.vy+=(dvy-S.vy)*k; S.x+=S.vx*dt; S.y+=S.vy*dt;
+    S.fl+=((((mode==='float'&&d>4)||S.hop>0)?1:0)-S.fl)*Math.min(1,dt*4);
   }
-  if(th){
-    sp.save(); sp.setLineDash([3,6]); sp.strokeStyle=col(bodyC,.6); sp.lineWidth=1.2;
-    sp.beginPath(); sp.arc(cx,cy,58,t*1.1,t*1.1+Math.PI*2); sp.stroke(); sp.restore();
-    const sw=t*7.5;
-    for(let k=0;k<4;k++){ sp.beginPath(); sp.arc(cx,cy,70,sw-k*.32,sw-k*.32+.3); sp.strokeStyle=col(bodyC,.6-k*.14); sp.lineWidth=1.4; sp.stroke(); }
+  const sp=Math.hypot(S.vx,S.vy), target=sp>12?Math.atan2(S.vy,S.vx):S.face;
+  if(target!=null) S.h=lerpAng(S.h,target,Math.min(1,dt*(sp>12?5:3)));
+  S.tuck+=((S.hidden?1:S.sag)-S.tuck)*Math.min(1,dt*3);
+  S.nod=Math.max(0,S.nod-dt*1.4); S.learn=Math.max(0,S.learn-dt*1.3); S.hop=Math.max(0,S.hop-dt*1.1); S.sag=Math.max(0,S.sag-dt*.35); S.scan=Math.max(0,S.scan-dt);
+  if(S.hop>0) S.h+=dt*7*Math.sin(S.hop*Math.PI);
+  if(t*1000-anchorAt>400){ anchorAt=t*1000; refreshAnchors(); }
+  const z=S.sz, shrink=1-.42*Math.max(S.fl,S.tuck), ch=Math.cos(S.h), sh=Math.sin(S.h);
+  const STEP=(sp<10?14:28)*z, gb=[0,0]; legs.forEach(L=>{ if(L.st) gb[L.g]++; });
+  for(const L of legs){
+    L.hipx=S.x+(L.hx*ch-L.hy*sh)*z; L.hipy=S.y+(L.hx*sh+L.hy*ch)*z;
+    const a=S.h+L.a, r=L.r*shrink*z, ix=S.x+Math.cos(a)*r+S.vx*.22, iy=S.y+Math.sin(a)*r+S.vy*.22;
+    if(S.fl>.35){ L.st=null; L.el=null; const kk=Math.min(1,dt*14); L.fx+=(ix-L.fx)*kk; L.fy+=(iy-L.fy)*kk; continue; }
+    if(L.st){ L.st.t+=dt/L.st.d; const e=1-Math.pow(1-Math.min(1,L.st.t),2); L.fx=L.st.x0+(L.st.x1-L.st.x0)*e; L.fy=L.st.y0+(L.st.y1-L.st.y0)*e;
+      if(L.st.t>=1){ L.st=null; if(L.el&&Math.random()<.5) flashUnder(L.el,Math.random()<.5?pal.leg:pal.joint); } continue; }
+    const off=Math.hypot(L.fx-ix,L.fy-iy);
+    if((off>Math.max(STEP,L.slack)&&!gb[1-L.g]&&gb[L.g]<4)||off>95*z){
+      const an=!S.hidden&&Math.random()<.7?snapTo({x:ix,y:iy}):null;
+      L.el=an?an.el:null; L.slack=an?Math.hypot(an.x-ix,an.y-iy)+12:0;
+      L.st={t:0,d:Math.max(.085,Math.min(.16,.16-sp*.00025)),x0:L.fx,y0:L.fy,x1:an?an.x:ix,y1:an?an.y:iy}; gb[L.g]++;
+    }
   }
-  sp.save(); sp.translate(cx,cy); sp.rotate(h);
-  sp.fillStyle='rgba(10,13,28,.85)'; sp.fillRect(-17,-8,34,16);
-  sp.save(); sp.shadowColor=col(bodyC,.9); sp.shadowBlur=10*r; sp.strokeStyle=col(bodyC); sp.lineWidth=2; sp.strokeRect(-17,-8,34,16); sp.restore();
-  sp.strokeStyle=col(bodyC,.5); sp.lineWidth=1; sp.strokeRect(-11,-4.2,17,8.4);
-  const cr=3.6+Math.sin(t*5)*.6;
-  sp.save(); sp.shadowColor=col(legC); sp.shadowBlur=12*r; dot(-2,0,cr,col(legC)); sp.restore();
-  dot(13,-3.4,1.6,jointC); dot(13,3.4,1.6,jointC);
-  sp.restore();
+  for(const w of webs){
+    if(w.out){ w.p-=dt*3.2; if(w.p<=0) w.dead=true; continue; }
+    if(w.p<1) w.p=Math.min(1,w.p+dt/.3); else { w.ten=Math.min(1,w.ten+dt/.22); w.b=Math.min(1,w.b+dt/.3); }
+  }
+  webs=webs.filter(w=>!w.dead);
+  if(carry.on){ const tx=S.x-Math.cos(S.h)*36*z, ty=S.y-Math.sin(S.h)*36*z; carry.x+=(tx-carry.x)*Math.min(1,dt*6); carry.y+=(ty-carry.y)*Math.min(1,dt*6); }
+  const P=PAL[(S.user||webs.some(w=>!w.out))?'act':(S.think||S.scan>0||S.listen)?'scan':'walk'], pk=Math.min(1,dt*5);
+  for(const k of ['leg','joint','body']) for(let i=0;i<3;i++) pal[k][i]+=(P[k][i]-pal[k][i])*pk;
+  for(const f of feelers) f.t+=dt; for(let i=feelers.length-1;i>=0;i--) if(feelers[i].t>feelers[i].life) feelers.splice(i,1);
+  for(const f of flashes) f.t+=dt; for(let i=flashes.length-1;i>=0;i--) if(flashes[i].t>flashes[i].life) flashes.splice(i,1);
+  /* antenas: de vez en cuando toca algo cercano, como si leyera */
+  if(!S.hidden&&!S.user&&anchors.length&&Math.random()<dt*1.4){ let best=null,bd=160*z; for(const a of anchors){ const d=Math.hypot(a.x-S.x,a.y-S.y); if(d>40*z&&d<bd&&Math.random()<.5){ bd=d; best=a; } } if(best) feel(best,.6+Math.random()*.5); }
+  hit.style.transform=`translate(${S.x}px,${S.y}px) scale(${z})`;
+  /* Vida propia cuando no hace nada: pasea, curiosea y, si se aburre, se esconde en el borde */
+  const now=performance.now(), idle=now-lastActive;
+  const free=!busy&&!S.user&&!follow&&!overlayOpen()&&!kbOpen&&!S.think&&!S.listen&&!document.hidden;
+  if(free&&!S.hidden&&prefs.roam!==false){
+    if(idle>45000) hideAtEdge();
+    else if(idle>3500&&now>wanderAt){
+      wanderAt=now+3500+Math.random()*6000;
+      const r=Math.random();
+      if(r<.22*surprise()+.05) curiosea();
+      else if(r<.62){ const B=bounds(); S.face=null; S.travelFloat=false; S.tx=B.l+Math.random()*(B.r-B.l); S.ty=B.t+Math.random()*(B.b-B.t); }
+      else goHome();
+    }
+  }
+}
+function ik(hx,hy,fx,fy,a,b,bend){
+  const dx=fx-hx, dy=fy-hy; let d=Math.hypot(dx,dy); d=Math.max(Math.abs(a-b)+1,Math.min(a+b-.5,d));
+  const ang=Math.atan2(dy,dx), A=Math.acos(Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d)))), k=ang+bend*A;
+  return {x:hx+Math.cos(k)*a,y:hy+Math.sin(k)*a};
+}
+function draw(t){
+  ctx.clearRect(0,0,W,H); ctx.lineCap='round'; ctx.lineJoin='round';
+  const z=S.sz, bob=(Math.sin(t*3.2)*1.8*S.fl-Math.sin(S.hop*Math.PI)*6)*z, hx=Math.cos(S.h), hy=Math.sin(S.h), nod=Math.sin(S.nod*Math.PI*2)*2.4;
+  for(const f of flashes){ const a=1-f.t/f.life; ctx.fillStyle=rgba(f.col,a*.9); ctx.shadowColor=rgba(f.col,a); ctx.shadowBlur=8; ctx.fillRect(f.x,f.y,f.w,f.h); }
+  ctx.shadowBlur=0;
+  for(const f of feelers){ const a=Math.sin(Math.PI*Math.min(1,f.t/f.life)); ctx.strokeStyle=rgba(pal.leg,a*.5); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(S.x,S.y+bob); ctx.lineTo(f.x,f.y); ctx.stroke(); ctx.fillStyle=rgba(pal.joint,a); ctx.beginPath(); ctx.arc(f.x,f.y,2.3,0,7); ctx.fill(); }
+  const mouth={x:S.x+hx*(17+nod)*z,y:S.y+hy*(17+nod)*z+bob};
+  /* la red */
+  for(const w of webs){
+    const e=ease(Math.max(0,w.p)), to=w.to, cx=mouth.x+(to.x-mouth.x)*e, cy=mouth.y+(to.y-mouth.y)*e;
+    const mx=(mouth.x+cx)/2, my=(mouth.y+cy)/2, len=Math.hypot(cx-mouth.x,cy-mouth.y)||1;
+    const sag=(1-w.ten)*Math.min(26,len*.18)+(w.ten>=1?Math.sin(t*5)*2:0), px=-(cy-mouth.y)/len, py=(cx-mouth.x)/len;
+    const qx=mx+px*sag, qy=my+py*sag+sag*.4, qp=s=>({x:(1-s)*(1-s)*mouth.x+2*(1-s)*s*qx+s*s*cx,y:(1-s)*(1-s)*mouth.y+2*(1-s)*s*qy+s*s*cy});
+    ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=1.5; ctx.shadowColor=rgba(pal.body,.9); ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.moveTo(mouth.x,mouth.y); ctx.quadraticCurveTo(qx,qy,cx,cy); ctx.stroke(); ctx.shadowBlur=0;
+    ctx.fillStyle=rgba(pal.joint); for(const s of [.25,.5,.75]){ const p=qp(s); ctx.beginPath(); ctx.arc(p.x,p.y,2,0,7); ctx.fill(); }
+    if(w.ten>=1){ const p=qp((t*1.6)%1); ctx.fillStyle=rgba(pal.body); ctx.beginPath(); ctx.arc(p.x,p.y,2.6,0,7); ctx.fill(); }
+    if(w.b>0&&!w.out){
+      ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=1;
+      for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+.3; ctx.beginPath(); ctx.moveTo(to.x,to.y); ctx.lineTo(to.x+Math.cos(a)*10*w.b,to.y+Math.sin(a)*10*w.b); ctx.stroke(); }
+      ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(to.x,to.y,(6.5+Math.sin(t*8))*w.b,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.fillStyle=rgba(pal.body); ctx.beginPath(); ctx.arc(cx,cy,3,0,7); ctx.fill();
+  }
+  /* lo que lleva del bolsillo */
+  if(carry.on){
+    const tail={x:S.x-hx*18*z,y:S.y-hy*18*z+bob};
+    ctx.strokeStyle=rgba(pal.joint,.8); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(tail.x,tail.y); ctx.lineTo(carry.x,carry.y); ctx.stroke();
+    ctx.save(); ctx.translate(carry.x,carry.y); ctx.rotate(Math.PI/4); ctx.fillStyle=rgba(pal.joint); ctx.shadowColor=rgba(pal.joint); ctx.shadowBlur=10; ctx.fillRect(-4.5,-4.5,9,9); ctx.restore();
+  }
+  /* patas */
+  for(const L of legs){
+    let fx=L.fx, fy=L.fy+bob*.5;
+    if(L.st){ const lift=Math.sin(Math.PI*Math.min(1,L.st.t))*7*z, dx=fx-S.x, dy=fy-S.y, d=Math.hypot(dx,dy)||1; fx+=dx/d*lift; fy+=dy/d*lift; }
+    const hipx=L.hipx, hipy=L.hipy+bob, k=ik(hipx,hipy,fx,fy,L.l1*z,L.l2*z,L.side*(L.k<2?-1:1));
+    ctx.strokeStyle=rgba(pal.leg,.95); ctx.lineWidth=1.7; ctx.shadowColor=rgba(pal.leg,.7); ctx.shadowBlur=5;
+    ctx.beginPath(); ctx.moveTo(hipx,hipy); ctx.lineTo(k.x,k.y); ctx.lineTo(fx,fy); ctx.stroke(); ctx.shadowBlur=0;
+    ctx.fillStyle=rgba(pal.joint); ctx.beginPath(); ctx.arc(k.x,k.y,2.8*Math.max(.7,z),0,7); ctx.fill(); ctx.beginPath(); ctx.arc(fx,fy,(L.st?3.2:2.4)*Math.max(.7,z),0,7); ctx.fill();
+  }
+  const cx0=S.x, cy0=S.y+bob;
+  /* escuchando, leyendo o pensando: anillo punteado que gira */
+  if(S.scan>0||S.think||S.listen){
+    ctx.save(); ctx.translate(cx0,cy0); ctx.rotate(t*(S.listen?2.2:1.1)); ctx.setLineDash([3,6]); ctx.strokeStyle=rgba(pal.body,.6); ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.arc(0,0,58*z,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  }
+  if(S.think){
+    const sw=t*7.5; ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=1.4;
+    for(let k=0;k<4;k++){ ctx.globalAlpha=.6-k*.14; ctx.beginPath(); ctx.arc(cx0,cy0,70*z,sw-k*.32,sw-k*.32+.3); ctx.stroke(); }
+    ctx.globalAlpha=.9; ctx.fillStyle=rgba(pal.leg); for(let i=0;i<3;i++){ const a=t*5.2+i*2.094, r=(30+Math.sin(t*9+i)*3)*z; ctx.beginPath(); ctx.arc(cx0+Math.cos(a)*r,cy0+Math.sin(a)*r,1.8,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1;
+  }
+  if(S.learn>0){
+    const e=1-S.learn; ctx.strokeStyle=rgba(pal.joint); ctx.lineWidth=1;
+    for(const d of [0,.28]){ const q=Math.max(0,e-d); if(q<=0) continue; ctx.globalAlpha=S.learn*.8; ctx.beginPath(); ctx.arc(cx0,cy0,(14+ease(Math.min(1,q))*44)*z,0,Math.PI*2); ctx.stroke(); }
+    ctx.globalAlpha=1;
+  }
+  /* cuerpo: cada nivel le añade un rasgo */
+  ctx.save(); ctx.translate(cx0,cy0); ctx.rotate(S.h); const sc=(1+Math.sin(S.hop*Math.PI)*.15)*z; ctx.scale(sc,sc);
+  ctx.fillStyle='rgba(10,12,28,.85)'; ctx.strokeStyle=rgba(pal.body); ctx.lineWidth=2; ctx.shadowColor=rgba(pal.body,.9); ctx.shadowBlur=10;
+  ctx.beginPath(); ctx.rect(-17,-8,34,16); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+  ctx.lineWidth=1; ctx.strokeStyle=rgba(pal.body,.5); ctx.strokeRect(-11,-4.2,17,8.4);
+  if(LV>=2){ ctx.strokeStyle=rgba(pal.leg); ctx.lineWidth=1.2; for(const s of [-1,1]){ ctx.beginPath(); ctx.moveTo(17+nod,s*3); ctx.lineTo(28+nod,s*8); ctx.stroke(); ctx.fillStyle=rgba(pal.joint); ctx.beginPath(); ctx.arc(28+nod,s*8,1.6,0,7); ctx.fill(); } }
+  if(LV>=3){ ctx.setLineDash([2,3]); ctx.strokeStyle=rgba(pal.body,.6); ctx.lineWidth=.9; ctx.strokeRect(-22,-12.5,44,25); ctx.setLineDash([]); }
+  if(LV>=4){ ctx.fillStyle=rgba(pal.joint); for(let i=0;i<3;i++){ ctx.beginPath(); ctx.arc(-24,(i-1)*6,1.3,0,7); ctx.fill(); } }
+  const core=webs.some(w=>!w.out)?pal.joint:pal.leg;
+  ctx.fillStyle=rgba(core); ctx.shadowColor=rgba(core); ctx.shadowBlur=12; ctx.beginPath(); ctx.arc(-2,0,3.6+Math.sin(t*5)*.6,0,7); ctx.fill(); ctx.shadowBlur=0;
+  ctx.fillStyle=rgba(pal.joint); ctx.beginPath(); ctx.arc(13+nod*.5,-3.4,1.6,0,7); ctx.arc(13+nod*.5,3.4,1.6,0,7); ctx.fill();
+  ctx.restore();
 }
 /* Telaraña de fondo: cada orden cumplida le añade una vuelta (hasta 14). Misma clave que la app: arana.hilos */
 function drawTela(){
@@ -582,16 +772,88 @@ function drawTela(){
 let hilos=store.get('hilos',null);
 if(hilos==null){ hilos=Math.min(14,log.filter(e=>e.r==='ok'||e.r==='answer').length); store.set('hilos',hilos); }
 function addThread(){ hilos++; store.set('hilos',hilos); if(hilos<=14) drawTela(); }
-addEventListener('resize',drawTela);
-function frame(now){ drawSpider(now/1000); requestAnimationFrame(frame); }
-const bounce=(k,ms)=>{ if(reduce) return; spCv.style.animation='none'; void spCv.offsetWidth; spCv.style.animation=k+' '+ms+'ms ease-out'; };
-const happy=()=>bounce('hop',620), sad=()=>bounce('sag',700), bow=()=>bounce('nod',800), learning=()=>happy();
+let last=performance.now();
+function frame(now){ const dt=Math.min(.05,(now-last)/1000); last=now; try{ update(dt,now/1000); draw(now/1000); }catch(e){ console.error(e); } requestAnimationFrame(frame); }
+const bow=()=>{ S.sag=.55; S.nod=1; setTimeout(()=>{ S.nod=1; },420); setTimeout(()=>{ S.hop=.6; },1100); };
+const happy=()=>{ S.hop=1; S.nod=1; if(Math.random()<.3) setTimeout(()=>{ S.hop=1; },650); }, sad=()=>{ S.sag=.7; };
+function learning(){ S.learn=1; }
 
 /* ================= Hablar, preguntar, esperar ================= */
 const ABORT={abort:1}, CANCEL={cancel:1};
 let abortFlag=false, busy=false, lastActive=performance.now(), pendingChip=null;
 const until=c=>new Promise((res,rej)=>{ const f=()=>{ if(abortFlag) return rej(ABORT); if(c()) return res(); requestAnimationFrame(f); }; f(); });
 const wait=ms=>{ const e=performance.now()+ms; return until(()=>performance.now()>=e); };
+/* ===== La araña se mueve (0.23.0, recuperado de la 0.21) ===== */
+let follow=false; // «sígame»: camina hasta donde se apoya el dedo (no se guarda)
+async function moveTo(x,y,tol=3,max=4000){ x=clampX(x); y=clampY(y); S.face=null; S.travelFloat=Math.hypot(x-S.x,y-S.y)>170; S.tx=x; S.ty=y;
+  const t0=performance.now(); await until(()=>(Math.hypot(S.tx-S.x,S.ty-S.y)<tol&&Math.hypot(S.vx,S.vy)<10*tol/3)||performance.now()-t0>max||S.user); }
+const faceTo=p=>{ S.face=Math.atan2(p.y-S.y,p.x-S.x); };
+async function approach(p){ const dy=p.y>H*.55?-70*S.sz:66*S.sz; await moveTo(p.x,p.y+dy); faceTo(p); await wait(200); }
+async function web(p){ const w={to:p,p:0,ten:0,b:0}; webs.push(w); const t0=performance.now(); await until(()=>w.ten>=1||performance.now()-t0>1500); return w; }
+const release=w=>{ if(w){ w.out=true; } };
+function cleanup(){ webs.forEach(release); carry.on=false; S.fast=1; }
+/* Lanza la red a algo sin hacerle esperar (iOS exige abrir apps dentro del mismo toque) */
+function aimAt(el,text,color){ if(!el||S.user) return null; const w={to:center(el),p:0,ten:0,b:0}; webs.push(w); setTimeout(()=>{ w.to=center(el); if(text) tagEl(el,text,color||'orange'); faceTo(w.to); },80); setTimeout(()=>release(w),1600); return w; }
+function curiosea(){
+  const els=[...document.querySelectorAll('#say, #gear, #cmd, #mic, #go')].filter(e=>{ const r=e.getBoundingClientRect(); return r.width&&r.height&&e.textContent!==''||e.id!=='say'; });
+  if(!els.length) return; const el=pick(els);
+  const NAME={say:'BOCADILLO',gear:'AJUSTES',cmd:'SU CAMPO',mic:'MICRO',go:'IR'};
+  run(async()=>{ const c=center(el); await approach(c); S.scan=1.6; tagEl(el,NAME[el.id]+' · '+(.1+Math.random()*.89).toFixed(2),pick(['cyan','pink','green'])); await wait(700);
+    const w=await web(c); await wait(380); release(w); if(roll(.35)) say(pick(CURIO_SELF)); else happy(); await wait(300); goHome(); },{quiet:true});
+}
+const CURIO_SELF=['Todo en orden por aquí.','Reviso los hilos.','Ni una mota de polvo.','Estaba comprobando el micro. Funciona.','Esta rueda guarda mis secretos.','Me gusta este bocadillo.'];
+function hideAtEdge(){ S.hidden=true; S.face=null; S.travelFloat=false; S.tx=S.x<W/2?8:W-8; S.ty=clampY(S.y); }
+function setFollow(on){
+  const was=follow; follow=on; lastActive=performance.now(); S.hidden=false;
+  if(on){ happy(); say(was?'Ya le sigo.':'Le sigo. Ponga el dedo donde quiera. Para que pare, tóqueme o dígame «quieta».'); }
+  else { say(was?'Me quedo aquí.':'Ya estoy quieta.'); }
+}
+function followTo(e){
+  if(!follow||busy||S.user||overlayOpen()||e.target===hit||(e.target.closest&&e.target.closest('#bar,#sheet,#gear,#choices'))) return;
+  if(e.type==='pointermove'&&!(e.buttons||e.pointerType==='touch')) return;
+  S.hidden=false; S.face=null; const x=clampX(e.clientX), y=clampY(e.clientY); S.travelFloat=Math.hypot(x-S.x,y-S.y)>170; S.tx=x; S.ty=y; lastActive=performance.now();
+}
+document.addEventListener('pointerdown',followTo,{capture:true,passive:true});
+document.addEventListener('pointermove',followTo,{capture:true,passive:true});
+/* Lo que sabe hacer con el cuerpo. Se usa desde las órdenes, el menú, los toques y el cerebro (paso «spider»). Corre dentro de run(). */
+const DANCE=['Un pasito de baile, con permiso.','Ocho patas, ocho compases.','Esto es un zapateado arácnido.','Bailo poco, pero bailo bien.','Que no se entere nadie.'];
+const MOVES={
+  dance:async(q)=>{ const t=pick(DANCE); if(!q){ say(t); speak(t); } const h=nestPos(), x0=clampX(S.hidden?h.x:S.x), y0=clampY(S.hidden?h.y:S.y); S.hidden=false; S.fast=1.6;
+    for(let i=0;i<8;i++){ await moveTo(x0+(i%2?-34:34),y0+(i%3===0?-18:i%3===1?10:0),12,650); if(i%2===0) happy(); if(i===3){ S.face=S.h+Math.PI; await wait(200); } }
+    await moveTo(x0,y0); S.fast=1; bow(); },
+  walk:async(q)=>{ const t=pick(['Doy un paseo.','Estiro las patas.','Una vuelta por su pantalla.']); if(!q) say(t); S.hidden=false; const B=bounds();
+    for(let i=0;i<4;i++){ await moveTo(B.l+Math.random()*(B.r-B.l),B.t+Math.random()*(B.b-B.t)); await wait(250+Math.random()*500); }
+    const h=nestPos(); await moveTo(h.x,h.y); happy(); },
+  spin:async(q)=>{ if(!q) say('Una vuelta tejiendo.'); S.hidden=false; const h=nestPos(), R=Math.min(110,W*.28);
+    for(let i=0;i<=12;i++){ const a=i/12*Math.PI*2; await moveTo(h.x+Math.cos(a)*R,h.y+Math.sin(a)*R*.8,14,900); }
+    await moveTo(h.x,h.y); addThread(); happy(); },
+  jump:async(q)=>{ if(!q) say(pick(['¡Hop!','Salto de mayordomo.','Arriba.'])); for(let i=0;i<3;i++){ happy(); await wait(520); } },
+  come:async(q)=>{ const h=nestPos(); S.hidden=false; if(!q) say(pick(['Aquí estoy.','A su servicio.','Ya voy.'])); await moveTo(h.x,h.y); bow(); },
+  hide:async(q)=>{ if(!q) say('Me escondo en el borde. Tóqueme para volver.'); hideAtEdge(); await wait(400); },
+  follow:async()=>{ setFollow(true); },
+  stay:async()=>{ setFollow(false); S.tx=S.x; S.ty=S.y; },
+  bow:async(q)=>{ if(!q) say(pick(['Para servirle.','Me inclino.'])); bow(); await wait(900); }
+};
+/* Si ya me estoy moviendo y me pide otro movimiento, cambio sin protestar */
+let moving=false, swapping=false;
+function runMove(v){
+  if(busy&&moving){ swapping=true; abortFlag=true; setTimeout(()=>runMove(v),160); return; }
+  return run(async()=>{ moving=true; try{ await MOVES[v](); } finally{ moving=false; } });
+}
+const MOVE_NAMES={dance:'Bailar',walk:'Dar un paseo',spin:'Dar una vuelta',jump:'Saltar',come:'Volver a su sitio',hide:'Esconderme',follow:'Seguirle el dedo',stay:'Quedarme quieta',bow:'Hacer una reverencia'};
+function moveCmd(l){
+  if(/\b(deja de seguir\w*|para de seguir\w*|no me sigas|no me persigas|quieta|quieto|estate quiet[ao]|no te muevas|para quieta)\b/.test(l)) return 'stay';
+  if(/\b(sigueme|seguirme|sigue (mi|el) dedo|persigueme|ven conmigo)\b/.test(l)) return 'follow';
+  if(l.split(' ').length>5) return null;
+  if(/\b(baila\w*|bailar|un baile|bailote\w*|mueve el esqueleto)\b/.test(l)&&!/\b(musica|cancion|pon)\b/.test(l)) return 'dance';
+  if(/^(camina|anda|pasea|muevete|da un paseo|date un paseo|sal a pasear|dar un paseo|estira las patas)( un poco| por la pantalla| arana)?$/.test(l)||/\b(camina|pasea|da un paseo|date un paseo)\b.*\bpantalla\b/.test(l)) return 'walk';
+  if(/^(da|date|haz) (una|otra) vuelta( arana)?$|^(gira|teje( una telarana)?|haz una telarana)$/.test(l)) return 'spin';
+  if(/^(salta|saltar|da un salto|pega un salto|brinca)( arana)?$/.test(l)) return 'jump';
+  if(/^(ven|ven aqui|vuelve|vuelve aqui|a tu sitio|vuelve a tu sitio|aparece|sal de tu escondite)( arana| por favor)?$/.test(l)) return 'come';
+  if(/^(escondete|escondete arana|vete al borde|desaparece|ocultate)$/.test(l)) return 'hide';
+  if(/^(haz una reverencia|reverencia|inclinate|saluda)$/.test(l)) return 'bow';
+  return null;
+}
 const SURP={baja:.2,media:.45,alta:.75};
 const surprise=()=>SURP[prefs.surp||'alta'];
 const roll=k=>Math.random()<surprise()*(k||1);
@@ -633,11 +895,16 @@ function chips(text,opts){
     closeChip();
     if(text) say(text);
     choicesEl.innerHTML='';
-    const done=v=>{ choicesEl.hidden=true; choicesEl.innerHTML=''; if(pendingChip&&pendingChip.done===done) pendingChip=null; v===ABORT?rej(ABORT):res(v); };
+    let myWeb=null;
+    const done=v=>{ release(myWeb); if(pendingChip&&pendingChip.done===done) pendingChip=null; choicesEl.hidden=true; choicesEl.innerHTML=''; lastActive=performance.now(); v===ABORT?rej(ABORT):res(v); };
     opts.forEach(([t,v,cls,fn])=>{ const b=document.createElement('button'); b.type='button'; b.className='choice'+(cls==='yes'?' yes':''); b.textContent=t==='×'?'Cancelar':t;
       b.onclick=()=>{ try{ fn&&fn(); }catch(e){} done(v); }; choicesEl.appendChild(b); });
     choicesEl.hidden=false;
     pendingChip={done};
+    // 0.23.0: la araña acude a las opciones y lanza la red a la principal
+    const b=choicesEl.querySelector('.yes')||choicesEl.firstChild;
+    if(b&&!S.user&&!follow){ const c=center(b); S.hidden=false; S.face=null; S.travelFloat=false; S.tx=clampX(c.x); S.ty=clampY(choicesEl.getBoundingClientRect().top-62*S.sz);
+      setTimeout(()=>{ if(pendingChip&&pendingChip.done===done){ myWeb={to:center(b),p:0,ten:0,b:0}; webs.push(myWeb); } },450); }
   });
 }
 function closeChip(){ if(pendingChip){ const d=pendingChip.done; pendingChip=null; d(null); } }
@@ -720,6 +987,7 @@ async function askFeedback(p){
 
 /* ================= Tareas ================= */
 async function doAction(a,phrase,opt={}){
+  if(a.t==='spider'){ if(MOVES[a.v]) await MOVES[a.v](opt.inPlan); return 'ok'; }
   const isApp=a.t==='open'||a.t==='carry', x=isApp?appById(a.id):null, nm=x?x.name:'';
   if(isApp&&!x){ say('No conozco esa app.'); return 'stop'; }
   if(a.t==='carry'&&!pocket){ say('El bolsillo está vacío. Primero guarde algo en él.'); return 'stop'; }
@@ -734,6 +1002,8 @@ async function doAction(a,phrase,opt={}){
   if(t.doubtful) say('La última vez esto no salió bien.');
   const native=IN_APK&&url.startsWith('arana:');
   let res=null;
+  // 0.23.0: lanzo la red a lo que voy a usar (sin hacerle esperar)
+  aimAt(sayEl,(isApp?nm:label(a)).toUpperCase(),'orange'); if(a.t==='carry'){ carry.on=true; carry.x=S.x; carry.y=S.y; setTimeout(()=>{ carry.on=false; },2200); }
   const go=()=>{ if(a.t==='carry'){ try{ navigator.clipboard&&navigator.clipboard.writeText(pocket); }catch(e){} }
     pending=opt.inPlan?{plan:true}:{act:a,phrase};
     if(native) res=apk(url); else launch(url); };
@@ -771,12 +1041,13 @@ function pickSetting(s){
   const opts=s.kind==='level'?[['25 %','25'],['50 %','50'],['75 %','75'],['100 %','100']]:[['Activar','on','yes'],['Desactivar','off']];
   chips(s.name+'.',[...opts,['×',null]]).then(v=>{ if(v) run(()=>doAction({t:'set',id:s.id,v},null)); }).catch(()=>{});
 }
-async function run(fn){
-  if(busy){ say('Un momento, termino lo anterior.'); return; }
+async function run(fn,opt={}){
+  if(busy){ if(!opt.quiet) say('Un momento, termino lo anterior.'); return; }
   closeMenus(); busy=true; abortFlag=false;
+  if(S.hidden&&!opt.quiet) goHome();
   try{ await fn(); }
-  catch(e){ if(e===ABORT) say('Me detengo.'); else if(e!==CANCEL) console.error(e); }
-  finally{ busy=false; abortFlag=false; lastActive=performance.now(); }
+  catch(e){ cleanup(); if(e===ABORT){ if(!swapping) say('Me detengo.'); } else if(e!==CANCEL) console.error(e); swapping=false; }
+  finally{ busy=false; abortFlag=false; S.face=null; if(!opt.quiet) lastActive=performance.now(); }
 }
 
 /* ================= Entender órdenes ================= */
@@ -945,6 +1216,7 @@ const cap1=w=>w.replace(/(^|\s)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
 function quickAnswer(l,raw){
   const an=androidAnswer(l); if(an) return an;
   const ch=chatAnswer(l); if(ch) return ch;
+  if(/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|ey|que tal)( arana)?$/.test(l)) return vary('hola');
   const nm=l.match(/^(?:pues |oye )?(?:me llamo|mi nombre es|llamame|llameme|puedes llamarme) ([a-zñ ]{2,30})$/);
   if(nm){ const n=cap1(nm[1].trim()); myName=n; store.set('name',n);
     const t='Prefiere que le llamen '+n+'.'; if(!facts.some(f=>f.t===t)){ facts=facts.filter(f=>!/^Prefiere que le llamen /.test(f.t)); facts.push({t,ts:Date.now()}); saveBrain(); }
@@ -975,7 +1247,7 @@ function quickAnswer(l,raw){
 }
 function answer(text,phrase){ say(text); speak(text); happy(); addThread(); logEv('answer',null,phrase); }
 async function interpret(raw){
-  const l=norm(raw); if(!l) return; lastActive=performance.now();
+  const l=norm(raw); if(!l) return; lastActive=performance.now(); if(!follow&&!busy) goHome();
   if(thinking){ say('Un momento, estoy pensando.'); return; }
   // 0) Respuestas al instante (hora, cuentas, su nombre…): gratis y sin cerebro
   // 0.16.0 (#7): cómo suena mi voz y cambiarla, sin cerebro
@@ -990,6 +1262,10 @@ async function interpret(raw){
   if(/\b(otro (dispositivo|movil|iphone|ipad|ordenador)|exporta(r)? (tu|la) memoria|importa(r)? (tu|la|mi) memoria|copia(r)? tu memoria)\b/.test(l)){ openSettings(); setTimeout(()=>{ const e=$('#travel'); if(e&&e.scrollIntoView) e.scrollIntoView({block:'center'}); },60); say('Aquí puede copiar mi memoria y pegarla en otro aparato.',4200); return; }
   // Sorpresa 0.15.0: si me da las gracias, hago una reverencia de mayordomo (gratis, sin cerebro)
   if(/^(?:muchas |mil |pues )?gracias(?: arana| de verdad| majo| crack)?$/.test(l)){ const t=pick(['A usted.','Es un honor.','Siempre a su servicio.','No hay de qué. Me inclino.']); bow(); say(t,2600); speak(t); logEv('answer',null,l); return; }
+  // 0.23.0: lo que hago con el cuerpo (bailar, pasear, seguirle…), gratis y sin cerebro
+  const mv=moveCmd(l); if(mv){ logEv('answer',null,l); return runMove(mv); }
+  // 0.23.0: que me pregunte cosas
+  if(/\b(preguntame|hazme (una )?pregunta(s)?|pregunta(me)? algo|quiero que me preguntes|conoceme)\b/.test(l)) return askQuestion(true);
   const qa=quickAnswer(l,raw); if(qa) return answer(qa,l);
   // 1) Lo aprendido manda (gratis y al instante)
   let m=mem[l]; if(!m){ let best=null,bs=0; for(const k in mem){ const s=similar(k,l); if(s>bs){ bs=s; best=k; } } if(bs>=.75&&mem[best].score>=1) m=mem[best]; }
@@ -1051,6 +1327,7 @@ const brainReady=()=>!!(brain.on&&brain.key)&&navigator.onLine!==false;
 const saveBrain=()=>{ store.set('brain',brain); store.set('facts',facts); store.set('usage',usage); };
 const nowText=()=>new Date().toLocaleString('es-ES',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
 const STEP_DOCS={
+  spider:()=>'- spider: lo que haces con tu cuerpo en la pantalla. action = '+Object.keys(MOVE_NAMES).join('|')+' (bailar, pasear, dar una vuelta, saltar, volver, esconderte, seguir su dedo, quedarte quieta, reverencia).',
   open:()=>'- open: abrir una app. app = id de: '+APPS.filter(canOpen).map(a=>a.id+' ('+a.name+')').join(', ')+'.'+(IN_APK?' Si no está en la lista, usa el nombre que tenga en el móvil.':''),
   set:()=>'- set: cambiar un ajuste del '+(IN_APK?'móvil (lo hago yo en Android; Wi-Fi, datos y Bluetooth abren su panel para que Juan toque)':'iPhone con el atajo «Araña»')+'. setting = '+SETS.map(x=>x.id+' ('+x.name+'; '+(x.kind==='level'?'valor 1-100':'on/off')+')').join(', ')+'.',
   whatsapp:()=>'- whatsapp: abrir WhatsApp con un texto escrito; Juan elige el contacto y pulsa enviar. text = mensaje.',
@@ -1075,7 +1352,7 @@ function brainSystem(){
   return `Eres Araña, la asistente personal de ${myName}: una araña de puntos y líneas con personalidad de mayordomo serio. Hablas en español, tratas de usted y dices frases cortas (máximo 20 palabras). Eres también su asistente como Siri: si te pregunta algo (datos, cuentas, consejos, traducciones), contesta tú en "say" en un máximo de 40 palabras, sin pasos.
 Vives en ${PLACE}. Solo actúas con estos pasos:
 ${STEP_TYPES.map(k=>STEP_DOCS[k]()).join('\n')}
-${LIMITS} Si te piden algo así, explícalo en "cannot"; si una habilidad nueva programable lo resolvería, descríbela en "skill_request".
+${LIMITS} Si te piden HACER algo que tus pasos no permiten, no finjas que lo haces: explícalo en "cannot" y, si una habilidad nueva programable lo resolvería, descríbela en "skill_request" (Claude la programará).
 Piensa por ti misma: combina pasos para tareas nuevas («modo cine», «me voy a dormir»), usa lo que sabes de ${myName} y lo que ha pasado antes. Si define o bautiza una rutina, rellena "routine". Si cuenta algo duradero de sí mismo o de sus gustos, añádelo a "remember" en tercera persona. Si es charla, contesta en "say" sin pasos. Si la orden es ambigua, pregunta en "say" sin pasos. Pon "confirm" a true si un paso desconecta algo (wifi, datos, bluetooth), si hay 3 pasos o más o si no estás segura.
 Ahora: ${nowText()}.
 Lo que sabes de ${myName}:
@@ -1098,7 +1375,7 @@ const PLAN_TOOL={name:'plan',description:'Lo que la araña dice y hace ante la o
     ...(CAPS.call||CAPS.message?{phone:{type:'string'}}:{}),
     ...(CAPS.timer||CAPS.event?{minutes:{type:'integer'},seconds:{type:'integer'}}:{}),
     ...(CAPS.alarm?{time:{type:'string',description:'HH:MM (alarm)'}}:{}),
-    ...(CAPS.music?{action:{type:'string',enum:['play','pause','next','previous']}}:{}),
+    action:{type:'string',description:'music: '+(CAPS.music?'play|pause|next|previous':'—')+'; spider: '+Object.keys(MOVE_NAMES).join('|')},
     ...(CAPS.event?{when:{type:'string',description:'AAAA-MM-DDTHH:MM (event)'},duration:{type:'integer'}}:{})},required:['type']}},
   confirm:{type:'boolean',description:'true si conviene preguntar antes de actuar'},
   remember:{type:'array',items:{type:'string'},description:'Datos duraderos nuevos. Vacío si nada.'},
@@ -1162,6 +1439,7 @@ function toActs(steps){
       if(st.kind==='level'){ const n=parseInt(v,10); if(!(n>=1&&n<=100)){ bad.push(st.name); continue; } v=String(n); }
       else if(v!=='on'&&v!=='off') v=/(off|apag|desact|^no)/.test(v)?'off':'on';
       acts.push({t:'set',id:st.id,v}); }
+    else if(x.type==='spider'){ const v=String(x.action||'').toLowerCase(); if(MOVES[v]) acts.push({t:'spider',v}); else bad.push('moverme así'); }
     else if(x.type==='whatsapp') acts.push({t:'wa',text:x.text||''});
     else if(x.type==='pocket') acts.push({t:'pocket',text:x.text||''});
     else if(x.type==='call'&&CAPS.call&&telOf(x.phone)) acts.push({t:'call',phone:telOf(x.phone)});
@@ -1186,11 +1464,13 @@ async function planFlow(plan,phrase){
   }
   if(!acts.length){
     if(plan.say){ say(plan.say); speak(plan.say); }
-    if(plan.cannot){ sad(); logEv('cant',null,phrase); addWish(phrase,plan.skill_request||plan.cannot); if(plan.skill_request) offerClaude(phrase,plan.skill_request); }
+    if(plan.cannot){ sad(); logEv('cant',null,phrase); addWish(phrase,plan.skill_request||plan.cannot); offerClaude(phrase,plan.skill_request||plan.cannot); }
     else { addThread(); if((plan.remember||[]).length) happy(); }
     return;
   }
   if(plan.say){ say(plan.say); speak(plan.say); }
+  // 0.23.0: si solo es moverme (bailar, pasear…), lo hago sin preguntar ni pedir nota
+  if(acts.every(a=>a.t==='spider')){ for(const a of acts){ if(abortFlag) throw ABORT; await MOVES[a.v](!!plan.say); } addThread(); return; }
   if(bad.length) setTimeout(()=>say('Me salto lo que no sé hacer aquí: '+bad.join(', ')+'.'),1600);
   const t=trust(acts,phrase), ask=prefs.perm!=='nunca'&&(prefs.perm==='siempre'||!t.sure||!!plan.confirm||t.doubtful);
   if(acts.length===1&&acts[0].t!=='pocket'){ await doAction(acts[0],phrase,{forceAsk:ask,noAsk:!ask}); return; }
@@ -1307,14 +1587,77 @@ function hourChartSVG(rx){
 const avisoQ=r=>'Son las '+String(r.hour).padStart(2,'0')+':00. ¿Hago «'+r.name+'»?';
 /* Cuando no sabe algo, ofrece pedírselo a Claude: abre una petición en GitHub que Claude programa */
 async function offerClaude(l,why){
+  if(!l) return;
   await new Promise(r=>setTimeout(r,1400));
-  if(busy) return;
-  const v=await chips('¿Se lo pido a Claude?',[['Sí, que me enseñe','go','yes',()=>askClaude(l,why)],['No',null]],{x:S.x,y:S.y}).catch(()=>null);
-  if(v==='go'){ happy(); say('Le dejo la petición en GitHub. Pulse «Create» y Claude se pondrá con ello.',4200); }
+  for(let i=0;i<20&&(busy||pendingChip);i++) await new Promise(r=>setTimeout(r,400));
+  if(busy||pendingChip) return;
+  if(wishes[l]&&wishes[l].sent){ say('Esto ya se lo pedí a Claude. Está en ello.'); return; }
+  // Con token, se lo pido yo sola: lo que no sé hacer va directo a Claude
+  if(ghTok&&prefs.autoClaude!==false){ askClaude(l,why); return; }
+  const v=await chips('¿Se lo pido a Claude?',[['Sí, que me enseñe','go','yes',()=>askClaude(l,why)],['No',null]]).catch(()=>null);
+  if(v==='go'&&!ghTok){ happy(); say('Le dejo la petición en GitHub. Pulse «Create» y Claude se pondrá con ello. Si me pone un token en Ajustes, la próxima vez lo pido yo sola.'); }
 }
 
+/* ================= Preguntas: la araña se interesa por usted (0.23.0) =================
+   Cuando no hace nada, de vez en cuando le pregunta algo y lo recuerda. Con «Sorpresa» alta pregunta más.
+   Gratis: preguntas con opciones. Con cerebro, a veces una pregunta original (una consulta). */
+const QUESTIONS=[
+  ['¿Qué música le acompaña más?',['Pop','Rock','Urbana','Clásica','De todo'],'Su música: '],
+  ['¿Café o té por la mañana?',['Café','Té','Ninguno'],'Por la mañana toma: '],
+  ['¿Qué deporte sigue?',['Fútbol','Baloncesto','Tenis','Fórmula 1','Ninguno'],'Deporte que sigue: '],
+  ['¿Es usted de madrugar o de trasnochar?',['Madrugar','Trasnochar'],'Prefiere: '],
+  ['¿Cómo suele moverse por Madrid?',['Metro','Coche','Andando','Bici','Taxi'],'Se mueve en: '],
+  ['¿Playa o montaña?',['Playa','Montaña','Ciudad'],'Para viajar prefiere: '],
+  ['¿Series o películas?',['Series','Películas','Ninguna'],'Ve más: '],
+  ['¿Perros o gatos?',['Perros','Gatos','Ninguno'],'Animal favorito: '],
+  ['¿Qué come más a gusto?',['Pasta','Arroz','Carne','Pescado','Verdura'],'Comida favorita: '],
+  ['¿A qué hora suele acostarse?',['Antes de las 23','Entre 23 y 00','Después de las 00'],'Se acuesta: '],
+  ['¿Le gustan los juegos de mesa?',['Mucho','A veces','No'],'Juegos de mesa: '],
+  ['¿Cómo prefiere que le avise?',['Hablando','Solo texto'],'Prefiere que le avise: '],
+  ['¿Qué parte del día le cunde más?',['Mañana','Tarde','Noche'],'Le cunde más por la: '],
+  ['¿Qué le relaja más?',['Música','Deporte','Una serie','Salir','Leer'],'Le relaja: ']
+];
+let lastQ=0, qToday=store.get('qday',{d:'',n:0}), wishNext=false;
+const qGap=()=>({baja:240,media:110,alta:55}[prefs.surp||'alta'])*1000;
+async function askQuestion(force){
+  if(!force&&(busy||overlayOpen()||pending||kbOpen||document.hidden)) return;
+  if(busy){ say('Un momento, termino lo anterior.'); return; }
+  lastQ=performance.now(); lastActive=performance.now();
+  if(qToday.d!==today()) qToday={d:today(),n:0}; qToday.n++; store.set('qday',qToday);
+  const left=QUESTIONS.filter(q=>!facts.some(f=>f.t.startsWith(q[2])));
+  const r=Math.random(), canBrain=brainReady()&&!capReached();
+  // Una de cada pocas: ¿qué quiere que aprenda? Lo que diga va directo a Claude.
+  if(r<.18){
+    const v=await chips(pick(['¿Qué le gustaría que aprendiera a hacer?','¿Hay algo que quiera que sepa hacer y aún no sé?']),[['Se lo digo','y','yes'],['Ahora no',null]]).catch(()=>null);
+    logEv('idea',null,'qué aprender');
+    if(v==='y'){ wishNext=true; say('Escríbalo o dígalo. Se lo paso a Claude.'); $('#cmd').placeholder='Lo que quiere que aprenda'; $('#cmd').focus(); }
+    return;
+  }
+  if((!left.length||r<.4)&&canBrain){ logEv('idea',null,'pregunta'); return interpret('hazme una sola pregunta corta y original para conocerme mejor; cuando te conteste, recuérdalo'); }
+  if(!left.length){ const c=pick(CURIOS); say('Ya sé mucho de usted. Le cuento algo yo: '+c); speak(c); return; }
+  const q=pick(left);
+  happy();
+  const v=await chips(q[0],[...q[1].map(o=>[o,o]),['Prefiero no decirlo','—']]).catch(()=>null);
+  if(!v) return;
+  logEv('idea',null,q[0].slice(0,50));
+  if(v==='—'){ facts.push({t:q[2]+'prefiere no decirlo.',ts:Date.now()}); saveBrain(); say(vary('no')); return; }
+  facts.push({t:q[2]+v.toLowerCase()+'.',ts:Date.now()}); if(facts.length>40) facts=facts.slice(-40); saveBrain(); learning(); happy();
+  if(q[2].startsWith('Prefiere que le avise')){ prefs.voice=v==='Hablando'; saveAll(); }
+  logEv('fact',null,'',{name:q[2]+v.toLowerCase()});
+  say(pick(['Anotado. Ya le conozco un poco más.','Lo guardo con hilo fino.','Interesante. Lo recordaré.','Tomo nota, '+myName+'.']));
+}
+setInterval(()=>{
+  if(prefs.preguntas===false||busy||overlayOpen()||pending||kbOpen||document.hidden||S.listen||thinking) return;
+  const now=performance.now(), idle=now-lastActive;
+  if(qToday.d===today()&&qToday.n>=12) return;
+  if(idle>qGap()*.5&&now-lastQ>qGap()&&now>40000) askQuestion();
+},5000);
+
 /* ================= Controles ================= */
-$('#bar').addEventListener('submit',e=>{ e.preventDefault(); const v=$('#cmd').value; $('#cmd').value=''; $('#cmd').blur(); interpret(v); });
+$('#bar').addEventListener('submit',e=>{ e.preventDefault(); const v=$('#cmd').value; $('#cmd').value=''; $('#cmd').blur();
+  if(wishNext){ wishNext=false; $('#cmd').placeholder='Dígame qué hacer'; const t=v.trim(); if(!t) return; const ph=norm(t); addWish(ph,'Juan quiere que lo aprenda (se lo pregunté yo).'); happy(); say('Anotado.');
+    if(ghTok) askClaude(ph,'Juan quiere que lo aprenda.'); else chips('¿Se lo paso ya a Claude?',[['Sí','go','yes',()=>askClaude(ph,'Juan quiere que lo aprenda.')],['Luego',null]]).then(x=>{ if(x==='go') say('Pulse «Create» en GitHub.'); }).catch(()=>{}); return; }
+  interpret(v); });
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let rec=null;
 function micUI(){ const m=$('#mic'); m.classList.toggle('on',S.listen); m.setAttribute('aria-label',S.listen?'Dejar de escuchar':'Hablar');
@@ -1331,14 +1674,52 @@ function toggleEar(){
       if(er==='not-allowed'||er==='service-not-allowed'){ say('No me dan el micrófono aquí. Toque el campo y use el micro del teclado.'); $('#cmd').focus(); }
       else if(er==='no-speech') say('No he oído nada. Pruebe otra vez, más cerca.');
       else say('No le he oído bien.'); };
-    rec.onend=()=>{ S.listen=false; micUI(); status(null); const t=heard.trim(); rec=null; if(t) interpret(t); };
+    rec.onend=()=>{ S.listen=false; micUI(); status(null); const t=heard.trim(), was=rec; rec=null; if(t&&!(was&&was.cancelled)) interpret(t); };
     rec.start(); S.listen=true; micUI(); status('Escuchando'); }
   catch(e){ S.listen=false; micUI(); status(null); say('El micrófono no está disponible. Use el dictado del teclado.'); $('#cmd').focus(); }
 }
 $('#mic').onclick=toggleEar;
-// Tocar la araña: si trabaja, se detiene; si no, le escucha.
-spCv.addEventListener('click',()=>{ lastActive=performance.now(); if(busy){ abortFlag=true; if(pendingChip) pendingChip.done(ABORT); return; } toggleEar(); });
-spCv.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleEar(); } });
+function quietStopEar(){ if(!S.listen) return; S.listen=false; micUI(); status(null); try{ if(rec){ rec.cancelled=true; rec.abort?rec.abort():rec.stop(); } }catch(e){} }
+/* ===== Tocar la araña =====
+   Un toque: le escucha (si trabaja, se detiene). Dos toques: salta. Tres: baila.
+   Mantener pulsada: su menú. Arrastrarla: la cambia de sitio. */
+let pd=null, taps=[], tapT=null, lpT=null;
+hit.addEventListener('pointerdown',e=>{ try{ hit.setPointerCapture(e.pointerId); }catch(_){} pd={x:e.clientX,y:e.clientY,moved:false,t:performance.now(),long:false};
+  clearTimeout(lpT); lpT=setTimeout(()=>{ if(pd&&!pd.moved){ pd.long=true; taps=[]; quietStopEar(); spiderMenu(); } },560); });
+hit.addEventListener('pointermove',e=>{
+  if(!pd) return;
+  if(!pd.moved&&Math.hypot(e.clientX-pd.x,e.clientY-pd.y)>7&&!busy){ pd.moved=true; clearTimeout(lpT); S.user=true; S.hidden=false; S.fl=0; closeMenus(); }
+  if(pd.moved){ const nx=clampX(e.clientX), ny=clampY(e.clientY), now=performance.now(), dt=Math.max(.008,(now-pd.t)/1000); pd.t=now;
+    S.vx=S.vx*.6+((nx-S.x)/dt)*.4; S.vy=S.vy*.6+((ny-S.y)/dt)*.4; S.x=S.tx=nx; S.y=S.ty=ny; }
+});
+hit.addEventListener('pointercancel',()=>{ clearTimeout(lpT); if(pd&&pd.moved){ S.user=false; } pd=null; });
+hit.addEventListener('pointerup',()=>{
+  clearTimeout(lpT); if(!pd) return; const drag=pd.moved, long=pd.long; pd=null; lastActive=performance.now();
+  if(drag){ S.user=false; S.vx=S.vy=0; S.tx=S.x; S.ty=S.y; if(roll(.4)) say(pick(['Aquí me quedo.','Buen sitio.','Gracias por el viaje.'])); return; }
+  if(long) return;
+  onTap();
+});
+hit.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleEar(); } });
+function onTap(){
+  const n=performance.now(); taps=taps.filter(t=>n-t<650); taps.push(n);
+  if(taps.length>=3){ taps=[]; clearTimeout(tapT); quietStopEar(); if(pendingChip) closeChip(); runMove('dance'); return; }
+  if(taps.length===2){ clearTimeout(tapT); quietStopEar(); tapT=setTimeout(()=>{ if(taps.length===2){ taps=[]; if(!busy) runMove('jump'); } },420); return; }
+  if(busy){ taps=[]; abortFlag=true; if(pendingChip) pendingChip.done(ABORT); return; }
+  if(follow){ taps=[]; setFollow(false); return; }
+  if(S.hidden){ goHome(); say('¿Sí?'); }
+  // Con micro propio empiezo a escuchar ya (iOS lo pide dentro del toque); si llega un segundo toque, lo corto sin decir nada.
+  if(SR&&!AND()) toggleEar(); else tapT=setTimeout(()=>{ if(taps.length===1){ taps=[]; toggleEar(); } },400);
+}
+function spiderMenu(){
+  if(busy) return;
+  const opts=[['Bailar','dance'],['Sígame','follow'],['Dar un paseo','walk'],['Pregúnteme algo','ask'],['Evolución','evo'],['Ajustes','settings']];
+  if(follow) opts[1]=['Quieta','stay'];
+  chips('¿Qué hago?',[...opts,['×',null]]).then(v=>{
+    if(!v) return; lastActive=performance.now();
+    if(v==='evo') openEvolution(); else if(v==='settings') openSettings(); else if(v==='ask') askQuestion(true);
+    else if(MOVES[v]) runMove(v);
+  }).catch(()=>{});
+}
 function escapeHTML(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ================= Ajustes (la hoja, como en iOS) ================= */
@@ -1358,7 +1739,7 @@ const seg=(name,opts,val)=>`<div class="seg">${opts.map(([v,t],i)=>`<input type=
 const navRow=(id,text,val)=>`<li><button type="button" class="go" id="${id}"><span>${text}</span>${val||''}</button></li>`;
 /* Qué puedo hacer en este aparato: la misma lista que leo yo para saber qué pasos tengo */
 const CAP_LIST=[
-  ['open','Abrir sus apps'],['set','Ajustes: linterna, brillo, no molestar, Wi-Fi…'],['timer','Temporizadores'],['alarm','Alarmas'],
+  ['spider','Moverme: caminar, bailar, seguirle el dedo, esconderme'],['open','Abrir sus apps'],['set','Ajustes: linterna, brillo, no molestar, Wi-Fi…'],['timer','Temporizadores'],['alarm','Alarmas'],
   ['music','Música: poner, pausar, siguiente'],['event','Citas en el calendario'],['call','Llamar y preparar mensajes'],
   ['whatsapp','Preparar un WhatsApp'],['carry','Llevar el bolsillo a otra app'],['float','Flotar sobre las demás apps'],['exit','Cerrarme cuando me lo pida']];
 function capsText(){ const ok=CAP_LIST.filter(([k])=>CAPS[k]).map(([,t])=>t.split(':')[0].toLowerCase());
@@ -1377,8 +1758,17 @@ function openSettings(){
       </ul>
       <p class="note">La clave se guarda solo en ${where} y va directa a Anthropic. Hoy: ${dayNow().n} de ${prefs.cap||CAP_DEF} consultas (≈ ${costUSD(dayNow().in,dayNow().out).toFixed(4)} $). En total: ${usage.calls}, ≈ ${costUSD(usage.in,usage.out).toFixed(3)} $.</p>
       <span class="lbl" style="margin-top:12px">Tope diario de consultas</span>${seg('cap',[['15','15'],['40','40'],['100','100']],String(prefs.cap||CAP_DEF))}</div>
+    <div><span class="lbl">Claude, mi profesor</span>
+      <input id="ghtok" class="inp" type="password" autocomplete="off" placeholder="${ghTok?'Token guardado · …'+escapeHTML(ghTok.slice(-4)):'Token de GitHub (github_pat_…)'}">
+      <ul class="cells">
+        <li><button type="button" class="act" id="ghSave">Guardar token</button></li>
+        <li><span>Pedirle a Claude lo que no sé, sin preguntarle<small>Con token, lo pido yo sola en cuanto algo no me sale</small></span>${sw('autoCl',prefs.autoClaude!==false)}</li>
+        ${ghTok?'<li><button type="button" class="act warn" id="ghDel">Borrar token</button></li>':''}
+      </ul>
+      <p class="note">Sin token, le abro GitHub y usted pulsa «Create». Para que lo haga yo: cree un token <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">aquí</a>, solo para el repositorio «arana», con permiso <b>Issues: Read and write</b>. Se guarda solo en ${where}.</p></div>
     <div><span class="lbl">Lo que sé de usted</span>
-      ${facts.length?`<ul class="learned">${facts.slice().reverse().map(f=>`<li><div class="ph"><b style="white-space:normal">${escapeHTML(f.t)}</b></div><button type="button" data-fact="${escapeHTML(f.t)}" aria-label="Olvidar">×</button></li>`).join('')}</ul>`:'<p class="note">Aún nada. Cuénteme algo de usted y lo recordaré.</p>'}</div>
+      ${facts.length?`<ul class="learned">${facts.slice().reverse().map(f=>`<li><div class="ph"><b style="white-space:normal">${escapeHTML(f.t)}</b></div><button type="button" data-fact="${escapeHTML(f.t)}" aria-label="Olvidar">×</button></li>`).join('')}</ul>`:'<p class="note">Aún nada. Cuénteme algo de usted y lo recordaré.</p>'}
+      <ul class="cells" style="margin-top:6px"><li><button type="button" class="act" id="askNow">Pregúnteme algo ahora</button></li></ul></div>
     <div><span class="lbl">Evolución</span><ul class="cells">
       ${navRow('nEvo','Evolución',`<span class="val">${escapeHTML(L.name)}</span>`)}
       ${navRow('nRate','Valorar mejoras',nUn?`<span class="badge">${nUn}</span>`:'')}
@@ -1394,7 +1784,10 @@ function openSettings(){
       <span class="lbl" style="margin-top:12px">Varias órdenes en un salto</span>${seg('multi',[['1','Mi atajo ya sabe'],['0','Todavía no']],prefs.multi?'1':'0')}
       <p class="note" style="margin-top:6px">Si no pasa nada, el atajo no existe o tiene otro nombre. <a href="https://github.com/JRJR3333/arana/blob/master/nativo/h1/LEEME.md" target="_blank" rel="noopener">Cómo prepararlo</a></p></div>`:''}
     <div><span class="lbl">Cómo me porto</span>
-      <ul class="cells"><li><span>Hablar en voz alta</span>${sw('vozOn',prefs.voice!==false)}</li></ul>
+      <ul class="cells"><li><span>Hablar en voz alta</span>${sw('vozOn',prefs.voice!==false)}</li>
+        <li><span>Pasear por la pantalla cuando no hago nada</span>${sw('roamOn',prefs.roam!==false)}</li>
+        <li><span>Hacerle preguntas de vez en cuando</span>${sw('askOn',prefs.preguntas!==false)}</li></ul>
+      <p class="note" style="margin-top:6px">Tóqueme para hablar. Dos toques: salto. Tres: bailo. Mantenga pulsado: mi menú. Arrástreme para cambiarme de sitio.</p>
       <span class="lbl" style="margin-top:12px">Pedir permiso</span>${seg('perm',[['siempre','Siempre'],['aprendido','Según lo aprendido'],['nunca','Nunca']],prefs.perm)}
       <p class="note" style="margin-top:6px">«Según lo aprendido»: pregunto hasta que algo me ha salido bien varias veces.</p>
       <span class="lbl" style="margin-top:12px">Sorpresa</span>${seg('surp',[['baja','Baja'],['media','Media'],['alta','Alta']],prefs.surp||'alta')}</div>
@@ -1410,6 +1803,16 @@ function openSettings(){
   document.querySelectorAll('#sheet input[name="multi"]').forEach(i=>i.onchange=()=>{ prefs.multi=i.value==='1'; saveAll(); });
   $('#vozOn').onchange=e=>{ prefs.voice=e.target.checked; saveAll(); if(prefs.voice) speak('A su servicio.'); };
   $('#brOn').onchange=e=>{ brain.on=e.target.checked; saveBrain(); };
+  $('#roamOn').onchange=e=>{ prefs.roam=e.target.checked; saveAll(); if(!prefs.roam) goHome(); };
+  $('#askOn').onchange=e=>{ prefs.preguntas=e.target.checked; saveAll(); };
+  $('#autoCl').onchange=e=>{ prefs.autoClaude=e.target.checked; saveAll(); };
+  $('#askNow').onclick=()=>{ closeSheet(); askQuestion(true); };
+  $('#ghSave').onclick=async()=>{ const k=$('#ghtok').value.trim(); if(!k){ $('#ghtok').focus(); return; } ghTok=k; store.set('gh',k); closeSheet(); happy();
+    // Lo que tenía pendiente de pedir (como mucho 3), se lo paso ya
+    const pend=Object.entries(wishes).filter(([,w])=>!w.sent).sort((a,b)=>b[1].n-a[1].n).slice(0,3); let n=0;
+    for(const [ph,w] of pend){ try{ await fileIssue(ph,w.why); markSent(ph); n++; }catch(e){ console.warn(e); break; } }
+    say('Token guardado. Lo que no sepa, se lo pido yo misma a Claude.'+(n?' Ya le he pasado '+n+' cosa'+(n>1?'s':'')+' que tenía pendientes.':'')); };
+  if($('#ghDel')) $('#ghDel').onclick=()=>{ ghTok=''; store.set('gh',''); openSettings(); say('Token borrado.'); };
   $('#keySave').onclick=()=>{ const k=$('#apikey').value.trim(); if(!k){ $('#apikey').focus(); return; } brain.key=k; brain.on=true; saveBrain(); closeSheet(); say('Clave guardada. Ya puedo pensar.'); happy(); };
   if($('#keyDel')) $('#keyDel').onclick=()=>{ brain.key=''; saveBrain(); openSettings(); say('Clave borrada.'); };
   if($('#keyTest')) $('#keyTest').onclick=()=>{ closeSheet(); thinking=true; setThinking(true);
@@ -1448,7 +1851,7 @@ function fillPocket(){
     chips('¿A dónde lo llevo?',[...APPS.filter(a=>TXT_APPS.includes(a.id)&&canOpen(a)).map(a=>[a.name,a.id]),['×',null]]).then(id=>{ if(id) run(()=>doAction({t:'carry',id},null)); }).catch(()=>{}); };
 }
 const TXT_APPS=['whatsapp','notas','correo','mensajes','gmail','outlook','recordatorios','teams','telegram','chatgpt','claude','x','linkedin','instagram'];
-const TRAVEL_SKIP=new Set(['brain','icons','backup','seen','day','usage']);
+const TRAVEL_SKIP=new Set(['brain','icons','backup','seen','day','usage','gh']);
 function exportMemory(){ const o={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(!k||!k.startsWith('arana.')) continue; const kk=k.slice(6); if(TRAVEL_SKIP.has(kk)) continue; o[kk]=localStorage.getItem(k); }
   return 'ARANA1:'+JSON.stringify({ts:Date.now(),d:o}); }
 function importMemory(t){ t=String(t).trim(); if(!t.startsWith('ARANA1:')) return -1; let j; try{ j=JSON.parse(t.slice(7)); }catch(e){ return -1; } if(!j||typeof j.d!=='object') return -1;
@@ -1559,8 +1962,7 @@ fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
 }).catch(()=>{});
 
 /* ================= Arranque ================= */
-rebuildApps(); sizeSpider(); drawTela(); requestAnimationFrame(frame);
-addEventListener('resize',()=>{ sizeSpider(); });
+rebuildApps(); resize(); fitViewport(); drawTela(); { const h=nestPos(); S.x=S.tx=h.x; S.y=S.ty=h.y; } initLegs(); requestAnimationFrame(frame);
 const first=!store.get('seen',false); store.set('seen',true);
 // h2 · «Oye Siri, Araña»: el atajo «Araña voz» abre la web con ?q=orden y la ejecuto al cargar.
 // Se borra de la dirección enseguida para que una recarga no la repita.
@@ -1580,7 +1982,7 @@ setTimeout(async()=>{
     ()=>{ const Q=[['¿Qué música le acompaña más?',['Pop','Rock','Urbana','Clásica'],'Su música: '],['¿Café o té por la mañana?',['Café','Té','Ninguno'],'Por la mañana toma: '],['¿Qué deporte sigue?',['Fútbol','Baloncesto','Tenis','Ninguno'],'Deporte que sigue: '],['¿Es usted de madrugar o de trasnochar?',['Madrugar','Trasnochar'],'Prefiere: ']].filter(q=>!facts.some(f=>f.t.startsWith(q[2])));
       if(!Q.length) return {q:'',go:()=>{},brain:true,none:true}; const q=pick(Q);
       return {q:'Me intereso por usted: '+q[0].toLowerCase()+' ¿Se lo pregunto?',go:async()=>{ const v=await chips(q[0],q[1].map(o=>[o,o])).catch(()=>null); if(!v) return; facts.push({t:q[2]+v.toLowerCase()+'.',ts:Date.now()}); saveBrain(); learning(); say(pick(['Anotado. Ya le conozco un poco más.','Lo guardo con hilo fino.','Interesante. Lo recordaré.'])); }}; },
-    ()=>({q:'Tengo una pregunta para conocerle mejor. ¿Me la contesta?',go:()=>interpret('hazme una pregunta corta y original para conocerme mejor y recordar la respuesta'),brain:true})
+    ()=>({q:'Tengo una pregunta para conocerle mejor. ¿Me la contesta?',go:()=>interpret('hazme una sola pregunta corta y original para conocerme mejor; cuando te conteste, recuérdalo'),brain:true})
   ].map(f=>f()).filter(i=>!i.none&&(!i.brain||(brainReady()&&!capReached())));
   if(!ideas.length) return;
   const it=pick(ideas); store.set('surpDay',td);
