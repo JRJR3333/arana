@@ -968,7 +968,9 @@ const CURIO_TALK=['Curiosa, esta app de','Le estaba echando un ojo a','Siempre m
 /* Voz: contesta en voz alta como un asistente (iOS la permite después del primer toque) */
 function esVoices(){ try{ return speechSynthesis.getVoices().filter(x=>/^es/i.test(x.lang)); }catch(e){ return []; } }
 function myVoice(){ const vs=esVoices(); return vs.find(x=>x.name===prefs.voiceName)||vs.find(x=>/^es[-_]ES/i.test(x.lang))||vs[0]||null; }
-function speak(text,force){ if((prefs.voice===false&&!force)||!window.speechSynthesis||!text) return;
+function speak(text,force){ if((prefs.voice===false&&!force)||!text) return;
+  if(window.AranaAndroid&&window.AranaAndroid.hablar){ try{ window.AranaAndroid.hablar(String(text)); return; }catch(e){} }
+  if(!window.speechSynthesis) return;
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='es-ES'; u.rate=1.03;
     const v=myVoice(); if(v){ u.voice=v; u.lang=v.lang; } speechSynthesis.speak(u); }catch(e){} }
 /* 0.16.0 (#14): iOS solo deja hablar si la primera frase sale de un toque. La desbloqueo en silencio al primer toque. */
@@ -1030,7 +1032,7 @@ const scURL=(cmd,val)=>scRaw(cmd+'|'+val);
 // h1: varias órdenes en un solo salto («wifi|off;brillo|30»). Solo si Juan ya preparó el atajo (Ajustes → Varias órdenes).
 const scMulti=list=>scRaw(list.map(x=>setById(x.id).sc+'|'+x.v).join(';'));
 function urlFor(a){
-  if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); return x?x.url:''; }
+  if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); if(x&&IN_APK) return apkOpen(x); return x?x.url:''; }
   if(a.t==='set') return a.multi?scMulti(a.multi):scURL(setById(a.id).sc,a.v);
   if(a.t==='wa') return 'whatsapp://send?text='+encodeURIComponent(a.text||'');
   return null;
@@ -1287,13 +1289,20 @@ const IN_APK=new URLSearchParams(location.search).get('app')==='android'||(/Andr
 const ON_ANDROID=IN_APK||/Android/.test(UA);
 const deviceName=()=>IN_APK?'Android, dentro de mi propia app':ON_ANDROID?'Android, en el navegador':/iPhone|iPad|iPod/.test(UA)?'iPhone':'un ordenador';
 function apkLaunch(u){ setTimeout(()=>launch(u),900); }
+/* 0.21.0 (#31): en la app de Android abro las apps por su nombre en el móvil, no por enlaces de iPhone. */
+function apkOpen(x){ return 'arana://abrir?app='+encodeURIComponent(x.name)+'&id='+encodeURIComponent(x.id)+'&url='+encodeURIComponent(x.url||''); }
+window.__aranaOir=t=>{ try{ status(null); }catch(e){} if(t) interpret(String(t)); };
 function androidAnswer(l){
   if(/\b(en que (movil|telefono|dispositivo|sistema|aparato) (estas|estoy|vives)|estas en (android|ios|iphone|un android|un iphone)|android o (ios|iphone)|(ios|iphone) o android|diferencia\w* .*\b(android|ios)\b|donde estas)\b/.test(l))
-    return 'Estoy en '+deviceName()+'.'+(IN_APK?' Aquí sé salir de la app y poner temporizadores y alarmas del reloj.':'');
+    return 'Estoy en '+deviceName()+'.'+(IN_APK?' Aquí sé abrir sus apps, oírle con el micro, hablar, flotar sobre las demás apps, salir, y poner temporizadores y alarmas.':'');
   const salir=/\b(sal|salir|salte|salgas|cierra|cierrate|cerrar|cierres)\b.*\b(app|aplicacion|apk|arana)\b|^(sal|salir|salte|cierrate|adios arana)$/;
   if(/\b(has aprendido|ya sabes|sabes ya)\b/.test(l)&&salir.test(l)) return ON_ANDROID?'Sí. Diga «sal de la app» y me cierro.':'En el iPhone no puedo cerrarme yo: deslice hacia arriba desde abajo.';
   if(/\b(has aprendido|lo ultimo que|novedades|que hay de nuevo|que sabes hacer nuevo|cuando (voy a saber|sabre|me entero))\b/.test(l)&&!/\bde mi\b/.test(l)){
     const n=(VERSION.notes||[])[0]; return (n?'Lo último que he aprendido, en la '+VERSION.version+': '+n+' ':'')+'Cada mañana reviso sus peticiones; cuando aprendo algo se lo digo al abrir.'; }
+  /* 0.21.0 (#30): fuera de la app, flotando sobre las demás */
+  if(/\b(flota|flotar|flotando|burbuja|sacarte|sacar(te)? fuera|quedate (fuera|encima|flotando)|encima de (las )?(otras|demas) apps?|sobre (las )?(otras|demas) apps?)\b/.test(l)){
+    if(IN_APK){ apkLaunch('arana://flotar'); return 'Salgo y me quedo flotando. Tóqueme para hablar; manténgame pulsada para guardarme.'; }
+    return ON_ANDROID?'Para flotar sobre las demás apps necesito mi app de Android.':'En el iPhone ninguna app puede flotar sobre las demás. Use mi widget o «Oye Siri, Araña».'; }
   if(salir.test(l)&&!/\b(abre|abrir)\b/.test(l)&&!findApp(l)){ if(IN_APK){ apkLaunch('arana://salir'); return 'Hasta luego.'; } return ON_ANDROID?'Desde el navegador no puedo cerrarme. En mi app de Android sí.':'En el iPhone no puedo cerrarme yo: deslice hacia arriba desde abajo.'; }
   if(!IN_APK) return null;
   let m=l.match(/\b(?:temporizador|cuenta atras|avisame|avisa(?:me)? en)\b.*?\b(\d{1,3}) ?(segundos?|seg|minutos?|min|horas?)\b/);
@@ -1679,6 +1688,7 @@ async function offerClaude(l,why){
 $('#bar').addEventListener('submit',e=>{ e.preventDefault(); const v=$('#cmd').value; $('#cmd').value=''; $('#cmd').blur(); interpret(v); });
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 $('#mic').onclick=()=>{
+  if(window.AranaAndroid&&window.AranaAndroid.escuchar){ try{ window.AranaAndroid.escuchar(); status('Escuchando'); return; }catch(e){} }
   if(!SR){ say('Aquí no tengo micrófono propio. Use el dictado del teclado (el micro junto a la barra espaciadora).',4500); $('#cmd').focus(); return; }
   try{ const r=new SR(); r.lang='es-ES'; r.interimResults=false; r.maxAlternatives=1;
     r.onresult=e=>{ status(null); interpret(e.results[0][0].transcript); };

@@ -1,16 +1,16 @@
 {
-  "version": "0.20.0",
-  "date": "2026-10-20",
+  "version": "0.21.0",
+  "date": "2026-10-21",
   "notes": [
+    "En Android ya abro sus apps de verdad, le oigo con el micro y le hablo en voz alta.",
+    "En Android ya salgo de mi app y me quedo flotando sobre las demás: pídame «flota».",
+    "Ya estoy en el Centro de control y en el botón de Acción: un toque y le escucho (en mi app).",
+    "Ya digo la hora, la fecha, hago cuentas y cuento los días que faltan, sin gastar consultas (en mi app).",
+    "Ya tiro dados y monedas (en mi app).",
     "Ya tengo widget: un toque en la pantalla de inicio y le escucho (en mi app).",
     "Ya pongo, pauso y busco su música (en mi app).",
     "En Android ya sé dónde estoy, salir de la app y poner temporizadores y alarmas del reloj.",
     "Ya marco el compás: pídame «metrónomo a 90» (en mi app).",
-    "Ya salgo en la Isla Dinámica mientras trabajo (en mi app).",
-    "Ya leo su agenda y apunto sus citas en el calendario (en mi app).",
-    "Ya tengo app para Android: su hermano puede usarme y mandarme mejoras.",
-    "Ya camino como la araña del vídeo: patas largas que pisan los iconos, mi red y colores según lo que hago.",
-    "Ya tengo la pantalla nueva que eligió usted: rejilla, brillos y cristal oscuro.",
-    "Ya sigo el hilo de la conversación y recuerdo lo que me cuenta de usted (en mi app)."
+    "Ya salgo en la Isla Dinámica mientras trabajo (en mi app)."
   ]
 }

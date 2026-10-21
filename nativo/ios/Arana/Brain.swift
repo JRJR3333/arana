@@ -119,11 +119,15 @@ enum Brain {
         return try JSONDecoder().decode(Plan.self, from: planData)
     }
 
-    /// Lo que se resuelve en local, sin gastar API: música, metrónomo y la agenda de hoy o de mañana.
+    /// Lo que se resuelve en local, sin gastar API: hora, fecha, cuentas, azar, música, metrónomo y la agenda.
     @MainActor
     static func quick(_ text: String) async -> String? {
         let t = text.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
             .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        if let r = Rapido.responder(t) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         let musica = await Musica.quick(t)
         if let r = musica ?? Metronomo.shared.quick(t) {
             Memory.addTurn(user: text, reply: r)

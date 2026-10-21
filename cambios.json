@@ -1,5 +1,49 @@
 [
  {
+  "v": "0.21.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.21.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "La araña en el Centro de control (app nativa)",
+    "detalle": "Control de iOS 18 en la misma extensión que el widget y la Isla: un botón «Araña» que abre la app con el micrófono ya escuchando. Sirve también para la pantalla bloqueada y el botón de Acción. No gasta nada.",
+    "probar": "Cuando la app esté instalada: abra el Centro de control → + → Añadir un control → Araña, y tóquelo."
+   },
+   {
+    "id": "0.21.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Respuestas al instante (app nativa)",
+    "detalle": "«¿Qué hora es?», «¿qué día es hoy?», «cuánto es 23 por 4», «20 % de 80», «raíz de 81» y «cuántos días faltan para Navidad» (o «para el 15 de diciembre») se resuelven en el iPhone, sin API.",
+    "probar": "Diga «cuánto es 12 por 7» y «cuántos días faltan para Navidad»."
+   },
+   {
+    "id": "0.21.0-3",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Android: abre apps, oye y habla (#31)",
+    "detalle": "En la app de Android, «abre WhatsApp» busca la app instalada por su paquete o por su nombre en el móvil. El micro usa el reconocimiento de voz de Android y la araña contesta con la voz del móvil.",
+    "probar": "En el Android: pulse el micro, diga «abre YouTube»."
+   },
+   {
+    "id": "0.21.0-4",
+    "tipo": "iniciativa",
+    "titulo": "Android: la araña flotante (#30)",
+    "detalle": "«Flota» o «sácate de la app»: la araña sale y se queda flotando sobre las demás apps. Un toque la abre escuchando, se arrastra y, mantenida pulsada, se guarda. La primera vez pide «Mostrar sobre otras apps».",
+    "probar": "En el Android: diga «flota», vaya a otra app y toque la araña."
+   },
+   {
+    "id": "0.21.0-5",
+    "tipo": "sorpresa",
+    "titulo": "El azar de la araña (app nativa)",
+    "detalle": "Nadie lo pidió. Dado: 0,089 / 0,958 → sorpresa sí, sin condición. «Tira un dado», «cara o cruz» y «un número del 1 al 50», en local. Se quita sin romper nada.",
+    "probar": "Diga «cara o cruz»."
+   }
+  ]
+ },
+ {
   "v": "0.20.0",
   "fecha": "2026-10-20",
   "mejoras": [

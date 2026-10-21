@@ -53,6 +53,13 @@ struct ContentView: View {
             // h8: el widget abre la app escuchando (arana://escuchar).
             if u.host == "escuchar", !ear.listening, !thinking { toggleEar() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: Escuchar.aviso)) { _ in
+            // h8: el control del Centro de control abre la app escuchando.
+            if Escuchar.pendiente(), !ear.listening, !thinking { toggleEar() }
+        }
+        .onAppear {
+            if Escuchar.pendiente(), !ear.listening, !thinking { toggleEar() }
+        }
         .onChange(of: ear.done) { _, said in
             guard let said else { return }
             ear.done = nil; input = said; send()

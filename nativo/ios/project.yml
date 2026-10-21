@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.20.0"
-    CURRENT_PROJECT_VERSION: "4"
+    MARKETING_VERSION: "0.21.0"
+    CURRENT_PROJECT_VERSION: "5"
 targets:
   Arana:
     type: application
@@ -40,7 +40,7 @@ targets:
   AranaIsla:
     type: app-extension
     platform: iOS
-    sources: [AranaIsla, Arana/IslaDatos.swift]
+    sources: [AranaIsla, Arana/IslaDatos.swift, Arana/Escuchar.swift]
     info:
       path: AranaIsla/Info.plist
       properties:
