@@ -1,6 +1,16 @@
 # Instrucciones para Claude: cómo actualizar Araña
 
-Araña es la app personal de Juan para iPhone. Desde el 2026-10-20 el objetivo es que sea **una app nativa propia** (`nativo/ios/`, ver `OBJETIVO.md`); la web app de GitHub Pages (`index.html`, rama `master`) queda en mantenimiento. Este archivo explica cómo atender sus peticiones de nuevas habilidades.
+Araña es la app personal de Juan para iPhone. Desde el 2026-10-20 el objetivo es que sea **una app nativa propia** (`nativo/ios/`, ver `OBJETIVO.md`). La web de GitHub Pages (`index.html`, rama `master`) es también la pantalla de la app de Android. Este archivo explica cómo atender sus peticiones de nuevas habilidades.
+
+## Una sola pantalla, tres plataformas (desde la 0.22.0)
+
+- **El aspecto manda la app de iPhone** (`nativo/ios/Arana/ContentView.swift`): fondo de rejilla, telaraña que crece (`arana.hilos`), bocadillo, la araña de puntos y líneas en el centro, y abajo micro, campo «Dígame qué hacer» e «Ir». `index.html` la copia con los mismos números (`drawSpider`, `drawTela`). Si cambia algo visible en `ContentView.swift`, se cambia igual en `index.html`, y al revés.
+- **Todo lo demás vive en Ajustes** (la rueda): cerebro, lo que sabe de Juan, Evolución, Valorar mejoras, lo aprendido, el bolsillo, permisos y memoria. No se vuelve a poner una pantalla de iconos ni a mover la araña por la pantalla.
+- **Lo que cambia es lo que puede hacer cada una**, según lo que permite el aparato:
+  - `CAPS` en `index.html` dice qué pasos hay en `android` (la app de Android: la que más hace), `ios` (la web en el iPhone) y `web` (un ordenador). *Ajustes → Lo que puedo hacer en…* sale de `CAP_LIST`.
+  - El cerebro solo recibe los pasos de su plataforma (`STEP_TYPES`).
+  - La app de Android hace sus órdenes con `AranaAndroid.orden(id, 'arana://…')` y contesta en `window.__aranaRes`. `BRIDGE2` distingue la app 0.22.0 de la anterior.
+- **Prioridad:** lo nuevo va primero a Android si Android lo permite. Juan pidió que Android tenga más que nadie.
 
 ## Peticiones
 
@@ -24,8 +34,8 @@ Araña es la app personal de Juan para iPhone. Desde el 2026-10-20 el objetivo e
 2. **Si no es posible**, comentar en el issue en español, en dos o tres frases, por qué no y qué alternativa hay. Etiquetar con `no-posible` y cerrar.
 3. **Si es posible**, implementarlo:
    - **Todo en `index.html`.** Sin compilación ni dependencias nuevas, y sin claves ni secretos.
-   - **Una app nueva** se añade a `APPS` (id, nombre, URL scheme, color 1–6, palabras con las que se la llama).
-   - **Un ajuste nuevo** se añade a `SETS` con su `sc`. En el comentario del issue se explica qué bloque añadir al atajo «Araña» en la app Atajos, con los nombres de las acciones en español.
+   - **Una app nueva** se añade a `CAT_SRC` (`id|nombre|URL scheme|color|otras palabras`). En Android no hace falta el enlace: `Apps.kt` la busca por su nombre o por su paquete.
+   - **Un ajuste nuevo** se añade a `SETS` con su `sc`, y en Android a `Ajustes.kt`. En el comentario del issue se explica qué bloque añadir al atajo «Araña» en la app Atajos (iPhone), con los nombres de las acciones en español.
    - **Una orden nueva** se añade en `rules()`. Hay que quitarla de `CANT` si estaba allí.
    - **Mantener la personalidad:** mayordomo serio, trata de usted, frases cortas.
    - **No romper nada de lo que ya existe:**
@@ -58,8 +68,12 @@ Desde la 0.5.0 la araña piensa con la API de Claude (`claude-haiku-5-5`). La cl
 
 Al añadir una habilidad nueva:
 
-- **Apps y ajustes:** lo que se añade a `APPS` o a `SETS` le llega al cerebro sin más.
-- **Un tipo de paso nuevo** hay que añadirlo en cuatro sitios: el `enum` de `PLAN_TOOL`, la lista de pasos de `brainSystem()`, `toActs()` y `doAction()`/`urlFor()`.
+- **Apps y ajustes:** lo que se añade a `CAT_SRC` o a `SETS` le llega al cerebro sin más.
+- **Un tipo de paso nuevo:**
+  - su capacidad en `CAPS` (y una línea en `CAP_LIST`),
+  - su descripción en `STEP_DOCS` (el `enum` de `PLAN_TOOL` sale de ahí),
+  - `toActs()`, `urlFor()` y `label()`,
+  - si es de Android, su orden en `ejecutar()` de `MainActivity.kt`.
 - **Las reglas** (`rules()`) siguen siendo el plan B, para cuando no hay conexión ni clave.
 - **Gastar poco** es un requisito de diseño:
   - lo que se pueda resolver en local (reglas, `mem`, `planCache`) no debe llamar a la API;
@@ -68,10 +82,7 @@ Al añadir una habilidad nueva:
 
 ## Iconos
 
-- Los iconos reales salen de la API pública de búsqueda de la App Store, por JSONP. Las apps de Apple se buscan por `bundleId` (`APPLE_BUNDLE`) y las demás por nombre.
-- El enlace se guarda en `localStorage` (`arana.icons`).
-- No se suben imágenes de iconos al repo.
-- Las apps que no están en la tienda (`NO_STORE`) se quedan dibujadas.
+- Desde la 0.22.0 la pantalla ya no dibuja iconos de apps. No se suben imágenes de iconos al repo.
 
 ## App nativa (`nativo/ios/`)
 
@@ -81,7 +92,8 @@ Al añadir una habilidad nueva:
 - Antes de dar algo por hecho, comprobar que el workflow del último commit está en verde (`gh api repos/JRJR3333/arana/actions/runs?per_page=1`). Si está rojo, leer el log del job y arreglarlo en esa misma ejecución.
 - Funciones nuevas: dentro del código de la app (EventKit, App Intents, AVFoundation, WidgetKit, ActivityKit…), no en Atajos.
 - Gastar poco con Claude, igual que en la web: `max_tokens` corto, sin historial largo.
-- La araña tiene también una app de Android (`nativo/android/`, Kotlin sin librerías, workflow «App Android»): la web dentro de un WebView más órdenes nativas `arana://`. El APK se publica en la versión `android` del repo. Las peticiones de Android (el hermano de Juan) se atienden igual.
+- La araña tiene también una app de Android (`nativo/android/`, Kotlin sin librerías, workflow «App Android»): la web dentro de un WebView más órdenes nativas `arana://` (`MainActivity.kt` y `Ajustes.kt`). El APK se publica en la versión `android` del repo. Las peticiones de Android (el hermano de Juan) se atienden igual.
+- La app de Android carga la web publicada, así que la web nueva tiene que seguir funcionando con un APK antiguo: sin `AranaAndroid.orden`, solo se usan los enlaces `arana://` de siempre.
 - Firma: cuando Juan tenga cuenta de desarrollador, sus certificados van en *GitHub Secrets*, nunca en el repo.
 
 ## Modo evolución (una vez al día)
@@ -95,7 +107,7 @@ Una tarea programada ejecuta a Claude una vez al día, a las 9:33 (hora de Madri
    - **Hito confirmado** («funciona ✓») → `estado: "conseguido"` en `objetivo.json`. Si «no funciona ✗» → `en_curso`, y arreglarlo.
    - Comentar el issue con lo que se ha hecho con sus notas y cerrarlo.
 2. **Atender todas las peticiones** `nueva-habilidad` abiertas, en cada ejecución y sin límite (lo pidió Juan el 2026-10-20), como explica la sección de arriba. Cada una acaba implementada, cerrada con `no-posible` y una alternativa, o con `necesita-info`. Si una es grande, se hace la parte que se pueda terminar y se deja abierta explicando qué falta. Se suman a las 2–4 mejoras propias; no las sustituyen.
-3. **Publicar una versión con 2–4 mejoras, sobre todo en la app nativa** (la web solo recibe arreglos). Mezclar tipos: `funcionalidad`, `grafica`, `iniciativa`, `diseño`, `arreglo`.
+3. **Publicar una versión con 2–4 mejoras, sobre todo en las apps nativas** (la web recibe arreglos y lo que necesite Android). Mezclar tipos: `funcionalidad`, `grafica`, `iniciativa`, `diseño`, `arreglo`.
    - **Al menos una mejora por versión debe acercar a la araña al objetivo** (ver `OBJETIVO.md`) y llevar `"hito": "hN"`.
    - **Al menos otra debe acercarla a un asistente tipo Siri** (`"hito": "asistente"`; ver la sección de `OBJETIVO.md`).
    - Si un hito necesita que Juan haga algo en su iPhone, poner `estado: "listo_para_juan"`, rellenar `juan` con la tarea en una frase y `guia` con un enlace a la guía paso a paso en `nativo/`.
@@ -104,7 +116,7 @@ Una tarea programada ejecuta a Claude una vez al día, a las 9:33 (hora de Madri
    - Subir `version.json` (minor) y `const V` en `sw.js`.
 4. **Calidad antes de publicar:**
    - `node --check` del script.
-   - Una prueba en jsdom que abra la app sin errores, abra Evolución y abra «Valorar mejoras».
+   - Una prueba en jsdom que abra la app sin errores con el agente de usuario de iPhone, de Android (`?app=android`, con un `AranaAndroid` falso) y de ordenador, y abra Ajustes, Evolución y «Valorar mejoras» (`__arana.settings()`, `__arana.evo()`, `__arana.rate()`). En jsdom el agente de usuario se pasa con `new ResourceLoader({userAgent})`.
    - JSON válidos.
    - Si algo falla y no se arregla en esa ejecución, no publicar.
 5. **Diario.** Añadir una línea a `evolucion/diario.md`: hora, versión, qué se hizo, qué hito se trabajó y el siguiente paso previsto.

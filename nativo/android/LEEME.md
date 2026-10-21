@@ -1,6 +1,6 @@
 # La araña para Android
 
-**Qué es:** la misma araña de la web, dentro de su propia app de Android (`nativo/android/`, Kotlin, sin librerías). Se compila sola en la nube (pestaña **Actions** → «App Android») cada vez que cambia.
+**Qué es:** la araña con la misma pantalla que la app de iPhone, dentro de su propia app de Android (`nativo/android/`, Kotlin, sin librerías). Es la versión que más hace. Se compila sola en la nube (pestaña **Actions** → «App Android») cada vez que cambia.
 
 ## Instalarla (2 minutos, en el móvil Android)
 
@@ -17,9 +17,23 @@ En Android no hace falta cuenta de desarrollador ni pagar nada.
 
 ## Qué sabe ya
 
-- Todo lo de la web (cerebro Claude, apps, memoria, Evolución).
-- En nativo: temporizadores y alarmas del reloj (`arana://temporizador?min=5`, `arana://alarma?hora=7&min=30`).
-- Desde la 0.21.0: abre las apps instaladas (`arana://abrir?app=WhatsApp`), micrófono propio y voz del móvil, y la araña flotante (`arana://flotar`; la primera vez pide «Mostrar sobre otras apps»).
+- La misma pantalla que en el iPhone: telaraña, bocadillo, la araña, micro, campo e «Ir». Todo lo demás (Evolución, Valorar mejoras, el bolsillo, la memoria) está en Ajustes, la rueda de arriba.
+- El cerebro Claude, la memoria y lo aprendido, como en la web.
+- En nativo (desde la 0.22.0, órdenes `arana://` con respuesta):
+  - abrir las apps instaladas por su nombre (`abrir`),
+  - ajustes (`ajuste`): linterna, brillo, No molestar y, en Android 9 o menos, Wi-Fi, los hace ella; Wi-Fi, datos, Bluetooth, tema oscuro y ahorro de batería abren su panel para que usted toque,
+  - temporizadores y alarmas del reloj (`temporizador`, `alarma`),
+  - música: poner, pausar, siguiente y anterior en la app que esté sonando (`musica`),
+  - citas en el calendario (`evento`), llamar (`llamar`) y mensajes (`mensaje`),
+  - oír con el micro de Android, hablar con su voz, flotar sobre las demás apps (`flotar`) y cerrarse (`salir`).
+
+## Permisos que pide una sola vez
+
+- **Brillo de todo el móvil:** «Modificar ajustes del sistema» para la Araña. Sin él, cambia solo el brillo de la araña.
+- **No molestar:** acceso a «No molestar» para la Araña.
+- **Flotar:** «Mostrar sobre otras apps».
+
+La araña abre la pantalla de Android donde se concede; después, vuelva a pedírselo.
 
 ## Qué falta
 

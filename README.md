@@ -1,23 +1,18 @@
 # Araña
 
-Asistente personal en forma de araña para iPhone. Vive en la pantalla de inicio como una app web. Camina entre sus "estaciones" y lanza la tela para hacer cosas en el iPhone:
+Asistente personal en forma de araña. Tiene **la misma pantalla en todas partes**: el fondo de rejilla, la telaraña que crece con cada orden cumplida, el bocadillo, la araña de puntos y líneas, y abajo el micro, el campo «Dígame qué hacer» e «Ir». Lo demás está en **Ajustes** (la rueda de arriba a la derecha).
 
-- abrir apps,
-- cambiar ajustes,
-- llevar textos de una app a otra.
+Hay tres versiones. Se ven igual; cambia lo que el móvil le deja hacer:
 
-Usa **Atajos de iOS** como manos. Lo que iOS no permite, lo dice.
+| Versión | Dónde está | Qué puede hacer |
+|---|---|---|
+| **Android** (la que más hace) | `nativo/android/` | Abrir sus apps, ajustes del móvil (linterna, brillo, No molestar; Wi-Fi, datos y Bluetooth abren su panel), temporizadores, alarmas, música (poner, pausar, siguiente), citas en el calendario, llamar, mensajes, WhatsApp, bolsillo, flotar sobre las demás apps y cerrarse |
+| **App de iPhone** | `nativo/ios/` | Abrir apps, recordatorios, temporizadores, citas y agenda, música de su biblioteca, llamar, mensajes, metrónomo, widget, Centro de control e Isla Dinámica |
+| **Web** (iPhone, Android o PC) | `index.html` | En el iPhone: abrir apps por su enlace, ajustes con el atajo «Araña», WhatsApp, llamar y bolsillo. En un ordenador: contestar, pensar y guardar en el bolsillo |
 
-## Qué hace y qué no
+En *Ajustes → Lo que puedo hacer en…* cada versión enseña su propia lista. El cerebro (Claude) recibe solo los pasos que ese aparato permite.
 
-| Puede | Cómo |
-|---|---|
-| Abrir Notas, Mapas, Música, Fotos, Calendario, Correo, Recordatorios y WhatsApp | Enlace directo a la app |
-| Wi-Fi, Bluetooth, brillo, No molestar, modo oscuro, linterna, bajo consumo y datos móviles | Atajo «Araña» |
-| Llevar un texto a otra app | Lo copia, abre la app y usted pega |
-| Preparar un WhatsApp con texto | Abre WhatsApp con el mensaje; usted elige el contacto y pulsa enviar |
-
-| No puede (iOS no lo permite) | Qué dice |
+| No puede (ningún móvil lo permite) | Qué dice |
 |---|---|
 | Tocar botones dentro de otras apps | Lo explica |
 | Mover iconos de la pantalla de inicio | Lo explica |
@@ -32,11 +27,11 @@ Usa **Atajos de iOS** como manos. Lo que iOS no permite, lo dice.
   - «Mal» resta −3, y con −2 la frase se olvida.
 - **Deja de preguntar.** En el modo «Según lo aprendido», cuando una frase llega a +4 (o una acción sale bien 3 veces sin fallos), deja de pedir permiso.
 - **Avisa de lo que falla.** Si una acción ha fallado más veces de las que ha salido bien, avisa y vuelve a preguntar.
-- **Se puede revisar.** Todo se ve y se borra en *Ajustes → Lo que he aprendido*. La memoria se queda solo en su iPhone.
+- **Se puede revisar.** Todo se ve y se borra en *Ajustes → Lo que he aprendido*. La memoria se queda solo en su móvil.
 
 ---
 
-## Instalación (una vez)
+## Instalación de la web en el iPhone (una vez)
 
 ### 1. Publicar en GitHub Pages
 
@@ -115,31 +110,25 @@ La primera vez, iOS pedirá permiso para abrir Atajos y cada app; diga que sí. 
 ## Órdenes de ejemplo
 
 - `abre Notas` · `abre el calendario`
-- `apaga el wifi` · `enciende el bluetooth` · `brillo al 30` · `sube el brillo`
-- `pon no molestar` · `quita el modo oscuro` · `activa la linterna`
+- `apaga el wifi` · `brillo al 30` · `pon no molestar` · `enciende la linterna`
 - `envía por WhatsApp: llego en diez minutos`
 - `guarda esto` (abre el bolsillo) · `lleva esto a Notas`
+- En Android: `temporizador de 5 minutos` · `alarma a las 7 y media` · `pausa la música` · `flota` · `sal de la app`
 
-Para hablarle, use el **dictado del teclado** (el micro junto a la barra espaciadora). En el modo de pantalla completa, iOS no deja usar el micrófono de la web directamente.
+Para hablarle, pulse el micro de abajo a la izquierda o toque la araña. En la web del iPhone, si el micro no está disponible, use el dictado del teclado.
 
 ## Tocar la araña
 
-- **Tocar**: muestra un menú con el bolsillo y lo aprendido.
-- **Arrastrar**: la mueve.
+- **Tocar**: le escucha.
 - **Tocar mientras trabaja**: se detiene.
-- Tras unos segundos sin nada que hacer, se recoge en el borde.
+- **Rueda de arriba**: Ajustes, con Evolución, Valorar mejoras, lo aprendido, el bolsillo y la memoria.
 
 ## Añadir apps
 
-Edite la lista `APPS` en `index.html` con el nombre, el enlace de la app (su "URL scheme") y las palabras con las que la llamará. Por ejemplo:
+Añada una línea a `CAT_SRC` en `index.html`: `id|nombre|enlace (URL scheme)|color|otras formas de llamarla`. Por ejemplo:
 
-```js
-{id:'spotify', name:'Spotify', url:'spotify://', c:3, al:['spotify']}
+```
+spotify|Spotify|spotify://|#111111|
 ```
 
-Si una app no tiene enlace, se puede abrir desde el atajo con un bloque `Si accion es abrir` y la acción *Abrir app*.
-
-## Siguientes pasos
-
-1. **Cerebro con IA.** Conectar la API de Claude para entender órdenes libres y encadenar pasos, manteniendo la memoria de premios.
-2. **App nativa.** Si más adelante hay un Mac, pasarla a Swift con *App Intents*. Así podría tener widget, órdenes por Siri y acciones propias sin pasar por la app Atajos.
+En Android no hace falta el enlace: la araña busca la app instalada por su nombre. Para cambiar el enlace de una app sin tocar código, pídale que la abra; si no sabe, ofrece «Poner enlace».

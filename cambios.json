@@ -1,5 +1,40 @@
 [
  {
+  "v": "0.22.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.22.0-1",
+    "tipo": "diseño",
+    "titulo": "La misma pantalla en web, iPhone y Android",
+    "detalle": "A petición de Juan: la web y la app de Android se ven como la app de iPhone. Fondo de rejilla, telaraña que crece, bocadillo, la misma araña (mismos números que en Swift) y abajo micro, campo e «Ir». Se quitan la pantalla de iconos, el dock y la araña que caminaba por ellos.",
+    "probar": "Abra la araña en Android o en la web: debe verse como la app de su iPhone."
+   },
+   {
+    "id": "0.22.0-2",
+    "tipo": "diseño",
+    "titulo": "Todo lo demás, dentro de Ajustes",
+    "detalle": "La rueda abre una hoja como la de iOS: cerebro, lo que sé de usted, Evolución, Valorar mejoras, lo aprendido, el bolsillo, cómo me porto y la memoria. Con «‹ Atrás» entre páginas.",
+    "probar": "Toque la rueda → Evolución → Valorar mejoras, y vuelva con «‹ Atrás»."
+   },
+   {
+    "id": "0.22.0-3",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Android hace más que nadie",
+    "detalle": "La app de Android 0.22.0 hace en nativo: linterna, brillo, No molestar, Wi-Fi (o su panel), datos, Bluetooth, tema y ahorro de batería; música (poner, pausar, siguiente, anterior); citas en el calendario; llamadas y mensajes. La web le manda la orden y Android le contesta qué ha pasado.",
+    "probar": "En Android, con la app nueva: diga «enciende la linterna» y luego «pausa la música»."
+   },
+   {
+    "id": "0.22.0-4",
+    "tipo": "arreglo",
+    "titulo": "Cada aparato sabe lo que puede",
+    "detalle": "Ajustes → «Lo que puedo hacer en…» enseña la lista de ese aparato, y el cerebro solo recibe esos pasos, así no promete lo que no puede. En un ordenador lo explica en vez de intentarlo.",
+    "probar": "Pregúntele «¿qué sabes hacer aquí?» en el iPhone y en Android."
+   }
+  ]
+ },
+ {
   "v": "0.21.0",
   "fecha": "2026-10-21",
   "mejoras": [

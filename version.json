@@ -1,7 +1,10 @@
 {
-  "version": "0.21.0",
+  "version": "0.22.0",
   "date": "2026-10-21",
   "notes": [
+    "Ya me veo igual en la web, en el iPhone y en Android: mi pantalla de siempre, con todo lo demás en Ajustes.",
+    "En Android ya enciendo la linterna, cambio el brillo y pongo No molestar yo misma.",
+    "En Android ya pauso y paso canciones, apunto citas, llamo y preparo mensajes.",
     "En Android ya abro sus apps de verdad, le oigo con el micro y le hablo en voz alta.",
     "En Android ya salgo de mi app y me quedo flotando sobre las demás: pídame «flota».",
     "Ya estoy en el Centro de control y en el botón de Acción: un toque y le escucho (en mi app).",
@@ -10,7 +13,6 @@
     "Ya tengo widget: un toque en la pantalla de inicio y le escucho (en mi app).",
     "Ya pongo, pauso y busco su música (en mi app).",
     "En Android ya sé dónde estoy, salir de la app y poner temporizadores y alarmas del reloj.",
-    "Ya marco el compás: pídame «metrónomo a 90» (en mi app).",
-    "Ya salgo en la Isla Dinámica mientras trabajo (en mi app)."
+    "Ya marco el compás: pídame «metrónomo a 90» (en mi app)."
   ]
 }
