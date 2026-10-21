@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.21.0"
-    CURRENT_PROJECT_VERSION: "5"
+    MARKETING_VERSION: "0.22.0"
+    CURRENT_PROJECT_VERSION: "6"
 targets:
   Arana:
     type: application
@@ -45,6 +45,9 @@ targets:
       path: AranaIsla/Info.plist
       properties:
         CFBundleDisplayName: Araña
+        # El widget debe llevar la misma versión que la app; si no, iOS no deja instalarla.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
