@@ -19,11 +19,11 @@ En Android no hace falta cuenta de desarrollador ni pagar nada.
 
 - Todo lo de la web (cerebro Claude, apps, memoria, Evolución).
 - En nativo: temporizadores y alarmas del reloj (`arana://temporizador?min=5`, `arana://alarma?hora=7&min=30`).
+- Desde la 0.21.0: abre las apps instaladas (`arana://abrir?app=WhatsApp`), micrófono propio y voz del móvil, y la araña flotante (`arana://flotar`; la primera vez pide «Mostrar sobre otras apps»).
 
 ## Qué falta
 
-- Que la web use esas órdenes nativas cuando corre dentro de la app Android.
-- Micrófono propio, avisos y widget de Android.
+- Avisos con la app cerrada y widget de Android.
 
 ## Actualizar
 
