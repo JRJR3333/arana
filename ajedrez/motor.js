@@ -1131,7 +1131,7 @@ function estilo(genes) {
 /* Recibe la población con sus resultados (pts) y devuelve la siguiente generación y el resumen */
 function siguienteGeneracion(est, pop, rng) {
   const O = Object.assign({}, OPC_EVO, est.opc || {}), gen = est.gen;
-  pop.forEach(p => { p.fit = (p.pts || 0) + p.elo / 1e5; p.hist.push({ gen, pts: p.pts || 0, elo: Math.round(p.elo) }); });
+  pop.forEach(p => { p.fit = (p.pts || 0) + (p.sfb || 0) + p.elo / 1e5; p.hist.push({ gen, pts: p.pts || 0, sf: p.sfb || 0, elo: Math.round(p.elo) }); });   // sfb: premio de la escalera de Stockfish
   const orden = pop.slice().sort((a, b) => b.fit - a.fit);
   const mejor = orden[0];
   est.racha = mejor.id === est.campeon ? (est.racha || 0) + 1 : 0; est.campeon = mejor.id;
@@ -1145,7 +1145,7 @@ function siguienteGeneracion(est, pop, rng) {
     elite: orden.slice(0, O.elite).map(p => p.id), inmigrantes: 0,
     adn: DET.map(d => { let on = 0, w = 0; for (const p of pop) { const a = p.genes['d' + d.n]; if (a[0] > 0) { on++; w += a[2]; } } return [d.n, r4(on / pop.length), r4(on ? w / on : 0)]; })
   };
-  const nueva = orden.slice(0, O.elite).map(p => { p.pts = 0; return p; });
+  const nueva = orden.slice(0, O.elite).map(p => { p.pts = 0; p.sfb = 0; return p; });
   const elegir = () => { let b = null; for (let i = 0; i < O.torneo; i++) { const c = pop[Math.floor(rng() * pop.length)]; if (!b || c.fit > b.fit) b = c; } return b; };
   let inm = div < O.umbralDiv ? O.inmigrantes : 0; resumen.inmigrantes = inm;
   while (nueva.length < O.poblacion) {

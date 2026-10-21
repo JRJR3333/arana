@@ -11,8 +11,17 @@ const COLOR_ORIGEN = { iphone: '#5ee8ff', android: '#ffb340', web: '#a99bff', in
 const colorDe = p => p.mut && p.mut.nacio === 'inmigrante' ? COLOR_ORIGEN.inmigrante : COLOR_ORIGEN[p.origen] || '#9a9aa8';
 const fmt = (v, d) => (+v).toFixed(d == null ? 1 : d).replace('.', ',');
 
+/* Los 12 peldaños de la escalera de Stockfish (nivel de Stockfish y cuánto piensa) */
+const ESCALERA = [
+  { n: 1, nombre: 'Stockfish a ciegas', skill: 0, go: 'depth 1' }, { n: 2, nombre: 'Mira dos jugadas', skill: 0, go: 'depth 2' },
+  { n: 3, nombre: 'Aprendiz', skill: 1, go: 'depth 3' }, { n: 4, nombre: 'Principiante', skill: 2, go: 'depth 3' },
+  { n: 5, nombre: 'Jugador de club', skill: 3, go: 'depth 4' }, { n: 6, nombre: 'Club fuerte', skill: 4, go: 'depth 4' },
+  { n: 7, nombre: 'Jugador de torneo', skill: 5, go: 'depth 5' }, { n: 8, nombre: 'Torneo fuerte', skill: 6, go: 'depth 5' },
+  { n: 9, nombre: 'Experto', skill: 8, go: 'depth 6' }, { n: 10, nombre: 'Maestro', skill: 10, go: 'depth 8' },
+  { n: 11, nombre: 'Gran maestro', skill: 15, go: 'movetime 50' }, { n: 12, nombre: 'Plena potencia', skill: 20, go: 'movetime 100' }];
+
 /* ───── Opciones (se guardan en el aparato) ───── */
-const OPC_DEF = { ms: 30, prof: 4, rondas: 4, maxPlies: 160, directo: true };
+const OPC_DEF = { ms: 30, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4 };
 let opc = OPC_DEF;
 try { opc = Object.assign({}, OPC_DEF, JSON.parse(localStorage.getItem('arana.ajedrez.opc') || '{}')); } catch (e) { opc = Object.assign({}, OPC_DEF); }
 const guardarOpc = () => { try { localStorage.setItem('arana.ajedrez.opc', JSON.stringify(opc)); } catch (e) {} };
@@ -61,11 +70,11 @@ async function cargar() {
     if (pop.length !== est.pop.length || pop.some(p => !p.genes)) pop = [];
   }
   if (!est || !pop.length) {
-    est = { gen: 1, origen: ORIGEN, opc: {}, creada: new Date().toISOString(), hitos: {} };
+    est = { gen: 1, origen: ORIGEN, opc: {}, creada: new Date().toISOString(), hitos: {}, escalera: { peldano: 1, conquistas: {} } };
     pop = M.poblacionInicial(rng, ORIGEN, M.OPC_EVO.poblacion);
     await guardarEstado();
   }
-  est.hitos = est.hitos || {};
+  est.hitos = est.hitos || {}; est.escalera = est.escalera || { peldano: 1, conquistas: {} };
   historial = (await todos('generaciones')).sort((a, b) => a.gen - b.gen);
   byId = new Map(pop.map(p => [p.id, p]));
 }
@@ -87,7 +96,7 @@ function crearHilos() {
 }
 let juegos = [], enCurso = new Map(), entrenando = false, sigId = 0, ronda = 0;
 function prepararGeneracion() {
-  pop.forEach(p => { p.pts = 0; });
+  pop.forEach(p => { p.pts = 0; p.sfb = 0; });
   juegos = M.emparejar(pop, opc.rondas, rng).map(j => Object.assign(j, { id: ++sigId, estado: 'cola', fenAhora: j.fen, ultima: null, res: null, eval: 0 }));
   ronda = 0;
   construirPlano();
@@ -104,6 +113,7 @@ function repartir() {
   marcar();
 }
 function alRecibir(w, d) {
+  if (d.t === 'pensado') { const f = pens.get(d.id); if (f) { pens.delete(d.id); f(d); } return; }
   const j = enCurso.get(d.id); if (!j) return;
   if (d.t === 'jugada') { j.fenAhora = d.fen; j.ultima = d.uci; j.eval = d.eval; marcar(j); return; }
   if (d.t === 'fin') {
@@ -113,13 +123,28 @@ function alRecibir(w, d) {
     a.pts += d.res; b.pts += 1 - d.res; M.actualizarElo(a, b, d.res);
     for (const [p, v] of [[a, d.res], [b, 1 - d.res]]) p.partidas[v === 1 ? 'g' : v === 0 ? 'p' : 'e']++;
     marcar(j);
-    if (juegos.every(x => x.estado === 'fin')) cerrarGeneracion();
+    if (juegos.every(x => x.estado === 'fin')) finTorneo();
     else repartir();
   }
 }
 async function cerrarGeneracion() {
-  const viejos = pop.slice(), mejorPartida = elegirPartida();
+  const viejos = pop.slice(), mejorPartida = elegirPartida(), fase = sfFase; sfFase = null;
+  let resSF = null;
+  if (fase && fase.hechos.length) {
+    const E = fase.E, puntos = fase.hechos.reduce((a, j) => a + j.res, 0), n = fase.hechos.length, conquistado = false;
+    const mejor = fase.hechos.slice().sort((a, b) => b.res - a.res || b.calidad - a.calidad || b.plies - a.plies)[0];
+    resSF = { peldano: E.n, nombre: E.nombre, puntos, partidas: n, conquistado, calidad: Math.round(fase.hechos.reduce((a, j) => a + j.calidad, 0) / n * 1000) / 1000,
+      juegos: fase.hechos.map(j => ({ id: j.id, nombre: j.nombre, color: j.yoB ? 'blancas' : 'negras', res: j.res, plies: j.plies, calidad: Math.round(j.calidad * 1000) / 1000, motivo: j.motivo })) };
+    if (mejorPartida) mejorPartida.sf = { peldano: E.n, nombre: mejor.nombre, yoB: mejor.yoB, fen: mejor.fen0, jugadas: mejor.jugadas, res: mejor.res, motivo: mejor.motivo };
+    // Se conquista con las últimas 8 partidas jugadas en este peldaño (de esta generación o de las anteriores)
+    const ven = est.escalera.ventana = (est.escalera.ventana || []).concat(fase.hechos.map(j => j.res)).slice(-8);
+    const media = ven.reduce((a, b) => a + b, 0) / ven.length;
+    resSF.ventana = { partidas: ven.length, puntos: ven.reduce((a, b) => a + b, 0) };
+    resSF.conquistado = ven.length >= 8 && media >= 0.5 && !est.escalera.conquistas[E.n];
+    if (resSF.conquistado) { est.escalera.conquistas[E.n] = { gen: est.gen, fecha: new Date().toISOString(), por: mejor.nombre, puntos: resSF.ventana.puntos, partidas: ven.length }; est.escalera.peldano = Math.min(ESCALERA.length, E.n + 1); est.escalera.ventana = []; }
+  }
   const out = M.siguienteGeneracion(est, pop, rng);
+  if (resSF) out.resumen.sf = resSF;
   const elite = new Set(out.resumen.elite);
   const vivos = new Set(out.pop.map(p => p.id)), extra = [['generaciones', out.resumen]];
   if (mejorPartida) extra.push(['partidas', Object.assign({ gen: out.resumen.gen }, mejorPartida)]);
@@ -144,6 +169,9 @@ function elegirPartida() {   // la partida más larga de la mejor araña
 const HITOS = [
   ...[2, 10, 25, 50, 100, 250, 500, 1000].map(g => ({ id: 'g' + g, texto: g === 2 ? 'Mi primera generación completa' : `Generación ${g} completada`, ok: r => r.gen + 1 >= g })),
   ...[1300, 1400, 1500, 1600, 1800, 2000].map(e => ({ id: 'e' + e, texto: `Una campeona llega a ${e} de Elo`, ok: r => r.mejor.elo >= e })),
+  { id: 'sf-tablas', texto: 'Mis primeras tablas contra Stockfish', ok: r => !!(r.sf && r.sf.juegos.some(j => j.res === .5)) },
+  { id: 'sf-gana', texto: 'Mi primera victoria contra Stockfish', ok: r => !!(r.sf && r.sf.juegos.some(j => j.res === 1)) },
+  ...[1, 3, 6, 9, 12].map(n => ({ id: 'p' + n, texto: n === 12 ? 'Conquisto el último peldaño: Stockfish a plena potencia' : `Peldaño ${n} conquistado: ${ESCALERA[n - 1].nombre}`, ok: () => !!(est.escalera && est.escalera.conquistas[n]) })),
   { id: 'sacudida', texto: 'Me estanqué y sacudí la mutación para explorar', ok: () => (est.sacudidas || 0) > 0 },
   { id: 'inmigrante', texto: 'Una inmigrante llega a la élite', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.mut && p.mut.nacio === 'inmigrante'; }) },
   { id: 'ligera', texto: 'Una campeona sin ningún detector caro', ok: r => { const p = byId.get(r.mejor.id); return p && p.genes && M.DET.every(d => d.coste < 2 ? true : !(p.genes['d' + d.n][0] > 0)); } },
@@ -166,9 +194,127 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 function entrenar(si) {
   entrenando = si;
   $('#go').textContent = si ? '⏸ Pausar' : '▶ Entrenar';
-  if (si) { pedirCandado(); if (!juegos.length) prepararGeneracion(); repartir(); }
+  if (si) { pedirCandado(); if (sfFase) faseStockfish(); else { if (!juegos.length) prepararGeneracion(); repartir(); } }
   else if (candado) { candado.release().catch(() => {}); candado = null; }
   pintarEstado();
+}
+
+/* ═════════ Stockfish y la escalera ═════════
+   Tras cada torneo, las mejores juegan contra Stockfish (blancas y negras, misma apertura) en el peldaño actual.
+   Premio por partida: aguante (hasta 1), calidad según Stockfish (0–1) y resultado (tablas 2, victoria 3).
+   Si sacan la mitad de los puntos en las últimas 8 partidas jugadas en el peldaño, queda conquistado y se sube al siguiente. */
+const sf = { w: null, listo: false, espera: null };
+let sfFase = null, sfFallo = '', sfVista = null;
+function sfLinea(l) { const e = sf.espera; if (!e) return; e.lineas.push(l); if (e.re.test(l)) { clearTimeout(e.t); sf.espera = null; e.ok(e.lineas); } }
+function sfCmd(cmd, re, ms) {
+  return new Promise((ok, ko) => {
+    sf.espera = { re, ok, lineas: [], t: setTimeout(() => { sf.espera = null; ko(new Error('Stockfish no responde')); }, ms || 20000) };
+    sf.w.postMessage(cmd);
+  });
+}
+async function sfIniciar() {
+  if (sf.listo) return;
+  sf.w = new Worker('stockfish/stockfish-19-lite-single.js');
+  sf.w.onmessage = e => sfLinea(String(e.data));
+  sf.w.onerror = e => { sfFallo = (e && e.message) || 'error al cargar'; if (sf.espera) { const x = sf.espera; sf.espera = null; clearTimeout(x.t); x.ok([]); } };
+  await sfCmd('uci', /^uciok/, 30000);
+  sf.listo = true;
+}
+function puntuacion(ls) {   // la última valoración de Stockfish, desde Stockfish
+  for (let i = ls.length - 1; i >= 0; i--) { const m = / score (cp|mate) (-?\d+)/.exec(ls[i]); if (m) return m[1] === 'cp' ? +m[2] : (+m[2] > 0 ? 20000 : -20000); }
+  return null;
+}
+let sigPens = 0; const pens = new Map();
+function pensarArana(ind, fen0, jugadas) {
+  return new Promise(ok => { const id = 'p' + (++sigPens); pens.set(id, ok); hilos[0].postMessage({ t: 'pensar', id, ind: { id: ind.id, genes: ind.genes }, fen0, jugadas, ms: opc.ms, prof: opc.prof }); });
+}
+async function partidaSF(ind, yoB, fen0, E) {
+  sf.w.postMessage('ucinewgame'); sf.w.postMessage('setoption name Skill Level value ' + E.skill); await sfCmd('isready', /^readyok/);
+  const pos = new M.Pos(fen0), jug = [], cal = []; let f = null, malas = 0, buenas = 0, evYo = 0, evSF = null;
+  sfVista = { fen: pos.fen(), ultima: null, ind, yoB, evYo, evSF, E }; marcarSF();
+  while (true) {
+    if (!entrenando) return null;
+    f = M.fin(pos); if (f) break;
+    if (jug.length >= opc.maxPlies) { const e = evSF == null ? 0 : evSF; f = { res: e > 300 ? (yoB ? 1 : 0) : e < -300 ? (yoB ? 0 : 1) : .5, motivo: 'límite de jugadas' }; break; }
+    let u;
+    if ((pos.side === 0) === yoB) {
+      const r = await pensarArana(ind, fen0, jug); u = r.uci; if (r.uci) evYo = yoB ? r.eval : -r.eval;
+    } else {
+      sf.w.postMessage('position fen ' + fen0 + (jug.length ? ' moves ' + jug.join(' ') : ''));
+      const ls = await sfCmd('go ' + E.go, /^bestmove/, 30000), b = ls.length ? ls[ls.length - 1].split(/\s+/)[1] : null, sc = puntuacion(ls);
+      u = b;
+      if (sc != null) {
+        evSF = -sc; cal.push(1 / (1 + Math.pow(10, -evSF / 400)));
+        if (evSF < -1500) { malas++; buenas = 0; } else if (evSF > 1500) { buenas++; malas = 0; } else { malas = buenas = 0; }
+        if (malas >= 6) f = { res: yoB ? 0 : 1, motivo: 'abandono' };
+        if (buenas >= 6) f = { res: yoB ? 1 : 0, motivo: 'Stockfish abandona' };
+      }
+    }
+    if (!u || u === '(none)') { f = M.fin(pos) || { res: .5, motivo: 'sin jugada' }; break; }
+    const m = M.parseUci(pos, u); if (!m) { f = { res: .5, motivo: 'jugada imposible' }; break; }
+    pos.make(m); jug.push(u);
+    sfVista = { fen: pos.fen(), ultima: u, ind, yoB, evYo, evSF, E, plies: jug.length }; marcarSF();
+    if (f) break;
+  }
+  return { res: yoB ? f.res : 1 - f.res, plies: jug.length, calidad: cal.length ? cal.reduce((a, b) => a + b) / cal.length : .5, motivo: f.motivo, jugadas: jug, fen0, yoB };
+}
+function finTorneo() { if (opc.sf && !sfFallo && pop.length) faseStockfish(); else cerrarGeneracion(); }
+async function faseStockfish() {
+  if (sfFase && sfFase.corriendo) return;
+  if (!sfFase) {
+    const E = ESCALERA[(est.escalera.peldano || 1) - 1], top = pop.slice().sort((a, b) => b.pts - a.pts || b.elo - a.elo).slice(0, opc.sfTop);
+    sfFase = { E, cola: [], hechos: [], total: top.length * 2 };
+    for (const p of top) { const fen = M.aperturaAleatoria(rng, 4); sfFase.cola.push({ id: p.id, yoB: true, fen }, { id: p.id, yoB: false, fen }); }
+  }
+  sfFase.corriendo = true; marcarSF();
+  try { await sfIniciar(); } catch (e) { sfFallo = (e && e.message) || 'no carga'; }
+  if (sfFallo) { sfFase.corriendo = false; marcarSF(); return cerrarGeneracion(); }
+  while (sfFase.cola.length) {
+    if (!entrenando) { sfFase.corriendo = false; marcarSF(); return; }
+    const j = sfFase.cola[0], p = byId.get(j.id); let r;
+    try { r = await partidaSF(p, j.yoB, j.fen, sfFase.E); } catch (e) { sfFallo = (e && e.message) || 'error'; break; }
+    if (!r) { sfFase.corriendo = false; marcarSF(); return; }
+    sfFase.cola.shift(); sfFase.hechos.push(Object.assign({ id: p.id, nombre: p.nombre }, r));
+    p.sfb = (p.sfb || 0) + Math.min(1, r.plies / 100) + r.calidad + (r.res === 1 ? 3 : r.res === .5 ? 2 : 0);
+    const reg = p.sf = p.sf || { partidas: 0, puntos: 0, mejorPeldano: 0, mejor: null };
+    reg.partidas++; reg.puntos += r.res; reg.ultimo = { peldano: sfFase.E.n, res: r.res, plies: r.plies };
+    if (r.res > 0 && (sfFase.E.n > reg.mejorPeldano || (sfFase.E.n === reg.mejorPeldano && r.res === 1))) { reg.mejorPeldano = sfFase.E.n; reg.mejor = r.res === 1 ? 'victoria' : 'tablas'; }
+  }
+  sfFase.corriendo = false; sfVista = null; marcarSF();
+  return cerrarGeneracion();
+}
+let sfSucio = true;
+function marcarSF() { sfSucio = true; pedir(); }
+function escaleraSVG(w, h) {
+  const n = ESCALERA.length, cw = w / n, act = est.escalera.peldano, con = est.escalera.conquistas;
+  let s = `<svg viewBox="0 0 ${w} ${h + 18}" width="${w}" height="${h + 18}" role="img" aria-label="Escalera de Stockfish: peldaño ${act} de ${n}">`;
+  for (let i = 0; i < n; i++) {
+    const k = i + 1, hh = (k / n) * h, x = i * cw + 3, y = h - hh, ok = !!con[k], cur = k === act && !ok;
+    s += `<rect x="${x}" y="${y}" width="${cw - 6}" height="${hh}" rx="4" fill="${ok ? 'rgba(61,255,153,.35)' : cur ? 'rgba(94,232,255,.12)' : 'none'}" stroke="${ok ? '#3dff99' : cur ? '#5ee8ff' : 'rgba(94,232,255,.3)'}" stroke-width="${cur ? 3 : 1}"/>`;
+    s += `<text x="${x + (cw - 6) / 2}" y="${h + 14}" text-anchor="middle" fill="${cur ? '#5ee8ff' : 'rgba(235,235,245,.55)'}" style="font:600 12px ui-monospace,Menlo,monospace">${k}</text>`;
+  }
+  return s + '</svg>';
+}
+function pintarSF() {
+  sfSucio = false;
+  const z = document.getElementById('zsf'); if (!z) return;
+  const act = est.escalera.peldano, E = ESCALERA[act - 1], hecho = !!est.escalera.conquistas[ESCALERA.length];
+  z.querySelector('h3').textContent = hecho ? 'Escalera de Stockfish · ¡conquistada!' : `Escalera de Stockfish · peldaño ${act}: ${E.nombre}`;
+  z.querySelector('.esc').innerHTML = escaleraSVG(560, 150);
+  const info = z.querySelector('.sfi'), v = sfVista;
+  let t;
+  if (!opc.sf) t = 'La escalera está apagada en las opciones.';
+  else if (sfFallo) t = `Stockfish no ha cargado (${esc(sfFallo)}). Sigo evolucionando sin escalera; vuelva a abrir la sala para reintentarlo.`;
+  else if (sfFase && v) {
+    const pct = x => (100 / (1 + Math.pow(10, -(x || 0) / 400))).toFixed(1);
+    t = `<b>${esc(v.ind.nombre)}</b> con ${v.yoB ? 'blancas' : 'negras'} · partida ${sfFase.hechos.length + 1} de ${sfFase.total} · jugada ${Math.ceil((v.plies || 0) / 2)}
+      <div class="bar"><span>Ella</span><div class="ev"><b style="width:${pct(v.evYo)}%"></b></div><i>${v.evYo > 0 ? '+' : ''}${fmt((v.evYo || 0) / 100, 2)}</i></div>
+      <div class="bar"><span>Stockfish</span><div class="ev"><b style="width:${pct(v.evSF)}%"></b></div><i>${v.evSF == null ? '—' : (v.evSF > 0 ? '+' : '') + fmt(v.evSF / 100, 2)}</i></div>
+      <small>Valoraciones desde la araña: más de 0, va mejor ella.</small>`;
+  } else if (sfFase) t = entrenando ? 'Preparando a Stockfish…' : `En pausa: quedan ${sfFase.cola.length} partidas contra Stockfish.`;
+  else t = `Cuando acabe el torneo, las ${opc.sfTop} mejores subirán aquí: blancas y negras contra Stockfish. Conquistan el peldaño si sacan la mitad de los puntos en sus últimas 8 partidas en él${(est.escalera.ventana || []).length ? ` (llevan ${fmt(est.escalera.ventana.reduce((a, b) => a + b, 0), 1)} de ${est.escalera.ventana.length})` : ''}.`;
+  info.innerHTML = t;
+  if (nivel !== 'lejos') tablero(z.querySelector('canvas'), v ? v.fen : M.INICIO, v ? v.ultima : null, true, v ? (v.yoB ? 'b' : 'w') : 'b');
 }
 
 /* ═════════ El plano ═════════ */
@@ -179,7 +325,7 @@ function construirPlano() {
   const n = Math.max(1, Math.floor(pop.length / 2)), filas = Math.ceil(n / COLS);
   W0 = PAD * 2 + COLS * CW + (COLS - 1) * GAP;
   const yZ = PAD + filas * CH + (filas - 1) * GAP + 40;
-  H0 = yZ + 210 + 24 + 160 + PAD;
+  H0 = yZ + 320 + 24 + 160 + PAD;
   let h = '';
   for (let m = 0; m < n; m++) {
     const x = PAD + (m % COLS) * (CW + GAP), y = PAD + Math.floor(m / COLS) * (CH + GAP);
@@ -190,11 +336,11 @@ function construirPlano() {
       <div class="lejos" aria-hidden="true"><div class="o">${m + 1}</div><div class="t">MESA ${m + 1}</div></div></div>`;
   }
   const wz = W0 - PAD * 2;
-  h += `<div class="zona" style="left:${PAD}px;top:${yZ}px;width:${wz}px;height:210px"><h3>Escalera de Stockfish</h3><p>Aquí subirán las mejores de cada generación, peldaño a peldaño. Llega en la fase 3.</p>
-    <svg width="420" height="120" viewBox="0 0 420 120" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<rect x="${i * 52}" y="${110 - (i + 1) * 13}" width="46" height="${(i + 1) * 13}" rx="4" fill="none" stroke="rgba(94,232,255,.35)"/>`).join('')}</svg></div>
-    <div class="zona" style="left:${PAD}px;top:${yZ + 234}px;width:${Math.round(wz * .6)}px;height:160px"><h3>Rincón de las cazadoras</h3><p>Las arañas parásito que evolucionan para ganar a las suyas. Llega en la fase 4.</p></div>`;
+  h += `<div class="zona zsf" id="zsf" style="left:${PAD}px;top:${yZ}px;width:${wz}px;height:320px"><h3>Escalera de Stockfish</h3>
+      <canvas width="240" height="240" aria-label="Partida contra Stockfish"></canvas><div class="sfi"></div><div class="esc"></div></div>
+    <div class="zona" style="left:${PAD}px;top:${yZ + 344}px;width:${Math.round(wz * .6)}px;height:160px"><h3>Rincón de las cazadoras</h3><p>Las arañas parásito que evolucionan para ganar a las suyas. Llega en la fase 4.</p></div>`;
   lienzo.innerHTML = h; lienzo.style.width = W0 + 'px'; lienzo.style.height = H0 + 'px';
-  mesas = Array.from(lienzo.querySelectorAll('.mesa'));
+  mesas = Array.from(lienzo.querySelectorAll('.mesa')); sfSucio = true;
   if (!esc0 || !nivel) verTodo(); else aplicarEscala(esc0, true);
   marcar();
 }
@@ -207,7 +353,7 @@ function aplicarEscala(s, redibujar) {
   tam.style.width = Math.round(W0 * s) + 'px'; tam.style.height = Math.round(H0 * s) + 'px';
   const nv = nivelDe(s);
   if (nv !== nivel) { nivel = nv; lienzo.className = nv; redibujar = true; }
-  if (redibujar) { mesas.forEach((_, m) => sucio.add(m)); pedir(); }
+  if (redibujar) { mesas.forEach((_, m) => sucio.add(m)); redibujarSF = true; pedir(); }
 }
 function zoomEn(s, cx, cy) {   // cx, cy: punto del plano visible que se queda quieto
   const r = plano.getBoundingClientRect(), mx = cx == null ? r.width / 2 : cx, my = cy == null ? r.height / 2 : cy;
@@ -267,7 +413,17 @@ function arana(g, x, y, r, color, hacia) {
   g.beginPath(); g.arc(0, -r * .6, r * .36, 0, 7); g.fill();
   g.restore();
 }
-function tablero(cv, fen, ultima, conAranas) {
+/* Stockfish: un pez de puntos y líneas */
+function pez(g, x, y, r, color, hacia) {
+  const ang = hacia ? Math.atan2(hacia[1] - y, hacia[0] - x) : 0;
+  g.save(); g.translate(x, y); g.rotate(ang); g.strokeStyle = color; g.fillStyle = color; g.lineWidth = Math.max(1, r * .14);
+  g.beginPath(); g.ellipse(0, 0, r * 1.1, r * .62, 0, 0, 7); g.stroke();
+  g.beginPath(); g.moveTo(-r * 1.05, 0); g.lineTo(-r * 1.8, -r * .65); g.lineTo(-r * 1.8, r * .65); g.closePath(); g.stroke();
+  g.beginPath(); g.arc(r * .55, -r * .12, r * .15, 0, 7); g.fill();
+  for (const k of [-.4, 0, .4]) { g.beginPath(); g.arc(k * r, r * .2, r * .08, 0, 7); g.fill(); }
+  g.restore();
+}
+function tablero(cv, fen, ultima, conAranas, pezEn) {
   const s = Math.max(.6, esc0), dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(240 * s * dpr);
   if (cv.width !== px) { cv.width = px; cv.height = px; }
   const g = cv.getContext('2d'); g.setTransform(px / 240, 0, 0, px / 240, 0, 0); g.clearRect(0, 0, 240, 240);
@@ -301,17 +457,18 @@ function tablero(cv, fen, ultima, conAranas) {
       g.beginPath(); g.moveTo(o[0], o[1]); g.lineTo(hasta[0], hasta[1]); g.stroke(); g.setLineDash([]);
       g.beginPath(); g.arc(hasta[0], hasta[1], 2.5, 0, 7); g.fillStyle = g.strokeStyle; g.fill();
     }
-    arana(g, pB[0], pB[1], 8, '#5ee8ff', !mueveNegra && hasta ? hasta : [120, 120]);
-    arana(g, pN[0], pN[1], 8, '#ff4fa3', mueveNegra && hasta ? hasta : [120, 120]);
+    (pezEn === 'w' ? pez : arana)(g, pB[0], pB[1], 8, '#5ee8ff', !mueveNegra && hasta ? hasta : [120, 120]);
+    (pezEn === 'b' ? pez : arana)(g, pN[0], pN[1], 8, '#ff4fa3', mueveNegra && hasta ? hasta : [120, 120]);
   }
 }
-let sucio = new Set(), pedido = false;
+let sucio = new Set(), pedido = false, redibujarSF = false;
 function marcar(j) { if (j) sucio.add(j.mesa); else mesas.forEach((_, m) => sucio.add(m)); pedir(); }
 function pedir() { if (!pedido) { pedido = true; requestAnimationFrame(dibujar); } }
 function dibujar() {
   pedido = false;
   if (!opc.directo) { if (!$('#resumen').hidden) pintarResumen(); pintarEstado(); sucio.clear(); return; }
   for (const m of sucio) pintarMesa(m);
+  if (sfSucio || redibujarSF) { redibujarSF = false; pintarSF(); }
   sucio.clear(); pintarEstado();
 }
 function juegosDeMesa(m) { return juegos.filter(j => j.ronda === ronda && j.mesa === m); }
@@ -374,7 +531,7 @@ function pintarEstado() {
   const hechas = juegos.filter(j => j.estado === 'fin').length, total = juegos.length;
   const ult = historial[historial.length - 1];
   $('#estado').innerHTML = `<b>Generación ${est.gen}</b> · ${entrenando ? 'entrenando' : 'en pausa'}` +
-    (total ? ` · ronda ${ronda + 1}/${opc.rondas} · ${hechas}/${total}` : '') +
+    (sfFase ? ` · escalera ${sfFase.hechos.length}/${sfFase.total}` : total ? ` · ronda ${ronda + 1}/${opc.rondas} · ${hechas}/${total}` : '') +
     (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${NHILOS} hilos`);
   const nh = Object.keys(est.hitos || {}).length, bh = document.querySelector('[data-aux=hitos]');
   if (bh) bh.innerHTML = 'Hitos' + (nh ? ` <b>${nh}</b>` : '');
@@ -422,7 +579,8 @@ async function ficha(id) {
   const nacio = mut.nacio ? mut.nacio : `cruce (${mut.cruce ? mut.cruce.a + ' bloques de un padre, ' + mut.cruce.b + ' del otro' : '—'}), ${mut.total || 0} genes mutados con σ ${fmt(mut.sigma || 0, 3)}`;
   let h = `<h3>${esc(p.nombre)}</h3><div class="sub">${esc(p.id)} · nació en la generación ${p.gen} · sangre de ${esc(p.origen)}${byId.has(p.id) ? ' · viva' : ''}</div>`;
   h += `<dl class="kv"><dt>Padres</dt><dd>${padres.length ? padres.map(x => `<button class="btn sec" style="padding:2px 8px;min-height:0" data-ficha="${esc(x.id)}">${esc(x.nombre)}</button>`).join(' × ') : 'ninguno'}</dd><dt>Cómo nació</dt><dd>${esc(nacio)}</dd>` +
-    `<dt>Elo</dt><dd>${Math.round(p.elo)}</dd><dt>Partidas</dt><dd>${p.partidas.g} ganadas · ${p.partidas.e} tablas · ${p.partidas.p} perdidas</dd></dl>`;
+    `<dt>Elo</dt><dd>${Math.round(p.elo)}</dd><dt>Partidas</dt><dd>${p.partidas.g} ganadas · ${p.partidas.e} tablas · ${p.partidas.p} perdidas</dd>` +
+    `<dt>Contra Stockfish</dt><dd>${p.sf ? `${p.sf.partidas} partidas, ${fmt(p.sf.puntos, 1)} puntos · ${p.sf.mejor ? `su mejor: ${p.sf.mejor} en el peldaño ${p.sf.mejorPeldano}` : 'aún sin puntos'} · la última, en el peldaño ${p.sf.ultimo.peldano}, aguantó ${Math.ceil(p.sf.ultimo.plies / 2)} jugadas` : 'aún no ha subido a la escalera'}</dd></dl>`;
   if (p.genes) h += '<h2>Su estilo</h2>' + radar(M.estilo(p.genes));
   if (p.hist && p.hist.length > 1) h += '<h2>Su Elo por generación</h2>' + chispa(p.hist.map(x => x.elo), 'Elo de ' + p.nombre);
   const lin = await linaje(p), hs = lin.map(huellaDe);
@@ -514,22 +672,33 @@ const AUX = {
   async partidas() {
     const ps = (await todos('partidas')).sort((a, b) => b.gen - a.gen).slice(0, 40);
     if (!ps.length) return hoja('<h3>Partidas</h3><p class="nota">Al terminar cada generación guardo su mejor partida. Aún no hay ninguna.</p>' + CERRAR);
-    hoja(`<h3>La mejor partida de cada generación</h3><select class="full" id="repSel" aria-label="Elegir partida">${ps.map(p => `<option value="${p.gen}">Gen ${p.gen}: ${esc(p.wn)} – ${esc(p.bn)} · ${p.res === 1 ? '1-0' : p.res === 0 ? '0-1' : '½-½'} (${esc(p.motivo)})</option>`).join('')}</select>
+    const ops = []; for (const p of ps) { ops.push(`<option value="g${p.gen}">Gen ${p.gen}: ${esc(p.wn)} – ${esc(p.bn)} · ${p.res === 1 ? '1-0' : p.res === 0 ? '0-1' : '½-½'} (${esc(p.motivo)})</option>`); if (p.sf) ops.push(`<option value="s${p.gen}">Gen ${p.gen}: ${esc(p.sf.nombre)} contra Stockfish (peldaño ${p.sf.peldano}) · ${p.sf.res === 1 ? 'gana' : p.sf.res === .5 ? 'tablas' : 'pierde'}</option>`); }
+    hoja(`<h3>Las mejores partidas</h3><select class="full" id="repSel" aria-label="Elegir partida">${ops.join('')}</select>
       <canvas id="repCv" width="240" height="240" style="width:100%;max-width:340px;aspect-ratio:1;display:block;margin:0 auto;border-radius:8px"></canvas>
       <div class="rep"><button id="r0" aria-label="Al principio">⏮</button><button id="r1" aria-label="Jugada anterior">◀</button><button id="rp" aria-label="Reproducir">▶</button><button id="r2" aria-label="Jugada siguiente">▶︎|</button><button id="r3" aria-label="Al final">⏭</button></div>
       <div class="nota" id="repTxt" style="text-align:center"></div>` + CERRAR);
-    const porG = new Map(ps.map(p => [p.gen, p])); let partida = null, fens = [], ucis = [], i = 0;
-    const cargarP = g => {
-      partida = porG.get(+g); const pos = new M.Pos(partida.fen); fens = [pos.fen()]; ucis = [null];
+    const porG = new Map(ps.map(p => [p.gen, p])); let partida = null, fens = [], ucis = [], i = 0, pezEn = null;
+    const cargarP = v => {
+      const g = porG.get(+v.slice(1)); partida = v[0] === 's' ? g.sf : g; pezEn = v[0] === 's' ? (g.sf.yoB ? 'b' : 'w') : null;
+      const pos = new M.Pos(partida.fen); fens = [pos.fen()]; ucis = [null];
       for (const u of partida.jugadas || []) { const m = M.parseUci(pos, u); if (!m) break; pos.make(m); fens.push(pos.fen()); ucis.push(u); }
       i = 0; pintar();
     };
-    const pintar = () => { const cv = $('#repCv'); if (!cv) return; const e0 = esc0; esc0 = 1.4; tablero(cv, fens[i], ucis[i], true); esc0 = e0; $('#repTxt').textContent = `Jugada ${Math.ceil(i / 2)} de ${Math.ceil((fens.length - 1) / 2)}${i === fens.length - 1 ? ' · ' + partida.motivo : ''}`; };
+    const pintar = () => { const cv = $('#repCv'); if (!cv) return; const e0 = esc0; esc0 = 1.4; tablero(cv, fens[i], ucis[i], true, pezEn); esc0 = e0; $('#repTxt').textContent = `Jugada ${Math.ceil(i / 2)} de ${Math.ceil((fens.length - 1) / 2)}${i === fens.length - 1 ? ' · ' + partida.motivo : ''}`; };
     const ir = n => { i = Math.max(0, Math.min(fens.length - 1, n)); pintar(); };
     $('#repSel').onchange = e => { clearInterval(repTimer); $('#rp').textContent = '▶'; cargarP(e.target.value); };
     $('#r0').onclick = () => ir(0); $('#r1').onclick = () => ir(i - 1); $('#r2').onclick = () => ir(i + 1); $('#r3').onclick = () => ir(fens.length - 1);
     $('#rp').onclick = () => { if (repTimer) { clearInterval(repTimer); repTimer = 0; $('#rp').textContent = '▶'; return; } $('#rp').textContent = '⏸'; repTimer = setInterval(() => { if (i >= fens.length - 1) { clearInterval(repTimer); repTimer = 0; $('#rp').textContent = '▶'; return; } ir(i + 1); }, 650); };
-    cargarP(ps[0].gen);
+    cargarP('g' + ps[0].gen);
+  },
+  escalera() {
+    const con = est.escalera.conquistas, act = est.escalera.peldano, gs = historial.filter(g => g.sf);
+    let h = `<h3>Escalera de Stockfish</h3><div class="sub">${Object.keys(con).length} de ${ESCALERA.length} peldaños conquistados</div>${escaleraSVG(340, 110).replace('width="340"', 'width="100%"')}`;
+    h += ESCALERA.slice().reverse().map(E => { const c = con[E.n]; return `<div class="hito${c ? ' si' : ''}"><span class="m"${E.n === act && !c ? ' style="border-color:#5ee8ff"' : ''}></span><span>${E.n}. ${esc(E.nombre)}<small>${c ? `Conquistado en la generación ${c.gen} · ${fmt(c.puntos, 1)} de ${c.partidas} puntos · la mejor, ${esc(c.por)}` : E.n === act ? 'Peldaño actual' : 'Por llegar'} · nivel ${E.skill}, ${E.go.replace('depth', 'profundidad').replace('movetime', 'tiempo')}${E.go.startsWith('movetime') ? ' ms' : ''}</small></span></div>`; }).join('');
+    if (gs.length > 1) h += '<h2>Puntos contra Stockfish por generación (%)</h2>' + chispa(gs.map(g => g.sf.puntos / g.sf.partidas * 100), 'Porcentaje de puntos contra Stockfish', '#3dff99') + '<h2>Calidad según Stockfish (%)</h2>' + chispa(gs.map(g => g.sf.calidad * 100), 'Calidad media según Stockfish', '#ffb340');
+    const ult = gs[gs.length - 1];
+    if (ult) h += `<h2>Última generación (${ult.gen}) · peldaño ${ult.sf.peldano}</h2><div class="det">${ult.sf.juegos.map(j => `<span data-ficha="${esc(j.id)}" style="cursor:pointer">${esc(j.nombre)} con ${j.color}</span><span class="v">${j.res === 1 ? 'gana' : j.res === .5 ? 'tablas' : 'pierde'} · ${Math.ceil(j.plies / 2)} jug.</span>`).join('')}</div>`;
+    hoja(h + '<p class="nota">La calidad es cómo de bien ve Stockfish la posición para la araña a lo largo de la partida: 50 % es igualada.</p>' + CERRAR);
   },
   hitos() {
     hoja('<h3>Hitos</h3><div class="sub">Cada hito conseguido hace crecer un hilo de la telaraña de Araña</div>' + HITOS.map(h => {
@@ -550,12 +719,14 @@ function opciones() {
     <label class="op">Profundidad máxima ${sel('prof', [2, 3, 4, 5, 6], v => v + ' jugadas')}</label>
     <label class="op">Partidas por araña ${sel('rondas', [2, 4, 6, 8], v => v * 2)}</label>
     <label class="op">Límite de jugadas ${sel('maxPlies', [120, 160, 240], v => v / 2)}</label>
+    <label class="op">Escalera de Stockfish ${sel('sf', [1, 0], v => v ? 'Sí' : 'No')}</label>
+    <label class="op">Arañas que suben a la escalera ${sel('sfTop', [2, 4, 8], v => v)}</label>
     <label class="op">Arañas por generación ${sel('poblacion', [16, 24, 32, 48, 64], v => v, est.opc)}</label>
     <label class="op">Probabilidad de mutar cada gen ${sel('pm', [0.03, 0.06, 0.12], v => Math.round(v * 100) + ' %', est.opc)}</label>
     <p class="nota">Más tiempo por jugada juega mejor pero evoluciona más despacio. Con ${NHILOS} hilos, una generación de ${pop.length} arañas tarda unos ${Math.max(1, Math.round(pop.length * opc.rondas * (opc.maxPlies * .45) * opc.ms / 1000 / NHILOS / 60))} min.</p>
     <div class="ctrl"><button class="btn sec" id="exp">Exportar copia</button><button class="btn sec" id="reset">Empezar de cero</button><button class="btn" data-cerrar>Hecho</button></div>`);
   $('#hojac').querySelectorAll('select').forEach(s => s.onchange = () => {
-    if (s.hasAttribute('data-evo')) { est.opc[s.dataset.k] = +s.value; guardarEstado().catch(() => {}); } else { opc[s.dataset.k] = +s.value; guardarOpc(); }
+    if (s.hasAttribute('data-evo')) { est.opc[s.dataset.k] = +s.value; guardarEstado().catch(() => {}); } else { opc[s.dataset.k] = +s.value; guardarOpc(); marcarSF(); }
   });
   $('#exp').onclick = exportar;
   $('#reset').onclick = async () => {
@@ -587,7 +758,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarHoja()
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 cargar().then(() => {
   crearHilos(); construirPlano(); ponerVista(); pintarEstado();

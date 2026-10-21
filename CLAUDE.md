@@ -156,4 +156,5 @@ Juan quiere sorpresas y condiciones nuevas. Al empezar cada ejecución, tirar el
 - `motor.js`: reglas, detectores, búsqueda y evolución; funciona en la web, en los hilos y en Node. `worker.js`: un hilo de partidas. `sala.js` + `index.html`: la sala.
 - Se abre con «vamos a jugar al ajedrez» / «entrena» (`chessCmd` y `openChess` en `index.html`) como un `<iframe id="ajz">`; la sala avisa con `postMessage({arana:'ajedrez-salir'})`.
 - Guarda en IndexedDB `arana-ajedrez` (aparte de la memoria del asistente). No se cambian sus nombres ni se borran datos.
-- Antes de publicar un cambio en `ajedrez/`: `node ajedrez/pruebas/reglas.js` (perft y simetría) y `node ajedrez/pruebas/evolucion.js 1`.
+- `stockfish/`: Stockfish 19 lite de un hilo (GPL v3, ver su `LEEME.md`). No se modifica ni se cambia por la versión grande (94 MB) ni por la de varios hilos (necesita cabeceras que GitHub Pages no da).
+- Antes de publicar un cambio en `ajedrez/`: `node ajedrez/pruebas/reglas.js` (perft y simetría), `node ajedrez/pruebas/evolucion.js 1` y `node ajedrez/pruebas/stockfish.js`.

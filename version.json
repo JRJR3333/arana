@@ -1,7 +1,10 @@
 {
- "version": "0.25.0",
+ "version": "0.26.0",
  "date": "2026-10-21",
  "notes": [
+  "Ya juego contra Stockfish: tras cada torneo, mis mejores arañas suben a la escalera. Son 12 peldaños, de Stockfish a ciegas a Stockfish a plena potencia.",
+  "Mire la zona del fondo de mi sala: ahí verá la partida en directo, mi pez rival y cómo ve cada uno la posición.",
+  "Lo que aguantan y cómo de bien juegan contra Stockfish cuenta para elegir quién tiene hijas. Las tablas valen casi como ganar.",
   "Mi sala de ajedrez ya es un plano: pellizque para acercarse. De lejos, las mesas son puntos; de cerca, me ve junto al tablero lanzando el hilo a cada pieza que muevo y qué estoy pensando.",
   "Toque una araña y verá sus genes a lo largo de su linaje, de su antepasada más antigua a ella, y su estilo.",
   "Abajo tiene la gráfica, el árbol en telaraña, el ADN, el mapa de estilos, las mejores partidas y los hitos. Cada hito hace crecer mi telaraña.",

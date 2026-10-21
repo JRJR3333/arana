@@ -1,5 +1,32 @@
 [
  {
+  "v": "0.26.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.26.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "Stockfish dentro de la app y la escalera de 12 peldaños",
+    "detalle": "A petición de Juan (fase 3 del ajedrez): Stockfish 19 lite de un hilo (1,8 MB, en el propio móvil, sin internet). Tras cada torneo, las 4 mejores juegan con blancas y con negras en el peldaño actual. Un peldaño se conquista con la mitad de los puntos en sus últimas 8 partidas. Peldaños calibrados: la araña clásica gana los dos primeros y compite en el 3 al 5.",
+    "probar": "Entrene una generación y acérquese a la zona «Escalera de Stockfish» del fondo de la sala."
+   },
+   {
+    "id": "0.26.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "La escalera cuenta para la evolución",
+    "detalle": "Premio por partida contra Stockfish: aguante (hasta 1), calidad según la valoración de Stockfish (0 a 1) y resultado (tablas 2, victoria 3). Se suma a los puntos del torneo para elegir élite y padres. Cada araña guarda su registro contra Stockfish en su ficha.",
+    "probar": "Toque una de las mejores y mire «Contra Stockfish»."
+   },
+   {
+    "id": "0.26.0-3",
+    "tipo": "grafica",
+    "titulo": "Vista de la escalera y partidas contra Stockfish",
+    "detalle": "Botón «Escalera»: los 12 peldaños, quién y cuándo los conquistó, el porcentaje de puntos y la calidad por generación. En «Partidas» también se repite la mejor partida contra Stockfish. Hitos nuevos: primeras tablas, primera victoria y peldaños 1, 3, 6, 9 y 12.",
+    "probar": "Pulse «Escalera» abajo."
+   }
+  ]
+ },
+ {
   "v": "0.25.0",
   "fecha": "2026-10-21",
   "mejoras": [
