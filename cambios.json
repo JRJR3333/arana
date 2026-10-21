@@ -1,5 +1,32 @@
 [
  {
+  "v": "0.27.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.27.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "Las diez distópicas, cada una con su interruptor",
+    "detalle": "A petición de Juan (fase 4 del ajedrez). 29: red de hasta 8 neuronas ocultas que nace apagada y crece con la mutación. 30: agresividad, sacrificio y riesgo. 31: anti-motor (premia posiciones cerradas). 32: caos (premia posiciones tácticas). 33: un cerebro por fase (apagado, un solo cerebro). 36: cada araña lleva su propio ritmo de mutación, que también evoluciona. 37: novedad (15 % por defecto). 38: azar entre jugadas casi iguales, comprobadas antes con una búsqueda exacta. Todas encendidas al empezar; se cambian en Opciones → Distópicas.",
+    "probar": "Toque una araña y abra «Sus distópicas»; en Opciones, apague una."
+   },
+   {
+    "id": "0.27.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Las cazadoras y la memoria del rival",
+    "detalle": "34: ocho cazadoras evolucionan aparte solo para ganar a la élite (dos partidas cada una por generación); lo que la élite pierde contra ellas le resta en su generación. Se ven en el rincón de las cazadoras del plano. 35: cada araña recuerda cómo le va contra las cazadoras y contra cada peldaño de Stockfish y ajusta su forma de jugar; las hijas heredan la memoria del padre que más les dio.",
+    "probar": "Acérquese al rincón de las cazadoras durante las últimas partidas del torneo."
+   },
+   {
+    "id": "0.27.0-3",
+    "tipo": "grafica",
+    "titulo": "Ficha y gráfica de las distópicas",
+    "detalle": "La ficha enseña su red neurona a neurona (qué medidas lee y con qué peso), su carácter y sesgos en barras, su ritmo de mutación, su azar, su novedad, su memoria del rival y cómo ha cambiado todo eso en su linaje. La gráfica añade las neuronas de media por generación. Hitos nuevos: una araña de la élite con 3 neuronas y una cazadora que gana a la campeona.",
+    "probar": "Pulse «Gráfica» tras unas generaciones."
+   }
+  ]
+ },
+ {
   "v": "0.26.0",
   "fecha": "2026-10-21",
   "mejoras": [

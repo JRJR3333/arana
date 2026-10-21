@@ -7,7 +7,7 @@ const qs = new URLSearchParams(location.search);
 const ORIGEN = qs.get('plat') || (/android/i.test(navigator.userAgent) || qs.get('app') === 'android' ? 'android' : /iphone|ipad|ipod/i.test(navigator.userAgent) ? 'iphone' : 'web');
 const rng = M.mulberry((Math.random() * 4294967296) >>> 0);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const COLOR_ORIGEN = { iphone: '#5ee8ff', android: '#ffb340', web: '#a99bff', inmigrante: '#9a9aa8' };
+const COLOR_ORIGEN = { iphone: '#5ee8ff', android: '#ffb340', web: '#a99bff', inmigrante: '#9a9aa8', cazadora: '#ff5c5c' };
 const colorDe = p => p.mut && p.mut.nacio === 'inmigrante' ? COLOR_ORIGEN.inmigrante : COLOR_ORIGEN[p.origen] || '#9a9aa8';
 const fmt = (v, d) => (+v).toFixed(d == null ? 1 : d).replace('.', ',');
 
@@ -60,7 +60,11 @@ function escribir(ops) {
 const conHuella = p => { if (p.genes) p.huella = M.huella(p.genes); return p; };
 
 /* ───── Estado de la evolución ───── */
-let est = null, pop = [], byId = new Map(), historial = [];
+let est = null, pop = [], byId = new Map(), historial = [], cazadoras = [], cazById = new Map();
+const ind = id => byId.get(id) || cazById.get(id);
+/* Interruptores de las distópicas (29–38): todos encendidos salvo que Juan apague alguno en Opciones */
+const flagsDe = () => Object.assign(M.todasDist(), (est && est.opc && est.opc.dist) || {});
+const fkey = f => Object.keys(f).filter(n => f[n]).join(',');
 async function cargar() {
   try { db = await abrirDB(); } catch (e) { db = null; }
   est = await leer('estado', 'actual');
@@ -75,13 +79,15 @@ async function cargar() {
     await guardarEstado();
   }
   est.hitos = est.hitos || {}; est.escalera = est.escalera || { peldano: 1, conquistas: {} };
+  pop.forEach(p => M.completar(p.genes));
+  if (est.cazPop) { const cs = await Promise.all(est.cazPop.map(id => leer('individuos', id))); cazadoras = cs.every(c => c && c.genes) ? cs : []; cazadoras.forEach(c => M.completar(c.genes)); }
   historial = (await todos('generaciones')).sort((a, b) => a.gen - b.gen);
-  byId = new Map(pop.map(p => [p.id, p]));
+  byId = new Map(pop.map(p => [p.id, p])); cazById = new Map(cazadoras.map(c => [c.id, c]));
 }
 function guardarEstado(extra) {
-  est.pop = pop.map(p => p.id);
+  est.pop = pop.map(p => p.id); est.cazPop = cazadoras.map(c => c.id);
   const ops = [['estado', est, 'actual']];
-  for (const p of pop) ops.push(['individuos', conHuella(p)]);
+  for (const p of pop.concat(cazadoras)) ops.push(['individuos', conHuella(p)]);
   return escribir(ops.concat(extra || []));
 }
 
@@ -95,9 +101,26 @@ function crearHilos() {
   }
 }
 let juegos = [], enCurso = new Map(), entrenando = false, sigId = 0, ronda = 0;
+/* Parásitos (34): 8 cazadoras que evolucionan solo para ganar a la élite. Cada una juega dos partidas contra dos arañas de la élite. */
+function asegurarCazadoras() {
+  if (!flagsDe()[34] || cazadoras.length) return;
+  est.caz = est.caz || { gen: 1, origen: 'cazadora', opc: { poblacion: 8, elite: 2, torneo: 2, inmigrantes: 1 } };
+  cazadoras = M.poblacionInicial(rng, 'cazadora', 8); cazadoras.forEach(c => { c.mut = { nacio: 'cazadora' }; });
+  cazById = new Map(cazadoras.map(c => [c.id, c]));
+}
 function prepararGeneracion() {
-  pop.forEach(p => { p.pts = 0; p.sfb = 0; });
+  pop.forEach(p => { p.pts = 0; p.sfb = 0; p.nov = 0; p.plyT = 0; p.nJ = 0; });
   juegos = M.emparejar(pop, opc.rondas, rng).map(j => Object.assign(j, { id: ++sigId, estado: 'cola', fenAhora: j.fen, ultima: null, res: null, eval: 0 }));
+  asegurarCazadoras();
+  if (flagsDe()[34] && cazadoras.length) {
+    const elite = pop.slice(0, Math.min(4, pop.length));
+    cazadoras.forEach((c, i) => {
+      c.pts = 0;
+      const a = elite[i % elite.length], b = elite[(i + 1) % elite.length], f1 = M.aperturaAleatoria(rng, 4), f2 = M.aperturaAleatoria(rng, 4);
+      juegos.push({ ronda: opc.rondas - 1, mesa: 'c' + i, tipo: 'caza', w: c.id, b: a.id, fen: f1 }, { ronda: opc.rondas - 1, mesa: 'c' + i, tipo: 'caza', w: b.id, b: c.id, fen: f2 });
+    });
+    juegos.forEach(j => { if (j.tipo) Object.assign(j, { id: ++sigId, estado: 'cola', fenAhora: j.fen, ultima: null, res: null, eval: 0 }); });
+  }
   ronda = 0;
   construirPlano();
 }
@@ -108,7 +131,9 @@ function repartir() {
     const j = juegos.find(x => x.estado === 'cola'); if (!j) break;
     j.estado = 'juega'; w.libre = false; enCurso.set(j.id, j);
     if (j.ronda !== ronda) { ronda = j.ronda; marcar(); }
-    w.postMessage({ t: 'partida', id: j.id, w: { id: j.w, genes: byId.get(j.w).genes }, b: { id: j.b, genes: byId.get(j.b).genes }, fen: j.fen, opc: { ms: opc.ms, prof: opc.prof, maxPlies: opc.maxPlies }, directo: opc.directo });
+    const pw = ind(j.w), pb = ind(j.b), F = flagsDe();
+    const ajW = j.tipo === 'caza' && byId.has(j.w) ? ajusteContra(pw, 'cazadoras') : null, ajB = j.tipo === 'caza' && byId.has(j.b) ? ajusteContra(pb, 'cazadoras') : null;
+    w.postMessage({ t: 'partida', id: j.id, w: { id: j.w, genes: pw.genes }, b: { id: j.b, genes: pb.genes }, fen: j.fen, opc: { ms: opc.ms, prof: opc.prof, maxPlies: opc.maxPlies }, directo: opc.directo, flags: F, ajW, ajB });
   }
   marcar();
 }
@@ -119,9 +144,17 @@ function alRecibir(w, d) {
   if (d.t === 'fin') {
     w.libre = true; enCurso.delete(d.id);
     j.estado = 'fin'; j.res = d.res; j.motivo = d.motivo; j.jugadas = d.jugadas; j.fenAhora = d.fen; j.plies = d.plies;
-    const a = byId.get(j.w), b = byId.get(j.b);
-    a.pts += d.res; b.pts += 1 - d.res; M.actualizarElo(a, b, d.res);
-    for (const [p, v] of [[a, d.res], [b, 1 - d.res]]) p.partidas[v === 1 ? 'g' : v === 0 ? 'p' : 'e']++;
+    const a = ind(j.w), b = ind(j.b);
+    if (j.tipo === 'caza') {   // la araña suma o pierde puntos de su generación; la cazadora suma los suyos
+      const aranaB = byId.has(j.b), s0 = aranaB ? b : a, c = aranaB ? a : b, rs = aranaB ? 1 - d.res : d.res;
+      s0.pts += rs; c.pts += 1 - rs;
+      for (const [p, v] of [[s0, rs], [c, 1 - rs]]) p.partidas[v === 1 ? 'g' : v === 0 ? 'p' : 'e']++;
+      recordarRival(s0, 'cazadoras', rs);
+      if (rs === 0 && s0.id === est.campeon) est.cazaGana = { gen: est.gen, cazadora: c.nombre, campeona: s0.nombre };
+    } else {
+      a.pts += d.res; b.pts += 1 - d.res; M.actualizarElo(a, b, d.res);
+      for (const [p, v] of [[a, d.res], [b, 1 - d.res]]) { p.partidas[v === 1 ? 'g' : v === 0 ? 'p' : 'e']++; p.plyT = (p.plyT || 0) + d.plies; p.nJ = (p.nJ || 0) + 1; }
+    }
     marcar(j);
     if (juegos.every(x => x.estado === 'fin')) finTorneo();
     else repartir();
@@ -143,10 +176,26 @@ async function cerrarGeneracion() {
     resSF.conquistado = ven.length >= 8 && media >= 0.5 && !est.escalera.conquistas[E.n];
     if (resSF.conquistado) { est.escalera.conquistas[E.n] = { gen: est.gen, fecha: new Date().toISOString(), por: mejor.nombre, puntos: resSF.ventana.puntos, partidas: ven.length }; est.escalera.peldano = Math.min(ESCALERA.length, E.n + 1); est.escalera.ventana = []; }
   }
+  const F = flagsDe(); est.flags = F;
+  if (F[37]) novedad();
   const out = M.siguienteGeneracion(est, pop, rng);
   if (resSF) out.resumen.sf = resSF;
+  out.resumen.flags = fkey(F);
+  // Memoria del rival (35): las hijas heredan la memoria del padre que más les dio
+  const antes = new Map(viejos.map(p => [p.id, p]));
+  for (const h of out.pop) if (h.padres && h.padres.length && !h.rivales) { const cr = h.mut && h.mut.cruce, pa = antes.get(h.padres[cr && cr.b > cr.a ? 1 : 0]); if (pa && pa.rivales) h.rivales = JSON.parse(JSON.stringify(pa.rivales)); }
+  // Las cazadoras también evolucionan
+  const extraCaz = [];
+  if (F[34] && cazadoras.length) {
+    est.caz.flags = F;
+    const oc = M.siguienteGeneracion(est.caz, cazadoras, rng), vivasC = new Set(oc.pop.map(c => c.id)), eliteC = new Set(oc.resumen.elite);
+    out.resumen.caza = { mejor: oc.resumen.mejor, puntos: cazadoras.reduce((a, c) => a + c.pts, 0), partidas: cazadoras.length * 2 };
+    for (const c of cazadoras) if (!vivasC.has(c.id)) { conHuella(c); extraCaz.push(['individuos', Object.assign({}, c, { genes: eliteC.has(c.id) ? c.genes : null })]); }
+    oc.pop.forEach(c => { if (!c.mut || !c.mut.nacio) { c.mut = c.mut || {}; } c.pts = 0; });
+    cazadoras = oc.pop; cazById = new Map(cazadoras.map(c => [c.id, c]));
+  }
   const elite = new Set(out.resumen.elite);
-  const vivos = new Set(out.pop.map(p => p.id)), extra = [['generaciones', out.resumen]];
+  const vivos = new Set(out.pop.map(p => p.id)), extra = [['generaciones', out.resumen]].concat(extraCaz);
   if (mejorPartida) extra.push(['partidas', Object.assign({ gen: out.resumen.gen }, mejorPartida)]);
   for (const p of viejos) if (!vivos.has(p.id)) { conHuella(p); extra.push(['individuos', Object.assign({}, p, { genes: elite.has(p.id) ? p.genes : null })]); }
   est = out.est; pop = out.pop; byId = new Map(pop.map(p => [p.id, p])); historial.push(out.resumen);
@@ -157,8 +206,30 @@ async function cerrarGeneracion() {
   pintarEstado();
   if (entrenando) { prepararGeneracion(); repartir(); } else construirPlano();
 }
+/* Búsqueda de novedad (37): premia jugar distinto. Descriptor = estilo + duración de sus partidas; novedad = distancia media a las 5 más parecidas (población y archivo) */
+function novedad() {
+  const peso = est.opc && est.opc.novPeso != null ? est.opc.novPeso : 0.15;
+  const desc = p => M.estilo(p.genes).map(x => x.v).concat([(p.nJ ? p.plyT / p.nJ : opc.maxPlies / 2) / opc.maxPlies]);
+  const dist = (a, b) => Math.sqrt(a.reduce((t, v, i) => t + (v - b[i]) * (v - b[i]), 0));
+  const D = pop.map(desc), arch = est.archivo || [];
+  const nov = D.map((d, i) => { const ds = []; D.forEach((o, j) => { if (j !== i) ds.push(dist(d, o)); }); arch.forEach(o => ds.push(dist(d, o))); ds.sort((a, b) => a - b); const k = ds.slice(0, 5); return k.length ? k.reduce((a, b) => a + b, 0) / k.length : 0; });
+  const mx = Math.max(...nov) || 1;
+  pop.forEach((p, i) => { p.novedad = Math.round(nov[i] * 1000) / 1000; p.nov = peso * (nov[i] / mx) * opc.rondas * 2; });
+  est.archivo = arch.concat([D[Math.floor(rng() * D.length)], D[Math.floor(rng() * D.length)]]).slice(-150);
+}
+/* Memoria del rival (35): qué tal le va contra cada rival, y cómo se ajusta: si pierde mucho, busca más las tablas y arriesga menos; si gana, al revés */
+function recordarRival(p, clave, res) { const r = (p.rivales = p.rivales || {}); const x = r[clave] = r[clave] || { partidas: 0, puntos: 0 }; x.partidas++; x.puntos += res; }
+function ajusteContra(p, ...claves) {
+  if (!flagsDe()[35] || !p || !p.rivales) return null;
+  for (const k of claves) {
+    const r = p.rivales[k]; if (!r || r.partidas < 2) continue;
+    const m = r.puntos / r.partidas;
+    return m < 0.3 ? { tablas: 1.6, riesgo: -0.4 } : m > 0.6 ? { tablas: 0.6, riesgo: 0.3 } : null;
+  }
+  return null;
+}
 function elegirPartida() {   // la partida más larga de la mejor araña
-  const fin = juegos.filter(j => j.estado === 'fin'); if (!fin.length) return null;
+  const fin = juegos.filter(j => j.estado === 'fin' && !j.tipo); if (!fin.length) return null;
   const top = pop.slice().sort((a, b) => b.pts - a.pts)[0].id;
   const suyas = fin.filter(j => j.w === top || j.b === top).sort((a, b) => b.plies - a.plies);
   const j = suyas[0] || fin[0];
@@ -174,6 +245,8 @@ const HITOS = [
   ...[1, 3, 6, 9, 12].map(n => ({ id: 'p' + n, texto: n === 12 ? 'Conquisto el último peldaño: Stockfish a plena potencia' : `Peldaño ${n} conquistado: ${ESCALERA[n - 1].nombre}`, ok: () => !!(est.escalera && est.escalera.conquistas[n]) })),
   { id: 'sacudida', texto: 'Me estanqué y sacudí la mutación para explorar', ok: () => (est.sacudidas || 0) > 0 },
   { id: 'inmigrante', texto: 'Una inmigrante llega a la élite', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.mut && p.mut.nacio === 'inmigrante'; }) },
+  { id: 'red3', texto: 'Una araña de la élite con 3 neuronas ocultas propias', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.genes && M.huella(p.genes).r >= 3; }) },
+  { id: 'caza', texto: 'Una cazadora gana a la campeona', ok: () => !!est.cazaGana },
   { id: 'ligera', texto: 'Una campeona sin ningún detector caro', ok: r => { const p = byId.get(r.mejor.id); return p && p.genes && M.DET.every(d => d.coste < 2 ? true : !(p.genes['d' + d.n][0] > 0)); } },
 ];
 function revisarHitos(r) {
@@ -225,12 +298,12 @@ function puntuacion(ls) {   // la última valoración de Stockfish, desde Stockf
   return null;
 }
 let sigPens = 0; const pens = new Map();
-function pensarArana(ind, fen0, jugadas) {
-  return new Promise(ok => { const id = 'p' + (++sigPens); pens.set(id, ok); hilos[0].postMessage({ t: 'pensar', id, ind: { id: ind.id, genes: ind.genes }, fen0, jugadas, ms: opc.ms, prof: opc.prof }); });
+function pensarArana(p, fen0, jugadas, aj) {
+  return new Promise(ok => { const id = 'p' + (++sigPens); pens.set(id, ok); hilos[0].postMessage({ t: 'pensar', id, ind: { id: p.id, genes: p.genes }, fen0, jugadas, ms: opc.ms, prof: opc.prof, flags: flagsDe(), aj }); });
 }
 async function partidaSF(ind, yoB, fen0, E) {
   sf.w.postMessage('ucinewgame'); sf.w.postMessage('setoption name Skill Level value ' + E.skill); await sfCmd('isready', /^readyok/);
-  const pos = new M.Pos(fen0), jug = [], cal = []; let f = null, malas = 0, buenas = 0, evYo = 0, evSF = null;
+  const pos = new M.Pos(fen0), jug = [], cal = [], aj = ajusteContra(ind, 'sf' + E.n, 'sf'); let f = null, malas = 0, buenas = 0, evYo = 0, evSF = null;
   sfVista = { fen: pos.fen(), ultima: null, ind, yoB, evYo, evSF, E }; marcarSF();
   while (true) {
     if (!entrenando) return null;
@@ -238,7 +311,7 @@ async function partidaSF(ind, yoB, fen0, E) {
     if (jug.length >= opc.maxPlies) { const e = evSF == null ? 0 : evSF; f = { res: e > 300 ? (yoB ? 1 : 0) : e < -300 ? (yoB ? 0 : 1) : .5, motivo: 'límite de jugadas' }; break; }
     let u;
     if ((pos.side === 0) === yoB) {
-      const r = await pensarArana(ind, fen0, jug); u = r.uci; if (r.uci) evYo = yoB ? r.eval : -r.eval;
+      const r = await pensarArana(ind, fen0, jug, aj); u = r.uci; if (r.uci) evYo = yoB ? r.eval : -r.eval;
     } else {
       sf.w.postMessage('position fen ' + fen0 + (jug.length ? ' moves ' + jug.join(' ') : ''));
       const ls = await sfCmd('go ' + E.go, /^bestmove/, 30000), b = ls.length ? ls[ls.length - 1].split(/\s+/)[1] : null, sc = puntuacion(ls);
@@ -278,6 +351,7 @@ async function faseStockfish() {
     p.sfb = (p.sfb || 0) + Math.min(1, r.plies / 100) + r.calidad + (r.res === 1 ? 3 : r.res === .5 ? 2 : 0);
     const reg = p.sf = p.sf || { partidas: 0, puntos: 0, mejorPeldano: 0, mejor: null };
     reg.partidas++; reg.puntos += r.res; reg.ultimo = { peldano: sfFase.E.n, res: r.res, plies: r.plies };
+    recordarRival(p, 'sf' + sfFase.E.n, r.res); recordarRival(p, 'sf', r.res);
     if (r.res > 0 && (sfFase.E.n > reg.mejorPeldano || (sfFase.E.n === reg.mejorPeldano && r.res === 1))) { reg.mejorPeldano = sfFase.E.n; reg.mejor = r.res === 1 ? 'victoria' : 'tablas'; }
   }
   sfFase.corriendo = false; sfVista = null; marcarSF();
@@ -325,7 +399,7 @@ function construirPlano() {
   const n = Math.max(1, Math.floor(pop.length / 2)), filas = Math.ceil(n / COLS);
   W0 = PAD * 2 + COLS * CW + (COLS - 1) * GAP;
   const yZ = PAD + filas * CH + (filas - 1) * GAP + 40;
-  H0 = yZ + 320 + 24 + 160 + PAD;
+  H0 = yZ + 320 + 24 + 300 + PAD;
   let h = '';
   for (let m = 0; m < n; m++) {
     const x = PAD + (m % COLS) * (CW + GAP), y = PAD + Math.floor(m / COLS) * (CH + GAP);
@@ -338,9 +412,10 @@ function construirPlano() {
   const wz = W0 - PAD * 2;
   h += `<div class="zona zsf" id="zsf" style="left:${PAD}px;top:${yZ}px;width:${wz}px;height:320px"><h3>Escalera de Stockfish</h3>
       <canvas width="240" height="240" aria-label="Partida contra Stockfish"></canvas><div class="sfi"></div><div class="esc"></div></div>
-    <div class="zona" style="left:${PAD}px;top:${yZ + 344}px;width:${Math.round(wz * .6)}px;height:160px"><h3>Rincón de las cazadoras</h3><p>Las arañas parásito que evolucionan para ganar a las suyas. Llega en la fase 4.</p></div>`;
+    <div class="zona zcz" id="zcz" style="left:${PAD}px;top:${yZ + 344}px;width:${wz}px;height:300px"><h3>Rincón de las cazadoras</h3>
+      <canvas width="240" height="240" aria-label="Partida de una cazadora"></canvas><div class="czi"></div><div class="czl"></div></div>`;
   lienzo.innerHTML = h; lienzo.style.width = W0 + 'px'; lienzo.style.height = H0 + 'px';
-  mesas = Array.from(lienzo.querySelectorAll('.mesa')); sfSucio = true;
+  mesas = Array.from(lienzo.querySelectorAll('.mesa')); sfSucio = true; cazaSucio = true;
   if (!esc0 || !nivel) verTodo(); else aplicarEscala(esc0, true);
   marcar();
 }
@@ -462,18 +537,33 @@ function tablero(cv, fen, ultima, conAranas, pezEn) {
   }
 }
 let sucio = new Set(), pedido = false, redibujarSF = false;
-function marcar(j) { if (j) sucio.add(j.mesa); else mesas.forEach((_, m) => sucio.add(m)); pedir(); }
+function marcar(j) { if (j && j.tipo === 'caza') { cazaVista = j; cazaSucio = true; return pedir(); } if (j) sucio.add(j.mesa); else { mesas.forEach((_, m) => sucio.add(m)); cazaSucio = true; } pedir(); }
+let cazaVista = null, cazaSucio = true;
+function pintarCaza() {
+  cazaSucio = false;
+  const z = document.getElementById('zcz'); if (!z) return;
+  const on = flagsDe()[34], info = z.querySelector('.czi'), lista = z.querySelector('.czl');
+  z.querySelector('h3').textContent = 'Rincón de las cazadoras' + (on ? ` · generación ${est.caz ? est.caz.gen : 1}` : ' · apagado');
+  if (!on) { info.textContent = 'Los parásitos están apagados en las opciones.'; lista.innerHTML = ''; return; }
+  const j = cazaVista && juegos.includes(cazaVista) ? cazaVista : null, pw = j && ind(j.w), pb = j && ind(j.b);
+  info.innerHTML = j && pw && pb ? `<b>${esc(pw.nombre)}</b> (blancas) contra <b>${esc(pb.nombre)}</b> · ${j.estado === 'fin' ? (j.res === 1 ? '1-0' : j.res === 0 ? '0-1' : '½-½') : 'jugando'}<small>Las cazadoras evolucionan solo para ganar a la élite. Lo que pierde la élite contra ellas le resta en su generación: así tapa sus agujeros.</small>`
+    : `Cuando lleguen las últimas partidas del torneo, cada cazadora jugará dos contra la élite.<small>Si una gana a la campeona, es un hito.</small>`;
+  lista.innerHTML = cazadoras.map(c => `<button class="pl" data-id="${esc(c.id)}"><span>✦ ${esc(c.nombre)}</span><i>${c.pts || 0} / 2</i></button>`).join('');
+  if (nivel !== 'lejos' && j) tablero(z.querySelector('canvas'), j.fenAhora, j.ultima, true);
+}
 function pedir() { if (!pedido) { pedido = true; requestAnimationFrame(dibujar); } }
 function dibujar() {
   pedido = false;
   if (!opc.directo) { if (!$('#resumen').hidden) pintarResumen(); pintarEstado(); sucio.clear(); return; }
   for (const m of sucio) pintarMesa(m);
-  if (sfSucio || redibujarSF) { redibujarSF = false; pintarSF(); }
+  if (sfSucio || redibujarSF) pintarSF();
+  if (cazaSucio || redibujarSF) pintarCaza();
+  redibujarSF = false;
   sucio.clear(); pintarEstado();
 }
 function juegosDeMesa(m) { return juegos.filter(j => j.ronda === ronda && j.mesa === m); }
 const compilados = new Map();
-function compilado(p) { let c = compilados.get(p.id); if (!c) { c = M.compilar(p.genes); compilados.set(p.id, c); if (compilados.size > 80) compilados.delete(compilados.keys().next().value); } return c; }
+function compilado(p) { const F = flagsDe(), k = p.id + '|' + fkey(F); let c = compilados.get(k); if (!c) { c = M.compilar(M.completar(p.genes), F); compilados.set(k, c); if (compilados.size > 80) compilados.delete(compilados.keys().next().value); } return c; }
 function pintarMesa(m) {
   const el = mesas[m]; if (!el) return;
   const js = juegosDeMesa(m);
@@ -507,6 +597,7 @@ function pintarMesa(m) {
 }
 lienzo.addEventListener('click', e => {
   const pl = e.target.closest('.pl'); if (pl && pl.dataset.id && nivel !== 'lejos') return ficha(pl.dataset.id);
+  if (e.target.closest('.zona')) return;
   const me = e.target.closest('.mesa'); if (!me) return;
   if (nivel !== 'cerca') acercarMesa(+me.dataset.mesa);
 });
@@ -547,7 +638,7 @@ $('#hoja').addEventListener('click', e => {
 });
 
 /* ───── Ficha de una araña ───── */
-async function individuo(id) { return byId.get(id) || await leer('individuos', id); }
+async function individuo(id) { return ind(id) || await leer('individuos', id); }
 const huellaDe = p => p && (p.huella || (p.genes ? M.huella(p.genes) : null));
 async function linaje(p) {   // de la antepasada más antigua a ella, por el padre que dio más bloques
   const r = [p]; let c = p;
@@ -599,13 +690,45 @@ async function ficha(id) {
     }
     h += '<p class="nota">El peso de cada detector es el de su primera medida en el medio juego. Apagado no cuenta para pensar, pero el gen sigue ahí y puede volver a encenderse en sus hijas.</p>';
   } else h += '<p class="nota">De esta araña no quedan sus genes.</p>';
+  if (p.genes) h += distopicas(p, hs);
   if (mut.cambios) {
     const top = Object.entries(mut.cambios).sort((a, b) => b[1] - a[1]).slice(0, 6);
     h += '<h2>Dónde mutó al nacer</h2><div class="det">' + top.map(([k, n]) => `<span>${esc(bloqueNombre(k))}</span><span class="v">${n} genes</span>`).join('') + '</div>';
   }
   hoja(h + CERRAR);
 }
-function bloqueNombre(k) { if (k === 'jugada') return 'Valor de cada jugada'; if (k === 'piensa') return 'Cómo piensa'; const d = M.DET_BY[k]; return d ? d.n + '. ' + d.nombre : k; }
+/* La ficha de sus distópicas: su red, su carácter, sus sesgos, su ritmo de mutación, su azar, su novedad y su memoria */
+function distopicas(p, hs) {
+  const g = M.completar(p.genes), F = flagsDe(), off = n => F[n] ? '' : ' <i style="font-style:normal;color:var(--dim)">(apagada)</i>';
+  const barra = (v, a, b) => { const pct = Math.round((v - a) / (b - a) * 100); return `<span style="display:inline-block;width:90px;height:7px;border-radius:3px;background:#1b2140;vertical-align:1px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:#ff4fa3"></span></span>`; };
+  let h = '<h2>Sus distópicas</h2><div class="det">';
+  const neur = []; for (let i = 0; i < M.RED_N; i++) { const o = i * M.RED_W; if (g.red[o] > 0) neur.push({ out: g.red[o + 1], cons: [0, 1, 2, 3].map(k => [g.red[o + 2 + k * 2], g.red[o + 3 + k * 2]]).filter(c => c[1]) }); }
+  h += `<span>29. Red que crece${off(29)}</span><span class="v">${neur.length} de ${M.RED_N} neuronas</span>`;
+  M.CARACTER.forEach((n, i) => { h += `<span>30. ${n[0].toUpperCase() + n.slice(1)}${i ? '' : off(30)}</span><span class="v">${barra(g.caracter[i], -1, 1)} ${fmt(g.caracter[i], 2)}</span>`; });
+  h += `<span>31. Anti-motor (prefiere cerradas)${off(31)}</span><span class="v">${barra(g.sesgo[0], -1, 1)} ${fmt(g.sesgo[0], 2)}</span>`;
+  h += `<span>32. Caos (prefiere tácticas)${off(32)}</span><span class="v">${barra(g.sesgo[1], -1, 1)} ${fmt(g.sesgo[1], 2)}</span>`;
+  h += `<span>33. Un cerebro por fase${off(33)}</span><span class="v">${F[33] ? 'apertura, medio, final' : 'un solo cerebro'}</span>`;
+  h += `<span>36. Mutación propia${off(36)}</span><span class="v">σ ×${fmt(Math.exp(g.automut[0]), 2)} · prob. ×${fmt(Math.exp(g.automut[1]), 2)}</span>`;
+  h += `<span>37. Novedad${off(37)}</span><span class="v">${p.novedad != null ? fmt(p.novedad, 3) : '—'}</span>`;
+  h += `<span>38. Azar${off(38)}</span><span class="v">${barra(g.azar[0], 0, 1)} ${fmt(g.azar[0], 2)}</span></div>`;
+  if (neur.length) h += '<details><summary>Su red, neurona a neurona</summary><div class="lin">' + neur.map((ne, i) => `<b>Neurona ${i + 1}</b> (salida ${ne.out > 0 ? '+' : ''}${fmt(ne.out, 1)}) lee: ${ne.cons.map(([f, w]) => `${esc((M.RASGOS[Math.abs(Math.round(f)) % M.RASGOS.length] || {}).nombre || '?')} (${w > 0 ? '+' : ''}${fmt(w, 2)})`).join(', ')}`).join('<br>') + '</div></details>';
+  const riv = p.rivales ? Object.entries(p.rivales) : [];
+  if (riv.length) {
+    const nom = k => k === 'cazadoras' ? 'Las cazadoras' : k === 'sf' ? 'Stockfish (todos los peldaños)' : 'Stockfish, peldaño ' + k.slice(2);
+    h += `<h2>35. Memoria del rival${off(35)}</h2><div class="det">` + riv.map(([k, r]) => { const m = r.puntos / r.partidas, a = r.partidas >= 2 && m < .3 ? ' · busca tablas' : r.partidas >= 2 && m > .6 ? ' · arriesga' : ''; return `<span>${esc(nom(k))}</span><span class="v">${fmt(r.puntos, 1)} de ${r.partidas}${a}</span>`; }).join('') + '</div><p class="nota">La memoria se hereda del padre que más le dio. Contra un rival que le gana, busca más las tablas y arriesga menos; contra uno al que gana, al revés.</p>';
+  }
+  if (hs && hs.some(Boolean)) {
+    const fila = (n, vals, v, d) => `<div class="gen"><span><span class="dotc"></span>${esc(n)}</span>${linea(vals, '#ff4fa3', 120, 20)}<span class="v">${v == null ? '—' : fmt(v, d)}</span></div>`, ult = hs[hs.length - 1] || {};
+    h += '<details><summary>Distópicas a lo largo de su linaje</summary>' +
+      fila('Neuronas de su red', hs.map(x => x && x.r != null ? x.r : null), ult.r, 0) +
+      M.CARACTER.map((n, i) => fila(n[0].toUpperCase() + n.slice(1), hs.map(x => x && x.c ? x.c[i] : null), ult.c && ult.c[i], 2)).join('') +
+      M.SESGO.map((n, i) => fila(n[0].toUpperCase() + n.slice(1), hs.map(x => x && x.s ? x.s[i] : null), ult.s && ult.s[i], 2)).join('') +
+      M.AUTOMUT.map((n, i) => fila(n[0].toUpperCase() + n.slice(1), hs.map(x => x && x.a ? Math.exp(x.a[i]) : null), ult.a && Math.exp(ult.a[i]), 2)).join('') +
+      fila('Azar', hs.map(x => x && x.z != null ? x.z : null), ult.z, 2) + '</details>';
+  }
+  return h;
+}
+function bloqueNombre(k) { if (k === 'jugada') return 'Valor de cada jugada'; if (k === 'piensa') return 'Cómo piensa'; const ds = { red: '29. Su red', caracter: '30. Personalidad', sesgo: '31–32. Anti-motor y caos', automut: '36. Mutación propia', azar: '38. Azar' }; if (ds[k]) return ds[k]; const d = M.DET_BY[k]; return d ? d.n + '. ' + d.nombre : k; }
 
 /* ═════════ Vistas auxiliares ═════════ */
 const AUX = {
@@ -622,10 +745,11 @@ const AUX = {
       <h2>Elo</h2><div class="ley"><span><i style="background:#3dff99"></i>la mejor</span><span><i style="background:#5ee8ff"></i>la media (discontinua)</span></div>${eje([g.map(x => x.mejor.elo), g.map(x => x.mediaElo)], ['#3dff99', '#5ee8ff'])}
       <h2>Mutación (σ) y diversidad</h2><div class="ley"><span><i style="background:#ff4fa3"></i>σ</span><span><i style="background:#ffb340"></i>diversidad (discontinua)</span></div>${eje([g.map(x => x.sigma), g.map(x => x.diversidad)], ['#ff4fa3', '#ffb340'])}
       <h2>Detectores encendidos de media</h2>${eje([g.map(x => x.encendidos)], ['#a99bff'])}
+      ${g.some(x => x.neuronas != null) ? `<h2>Neuronas de su red de media</h2>${eje([g.map(x => x.neuronas || 0)], ['#ff4fa3'])}` : ''}
       <p class="nota">Si la diversidad cae mucho, entran inmigrantes. Si la campeona no cambia en varias generaciones, la mutación se sacude y vuelve a crecer.</p>` + CERRAR);
   },
   async arbol() {
-    const G = est.gen, desde = Math.max(1, G - 4), inds = await porGen(desde, G), mapa = new Map(inds.map(p => [p.id, p]));
+    const G = est.gen, desde = Math.max(1, G - 4), inds = (await porGen(desde, G)).filter(p => p.origen !== 'cazadora'), mapa = new Map(inds.map(p => [p.id, p]));
     for (const p of pop) mapa.set(p.id, p);
     const lista = [...mapa.values()], anillos = G - desde + 1, cx = 180, cy = 180, R = 160, rad = g => 22 + (Math.max(desde, g) - desde) / Math.max(1, anillos - 1) * (R - 22);
     const pos = new Map(), porAnillo = {};
@@ -712,7 +836,7 @@ $('#aux').addEventListener('click', e => { const b = e.target.closest('[data-aux
 
 /* ───── Opciones ───── */
 function opciones() {
-  const sel = (k, vals, fmtv, obj) => { const o = obj || opc, cur = o[k] != null ? o[k] : M.OPC_EVO[k]; return `<select data-k="${k}"${obj ? ' data-evo' : ''}>${vals.map(v => `<option value="${v}"${cur === v ? ' selected' : ''}>${fmtv(v)}</option>`).join('')}</select>`; };
+  const sel = (k, vals, fmtv, obj) => { const o = obj || opc, cur = o[k] != null ? o[k] : k === 'novPeso' ? 0.15 : M.OPC_EVO[k]; return `<select data-k="${k}"${obj ? ' data-evo' : ''}>${vals.map(v => `<option value="${v}"${cur === v ? ' selected' : ''}>${fmtv(v)}</option>`).join('')}</select>`; };
   est.opc = est.opc || {};
   hoja(`<h3>Opciones de entrenamiento</h3><div class="sub">Se aplican a la próxima generación</div>
     <label class="op">Tiempo por jugada ${sel('ms', [10, 30, 60, 120, 250], v => v + ' ms')}</label>
@@ -723,9 +847,14 @@ function opciones() {
     <label class="op">Arañas que suben a la escalera ${sel('sfTop', [2, 4, 8], v => v)}</label>
     <label class="op">Arañas por generación ${sel('poblacion', [16, 24, 32, 48, 64], v => v, est.opc)}</label>
     <label class="op">Probabilidad de mutar cada gen ${sel('pm', [0.03, 0.06, 0.12], v => Math.round(v * 100) + ' %', est.opc)}</label>
+    <h2>Distópicas</h2>
+    ${M.DIST.map(([n, nombre]) => `<label class="op">${n}. ${nombre} <select data-dist="${n}"><option value="1"${flagsDe()[n] ? ' selected' : ''}>Sí</option><option value="0"${flagsDe()[n] ? '' : ' selected'}>No</option></select></label>`).join('')}
+    <label class="op">Peso de la novedad ${sel('novPeso', [0, 0.05, 0.15, 0.3], v => Math.round(v * 100) + ' %', est.opc)}</label>
+    <p class="nota">Apagar una distópica no borra sus genes: siguen heredándose y vuelven a contar si la enciende. Los parásitos añaden 16 partidas por generación.</p>
     <p class="nota">Más tiempo por jugada juega mejor pero evoluciona más despacio. Con ${NHILOS} hilos, una generación de ${pop.length} arañas tarda unos ${Math.max(1, Math.round(pop.length * opc.rondas * (opc.maxPlies * .45) * opc.ms / 1000 / NHILOS / 60))} min.</p>
     <div class="ctrl"><button class="btn sec" id="exp">Exportar copia</button><button class="btn sec" id="reset">Empezar de cero</button><button class="btn" data-cerrar>Hecho</button></div>`);
   $('#hojac').querySelectorAll('select').forEach(s => s.onchange = () => {
+    if (s.dataset.dist) { est.opc.dist = Object.assign({}, est.opc.dist || {}, { [s.dataset.dist]: +s.value }); compilados.clear(); guardarEstado().catch(() => {}); marcar(); return; }
     if (s.hasAttribute('data-evo')) { est.opc[s.dataset.k] = +s.value; guardarEstado().catch(() => {}); } else { opc[s.dataset.k] = +s.value; guardarOpc(); marcarSF(); }
   });
   $('#exp').onclick = exportar;

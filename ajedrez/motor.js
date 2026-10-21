@@ -236,6 +236,7 @@ Ctx.prototype.add = function (o, v) {
   if (v === 0) return;
   const g = this.G;
   this.acc += v * (this.op * g[o] + this.mj * g[o + 1] + this.fi * g[o + 2] + this.es * g[o + 3] + this.tp * g[o + 4]);
+  if (this.fmap) { const f = this.fmap[o]; if (f >= 0) this.feat[f] += v; }   // la red que crece lee la medida en bruto
 };
 Ctx.prototype.base = function (pos) {
   this.pos = pos;
@@ -777,6 +778,8 @@ det(61, 'Carreras de peones', 2, true, ['quién corona antes'], [I3(0, 0, 30)],
 DET.sort((a, b) => a.coste - b.coste || a.n - b.n);
 const DET_BY = {}; DET.forEach(d => { DET_BY['d' + d.n] = d; });
 const COSTE = ['barato', 'medio', 'caro'];
+const RASGOS = [], RASGO_ID = {};   // las medidas que la red puede leer (todas menos las tablas de casillas)
+DET.forEach(d => { if (d.n === 4 || d.n === 45) return; d.medidas.forEach((m, j) => { RASGO_ID[d.n + ':' + j] = RASGOS.length; RASGOS.push({ n: d.n, j, nombre: d.nf > 1 ? d.nombre + ' · ' + m : d.nombre }); }); });
 
 /* Bloques que no son detectores */
 const JUGADA = ['captura', 'jaque', 'sacrificio', 'avance de peón', 'enroque', 'coronación'];
@@ -784,6 +787,25 @@ const JUGADA_INIT = [0, 5, -10, 2, 15, 20];
 const PIENSA = ['extender en jaque (24)', 'profundidad de la calma (25)', 'descartar ramas (27)', 'tiempo en el medio juego (28)'];
 const PIENSA_INIT = [1, 6, 1, 1.2];
 const PIENSA_RANGO = [[-1, 1], [0, 10], [-1, 2], [0.5, 2]];
+
+/* ───────────── Las distópicas (29–38) ─────────────
+   red: hasta 8 neuronas ocultas (29); cada una [activa, peso de salida, (rasgo, peso) × 4]. Nace apagada y la mutación la enciende.
+   caracter: agresividad, gusto por sacrificar, riesgo (30). sesgo: anti-motor y caos (31, 32).
+   automut: su propio ritmo de mutación, tamaño y probabilidad, en escala logarítmica (36). azar: imprevisibilidad (38).
+   La 33 (un cerebro por fase) son los tres pesos de fase de cada medida; apagada, las tres fases usan el del medio juego.
+   La 34 (parásitos), la 35 (memoria del rival) y la 37 (novedad) viven en la sala. */
+const DIST = [[29, 'Red que crece sola'], [30, 'Personalidad'], [31, 'Anti-motor'], [32, 'Caos'], [33, 'Un cerebro por fase'], [34, 'Parásitos cazadores'], [35, 'Memoria del rival'], [36, 'Mutación propia'], [37, 'Búsqueda de novedad'], [38, 'Gen del azar']];
+const RED_N = 8, RED_K = 4, RED_W = 2 + RED_K * 2;
+const CARACTER = ['agresividad', 'sacrificio', 'riesgo'], SESGO = ['anti-motor', 'caos'], AUTOMUT = ['tamaño de mutación', 'probabilidad de mutación'];
+function todasDist() { const f = {}; for (const [n] of DIST) f[n] = 1; return f; }
+function neutros() {
+  return { red: Array.from({ length: RED_N * RED_W }, (_, i) => i % RED_W === 0 ? -1 : 0), caracter: [0, 0, 0], sesgo: [0, 0], automut: [0, 0], azar: [0] };
+}
+function completar(genes) { const n = neutros(); for (const k in n) if (!genes[k] || genes[k].length !== n[k].length) genes[k] = n[k]; return genes; }
+function neuronaNueva(a, i, rng) {   // enciende la neurona i con conexiones al azar
+  const o = i * RED_W; a[o] = 1; a[o + 1] = r4(gauss(rng) * 30);
+  for (let k = 0; k < RED_K; k++) { a[o + 2 + k * 2] = Math.floor(rng() * RASGOS.length); a[o + 3 + k * 2] = r4(gauss(rng) * (k < 2 ? 1 : .3)); }
+}
 
 /* ───────────── Genoma ─────────────
    genes = { d1:[enc, ...5 por medida], d2:[...], ..., jugada:[6], piensa:[4] }
@@ -798,6 +820,8 @@ function genomaClasico(rng, ruido) {
   g.jugada = JUGADA_INIT.map(v => r4(v + gauss(rng) * ruido * 10));
   g.piensa = PIENSA_INIT.map((v, i) => r4(clamp(v + gauss(rng) * ruido * 2, PIENSA_RANGO[i][0], PIENSA_RANGO[i][1])));
   if (!ruido) { for (const d of DET) g['d' + d.n][0] = d.coste < 2 ? 1 : -1; g.d1 = g.d1.map(r4); }
+  Object.assign(g, neutros());
+  if (ruido) { g.caracter = g.caracter.map(() => r4(clamp(gauss(rng) * ruido * 2, -1, 1))); g.sesgo = g.sesgo.map(() => r4(clamp(gauss(rng) * ruido, -1, 1))); g.azar = [r4(Math.abs(gauss(rng)) * ruido)]; }
   return g;
 }
 function genomaAzar(rng) {
@@ -810,26 +834,45 @@ function genomaAzar(rng) {
   g.d1[0] = 1;   // sin valor de las piezas no hay manera de empezar
   g.jugada = JUGADA_INIT.map(() => r4(gauss(rng) * 15));
   g.piensa = PIENSA_RANGO.map(([a, b]) => r4(a + rng() * (b - a)));
+  Object.assign(g, neutros());
+  g.caracter = g.caracter.map(() => r4(rng() * 2 - 1)); g.sesgo = g.sesgo.map(() => r4(rng() * 2 - 1)); g.azar = [r4(rng() * .5)];
+  g.automut = g.automut.map(() => r4(gauss(rng) * .3));
+  if (rng() < .5) neuronaNueva(g.red, 0, rng);
   return g;
 }
 function gauss(rng) { let u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 function r4(v) { return Math.round(v * 10000) / 10000; }
 
 /* Compila los genes a un formato rápido */
-function compilar(genes) {
-  const lista = [], G = [];
+function compilar(genes, flags) {
+  const F = flags || todasDist(), lista = [], G = [], offRasgo = [];
   let needAtt = false;
   for (const d of DET) {
     const a = genes['d' + d.n] || genomaClasico(() => .5, 0)['d' + d.n];
     if (!(a[0] > 0)) continue;
     const off = G.length;
-    for (let i = 1; i < a.length; i++) G.push(a[i]);
+    for (let i = 1; i < a.length; i += 5) G.push(F[33] ? a[i] : a[i + 1], a[i + 1], F[33] ? a[i + 2] : a[i + 1], a[i + 3], a[i + 4]);
     lista.push({ d, off });
     if (d.att) needAtt = true;
+    if (d.n !== 4) for (let j = 0; j < d.nf; j++) offRasgo.push([off + j * 5, RASGO_ID[d.n + ':' + j]]);
   }
+  // La red que crece (29): solo sus neuronas encendidas
+  let red = null, fmap = null, feat = null;
+  const rg = genes.red;
+  if (F[29] && rg) {
+    const neur = [];
+    for (let i = 0; i < RED_N; i++) {
+      const o = i * RED_W; if (!(rg[o] > 0)) continue;
+      const cons = []; for (let k = 0; k < RED_K; k++) { const w = rg[o + 3 + k * 2]; if (w) cons.push([Math.abs(Math.round(rg[o + 2 + k * 2])) % RASGOS.length, w]); }
+      if (cons.length) neur.push({ out: rg[o + 1], cons });
+    }
+    if (neur.length) { red = neur; fmap = new Int16Array(G.length).fill(-1); for (const [o, id] of offRasgo) fmap[o] = id; feat = new Float64Array(RASGOS.length); }
+  }
+  const car = F[30] && genes.caracter ? genes.caracter : [0, 0, 0], ses = genes.sesgo || [0, 0];
   const pz = genes.piensa || PIENSA_INIT, jg = genes.jugada || JUGADA_INIT, d45 = genes.d45;
   return {
-    G: Float64Array.from(G), lista, needAtt,
+    G: Float64Array.from(G), lista, needAtt, red, fmap, feat,
+    car, riesgo: car[2], antimotor: F[31] ? ses[0] : 0, caos: F[32] ? ses[1] : 0, azar: F[38] && genes.azar ? clamp(genes.azar[0], 0, 1) : 0,
     jug: Float64Array.from(jg),
     ext: pz[0] > 0, qprof: Math.round(clamp(pz[1], 0, 10)), lmr: pz[2] > 0 ? (pz[2] > 1 ? 2 : 1) : 0, tmj: clamp(pz[3], .5, 2),
     tablas: d45 && d45[0] > 0 ? d45[2] : 0,     // gen de «buscar tablas» (medio juego)
@@ -858,15 +901,19 @@ function evaluar(pos, C) {
     tp = clamp(tp + at / 6, 0, 1);
   }
   x.tp = tp; x.est = est;
-  x.acc = 0;
+  x.acc = 0; x.fmap = C.fmap; if (C.feat) { C.feat.fill(0); x.feat = C.feat; }
   for (const it of C.lista) it.d.f(x, it.off);
-  const v = x.acc;
+  let v = x.acc; x.redV = 0;
+  if (C.red) { let r = 0; for (const ne of C.red) { let z = 0; for (const [f, w] of ne.cons) z += w * C.feat[f]; r += ne.out * Math.tanh(z / 4); } x.redV = r; v += r; }
+  x.fmap = null;
   return pos.side ? -v : v;
 }
 /* Para la ficha: qué detectores han pesado más en esta posición */
 function explicar(pos, C) {
   evaluar(pos, C); const x = C.ctx, r = [];
+  const redV = x.redV;
   for (const it of C.lista) { const a = x.acc; x.acc = 0; it.d.f(x, it.off); r.push({ n: it.d.n, nombre: it.d.nombre, v: Math.round(x.acc) }); x.acc = a; }
+  if (redV) r.push({ n: 29, nombre: 'Su red', v: Math.round(redV) });
   return { fase: { apertura: x.op, medio: x.mj, final: x.fi }, estructura: x.est, temperatura: x.tp, detectores: r.filter(o => o.v).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)) };
 }
 
@@ -890,11 +937,17 @@ Buscador.prototype.ordenar = function (pos, ms, ttm, ply) {
 };
 function pick(ms, sc, i) { let bi = i; for (let j = i + 1; j < ms.length; j++) if (sc[j] > sc[bi]) bi = j; if (bi !== i) { const a = ms[i]; ms[i] = ms[bi]; ms[bi] = a; const s = sc[i]; sc[i] = sc[bi]; sc[bi] = s; } return ms[i]; }
 Buscador.prototype.drawScore = function (pos) { return pos.side === this.raiz ? this.tablas : -this.tablas; };
+/* Valor de una hoja: la evaluación más los sesgos del bando que piensa (anti-motor: posiciones cerradas; caos: posiciones tácticas) */
+Buscador.prototype.hoja = function (pos) {
+  const C = this.C; let e = evaluar(pos, C);
+  if (C.antimotor || C.caos) { const x = C.ctx, b = C.antimotor * (x.est - .5) * 60 + C.caos * x.tp * 40; e += pos.side === this.raiz ? b : -b; }
+  return e;
+};
 Buscador.prototype.quies = function (pos, a, bt, qd, ply) {
   this.nodes++;
   if ((this.nodes & 1023) === 0 && this.dmax > 1 && now() > this.deadline) this.stop = true;
   if (this.stop) return 0;
-  const ev = evaluar(pos, this.C);
+  const ev = this.hoja(pos);
   if (ev >= bt) return ev;
   if (ev > a) a = ev;
   if (qd <= 0) return ev;
@@ -977,13 +1030,17 @@ Buscador.prototype.extra = function (pos, m) {
   if (pz === P) v += J[3];
   if (fl & 4) v += J[4];
   if ((m >> 14) & 7) v += J[5];
+  const car = this.C.car;   // personalidad: la agresiva premia capturas y jaques; la sacrificada, dejar piezas en el aire
+  if (car[0] && ((fl & 1) || inCheck(pos))) v += car[0] * 15;
+  if (car[1] && pz !== K && pz !== P && attacked(pos, t, pos.side) && !attacked(pos, t, us)) v += car[1] * 25;
   return v;
 };
 /* Piensa una jugada. ms: tiempo; prof: profundidad máxima */
 Buscador.prototype.pensar = function (pos, ms, prof) {
   this.nodes = 0; this.stop = false; this.deadline = now() + ms; this.raiz = pos.side;
-  const est = evaluar(pos, this.C), T = this.C.tablas;
+  const aj = this.aj || {}, est = evaluar(pos, this.C), T = this.C.tablas * (aj.tablas || 1), riesgo = clamp(this.C.riesgo + (aj.riesgo || 0), -1, 1);
   this.tablas = est < -100 ? T : est > 100 ? -T : 0;
+  if (est >= -100) this.tablas -= riesgo * 40;   // arriesgada: no quiere tablas; prudente: las acepta
   const root = legal(pos);
   if (!root.length) return { move: 0, score: 0, depth: 0, nodes: 0 };
   const extras = root.map(m => { pos.make(m); const e = this.extra(pos, m); pos.unmake(); return e; });
@@ -993,18 +1050,37 @@ Buscador.prototype.pensar = function (pos, ms, prof) {
     const ttm = (this.tt.get(pos.key()) || {}).m || bestM;
     const sc = this.ordenar(pos, root.slice(), ttm, 0);
     const order = root.map((m, i) => [m, sc[i], extras[i]]).sort((p, q) => (q[0] === bestM) - (p[0] === bestM) || q[1] - p[1]);
-    let a = -INF, itM = 0, itS = -INF;
+    let a = -INF, itM = 0, itS = -INF; const sc2 = [];
     for (const [m, , ex] of order) {
       pos.make(m);
       const s = -this.nega(pos, d - 1, -INF, -(a - ex), 1) + ex;
       pos.unmake();
       if (this.stop) break;
+      sc2.push([m, s, ex]);
       if (s > itS) { itS = s; itM = m; }
       if (s > a) a = s;
     }
     if (this.stop) { if (itM && itS > bestS) { bestM = itM; bestS = itS; } break; }
-    bestM = itM; bestS = itS; depth = d;
+    bestM = itM; bestS = itS; depth = d; this.ultimas = sc2;
     if (Math.abs(bestS) > MATE - 100) break;
+  }
+  // Gen del azar: entre jugadas casi tan buenas como la mejor, elige con algo de imprevisibilidad
+  const z = this.C.azar;
+  if (z > 0 && this.ultimas && depth >= 1 && Math.abs(bestS) < MATE - 100) {
+    // Los valores de las jugadas que no son la mejor son solo cotas: cada candidata se comprueba con una búsqueda exacta
+    const margen = z * 40, posibles = this.ultimas.filter(([m, s]) => m !== bestM && s >= bestS - margen).sort((a, b) => b[1] - a[1]).slice(0, 3), cand = [[bestM, bestS]];
+    this.stop = false; this.deadline = now() + Math.max(5, ms * .3);
+    for (const [m, , ex] of posibles) {
+      pos.make(m); const v = -this.nega(pos, depth - 1, -INF, INF, 1) + ex; pos.unmake();
+      if (this.stop) break;
+      if (v >= bestS - margen) cand.push([m, v]);
+    }
+    this.stop = false;
+    if (cand.length > 1) {
+      const pesos = cand.map(([, s]) => Math.exp((s - bestS) / (margen / 2 + 1))), tot = pesos.reduce((x, y) => x + y, 0);
+      let r = (this.rng || Math.random)() * tot;
+      for (let i = 0; i < cand.length; i++) { r -= pesos[i]; if (r <= 0) { if (cand[i][0] !== bestM) { bestM = cand[i][0]; this.azarUsado = true; } break; } }
+    }
   }
   return { move: bestM, score: Math.round(bestS), depth, nodes: this.nodes };
 };
@@ -1022,10 +1098,11 @@ function aperturaAleatoria(rng, plies) {
   return INICIO;
 }
 /* Juega una partida completa. Cw, Cb: genes compilados. alMover(info) se llama tras cada jugada */
-function jugar(Cw, Cb, fen, opc, alMover) {
+function jugar(Cw, Cb, fen, opc, alMover, ajW, ajB) {
   opc = opc || {};
   const ms = opc.ms || 30, prof = opc.prof || 4, maxPlies = opc.maxPlies || 200;
   const pos = new Pos(fen || INICIO), jugadas = [], bus = [new Buscador(Cw), new Buscador(Cb)];
+  bus[0].aj = ajW || null; bus[1].aj = ajB || null;   // memoria del rival (35)
   let res = null, malas = 0, plies = 0, evals = [];
   while (true) {
     const f = fin(pos); if (f) { res = f; break; }
@@ -1075,19 +1152,41 @@ function actualizarElo(a, b, res, Kf) { Kf = Kf || 20; const e = 1 / (1 + Math.p
 function cruzar(a, b, rng, fa, fb) {
   const g = {}, desde = { a: 0, b: 0 };
   const pa = fa >= fb ? .6 : .4;
+  completar(a.genes); completar(b.genes);
   for (const k of Object.keys(a.genes)) {
     const deA = !(k in b.genes) || rng() < pa;
     g[k] = (deA ? a.genes[k] : b.genes[k]).slice(); deA ? desde.a++ : desde.b++;
   }
   return { genes: g, desde };
 }
-function mutar(genes, sigma, pm, rng) {
-  const cambio = {}; let total = 0;
+const RANGO_DIST = { caracter: [-1, 1], sesgo: [-1, 1], automut: [-1.5, 1.5], azar: [0, 1] };
+function mutar(genes, sigma, pm, rng, flags) {
+  const F = flags || todasDist(), cambio = {}; let total = 0;
+  completar(genes);
+  // Mutación propia (36): cada araña trae su ritmo; también muta, así que se ajusta solo
+  if (F[36]) { sigma *= Math.exp(clamp(genes.automut[0], -1.5, 1.5)); pm = clamp(pm * Math.exp(clamp(genes.automut[1], -1.5, 1.5)), 0.005, 0.5); }
   for (const k of Object.keys(genes)) {
     const a = genes[k]; let n = 0;
+    if (k === 'red') {   // red que crece: encender neuronas nuevas, recablear o ajustar pesos
+      if (!F[29]) continue;
+      for (let i = 0; i < RED_N; i++) {
+        const o = i * RED_W;
+        if (!(a[o] > 0)) { if (rng() < pm * 1.5) { neuronaNueva(a, i, rng); n++; } continue; }
+        if (rng() < pm * .2) { a[o] = -1; n++; continue; }   // a veces se apaga
+        for (let j = 1; j < RED_W; j++) {
+          if (rng() >= pm) continue;
+          if (j >= 2 && j % 2 === 0) a[o + j] = Math.floor(rng() * RASGOS.length);
+          else a[o + j] = r4(a[o + j] + gauss(rng) * sigma * (Math.abs(a[o + j]) + (j === 1 ? 10 : .5)));
+          n++;
+        }
+      }
+      if (n) { cambio[k] = n; total += n; }
+      continue;
+    }
     for (let i = 0; i < a.length; i++) {
       if (rng() >= pm) continue;
       if (k[0] === 'd' && i === 0) { if (rng() < .5) { a[0] = -a[0]; n++; } continue; }
+      if (RANGO_DIST[k]) { a[i] = r4(clamp(a[i] + gauss(rng) * sigma * (RANGO_DIST[k][1] - RANGO_DIST[k][0]) * .5, RANGO_DIST[k][0], RANGO_DIST[k][1])); n++; continue; }
       const esc = k === 'piensa' ? Math.abs(a[i]) + 1 : k === 'jugada' ? Math.abs(a[i]) + 5 : Math.abs(a[i]) + 10;
       a[i] = r4(a[i] + gauss(rng) * sigma * esc); n++;
       if (k === 'piensa') a[i] = r4(clamp(a[i], PIENSA_RANGO[i][0], PIENSA_RANGO[i][1]));
@@ -1112,7 +1211,9 @@ function diversidad(pop, rng) {
 function huella(genes) {
   const d = {};
   for (const x of DET) { const a = genes['d' + x.n]; d[x.n] = [a[0] > 0 ? 1 : 0, r4(x.n === 4 ? 0 : a[2])]; }
-  return { p: [0, 1, 2, 3, 4].map(i => r4(genes.d1[1 + i * 5 + 1])), k: (genes.piensa || PIENSA_INIT).slice(), d };
+  const g = completar(genes);
+  let r = 0; for (let i = 0; i < RED_N; i++) if (g.red[i * RED_W] > 0) r++;
+  return { p: [0, 1, 2, 3, 4].map(i => r4(genes.d1[1 + i * 5 + 1])), k: (genes.piensa || PIENSA_INIT).slice(), d, r, c: g.caracter.slice(), s: g.sesgo.slice(), a: g.automut.slice(), z: g.azar[0] };
 }
 /* Estilo (0–1 en cada eje), calculado de los genes: ataque, defensa, posición, material y táctica */
 const ESTILO = [['ataque', [9, 48, 55, 10, 21]], ['defensa', [8, 57, 11, 54]], ['posición', [5, 6, 7, 16, 14, 15]], ['material', [2, 3, 41]], ['táctica', [18, 19, 20, 56, 58, 59, 60]]];
@@ -1131,7 +1232,7 @@ function estilo(genes) {
 /* Recibe la población con sus resultados (pts) y devuelve la siguiente generación y el resumen */
 function siguienteGeneracion(est, pop, rng) {
   const O = Object.assign({}, OPC_EVO, est.opc || {}), gen = est.gen;
-  pop.forEach(p => { p.fit = (p.pts || 0) + (p.sfb || 0) + p.elo / 1e5; p.hist.push({ gen, pts: p.pts || 0, sf: p.sfb || 0, elo: Math.round(p.elo) }); });   // sfb: premio de la escalera de Stockfish
+  pop.forEach(p => { p.fit = (p.pts || 0) + (p.sfb || 0) + (p.nov || 0) + p.elo / 1e5; p.hist.push({ gen, pts: p.pts || 0, sf: p.sfb || 0, elo: Math.round(p.elo) }); });   // sfb: premio de la escalera de Stockfish
   const orden = pop.slice().sort((a, b) => b.fit - a.fit);
   const mejor = orden[0];
   est.racha = mejor.id === est.campeon ? (est.racha || 0) + 1 : 0; est.campeon = mejor.id;
@@ -1143,15 +1244,16 @@ function siguienteGeneracion(est, pop, rng) {
     mediaPts: pop.reduce((s, p) => s + (p.pts || 0), 0) / pop.length, mediaElo: pop.reduce((s, p) => s + p.elo, 0) / pop.length,
     sigma: est.sigma, diversidad: div, encendidos: pop.reduce((s, p) => s + DET.filter(d => p.genes['d' + d.n][0] > 0).length, 0) / pop.length,
     elite: orden.slice(0, O.elite).map(p => p.id), inmigrantes: 0,
+    neuronas: pop.reduce((s, p) => s + huella(p.genes).r, 0) / pop.length,
     adn: DET.map(d => { let on = 0, w = 0; for (const p of pop) { const a = p.genes['d' + d.n]; if (a[0] > 0) { on++; w += a[2]; } } return [d.n, r4(on / pop.length), r4(on ? w / on : 0)]; })
   };
-  const nueva = orden.slice(0, O.elite).map(p => { p.pts = 0; p.sfb = 0; return p; });
+  const nueva = orden.slice(0, O.elite).map(p => { p.pts = 0; p.sfb = 0; p.nov = 0; return p; });
   const elegir = () => { let b = null; for (let i = 0; i < O.torneo; i++) { const c = pop[Math.floor(rng() * pop.length)]; if (!b || c.fit > b.fit) b = c; } return b; };
   let inm = div < O.umbralDiv ? O.inmigrantes : 0; resumen.inmigrantes = inm;
   while (nueva.length < O.poblacion) {
     if (inm > 0) { inm--; nueva.push(nuevoIndividuo(rng, gen + 1, est.origen, genomaAzar(rng), [], { nacio: 'inmigrante' })); continue; }
     const a = elegir(); let b = elegir(), t = 0; while (b === a && t++ < 5) b = elegir();
-    const x = cruzar(a, b, rng, a.fit, b.fit), m = mutar(x.genes, est.sigma, O.pm, rng);
+    const x = cruzar(a, b, rng, a.fit, b.fit), m = mutar(x.genes, est.sigma, O.pm, rng, est.flags);
     const h = nuevoIndividuo(rng, gen + 1, est.origen, x.genes, [a.id, b.id], { cruce: x.desde, cambios: m.cambio, total: m.total, sigma: est.sigma });
     h.elo = (a.elo + b.elo) / 2; nueva.push(h);
   }
@@ -1161,7 +1263,7 @@ function siguienteGeneracion(est, pop, rng) {
 
 const API = {
   Pos, INICIO, legal, perft, uci, parseUci, fin, inCheck, attacked, sqName, insuficiente, mFrom, mTo,
-  DET, DET_BY, COSTE, JUGADA, PIENSA, OPC_EVO,
+  DET, DET_BY, COSTE, JUGADA, PIENSA, OPC_EVO, DIST, RASGOS, RED_N, RED_W, CARACTER, SESGO, AUTOMUT, todasDist, completar, neutros,
   genomaClasico, genomaAzar, compilar, evaluar, explicar, Buscador, jugar, aperturaAleatoria,
   huella, estilo, ESTILO, mulberry, nombre, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion
 };
