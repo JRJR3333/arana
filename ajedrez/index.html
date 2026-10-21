@@ -29,6 +29,8 @@ header h1{flex:1; margin:0; font:600 16px/1.2 var(--mono); letter-spacing:.02em;
 #barra{flex:none; padding:8px 12px 6px; background:rgba(9,10,20,.75); border-bottom:1px solid var(--line)}
 #estado{font:500 12.5px/1.4 var(--mono); color:var(--muted); margin:0 0 8px}
 #estado b{color:var(--ink); font-weight:600}
+#estado{position:relative; padding-bottom:5px}
+#estado .prog{position:absolute; left:0; bottom:0; height:2px; border-radius:2px; background:var(--acc,#5ee8ff); opacity:.75; transition:width .4s}
 .ctrl{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
 .btn{border:1px solid var(--pink); background:rgba(255,79,163,.12); border-radius:10px; padding:8px 14px; min-height:40px; font:600 14px var(--mono)}
 .btn.sec{border-color:var(--line); background:none; font-weight:500}
@@ -55,29 +57,52 @@ header h1{flex:1; margin:0; font:600 16px/1.2 var(--mono); letter-spacing:.02em;
 .mesa .lejos .t{font:600 calc(12px*var(--k)) var(--mono); color:var(--muted)}
 .mesa.juega .lejos .o{border-color:var(--cyan); color:var(--cyan)}
 .mesa.r1 .lejos .o{border-color:#e9f6ff; color:#e9f6ff} .mesa.r0 .lejos .o{border-color:var(--pink); color:var(--pink)} .mesa.rh .lejos .o{border-color:var(--amber); color:var(--amber)}
-.mesa .res{font:600 calc(11px*var(--k)) var(--mono); color:var(--green); text-align:right}
+.mesa .res{font:600 calc(11px*var(--k)) var(--mono); color:var(--green); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 #lienzo.lejos .mesa > :not(.lejos){visibility:hidden} #lienzo.lejos .mesa .lejos{display:flex} #lienzo.lejos .mesa{cursor:zoom-in}
 #lienzo.cerca .mesa .info{display:block}
 .zona{position:absolute; border:1.5px dashed var(--line); border-radius:18px; padding:20px 24px; color:var(--muted); overflow:hidden}
 /* El texto de las zonas va en tamaño fijo del plano (crece y encoge con el zoom, como los tableros): así nunca se sale ni se corta */
 .zona h3{margin:0 0 6px; font:600 24px var(--mono); color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .zona p{margin:0; font:16px/1.4 var(--mono)}
-.zsf canvas{position:absolute; left:24px; top:68px; width:260px; height:260px; border-radius:6px; cursor:zoom-in}
-.zsf .sfi{position:absolute; left:308px; top:70px; width:280px; bottom:20px; overflow:hidden; font:16px/1.45 var(--mono); color:var(--muted)}
-.zsf .sfi b{color:var(--ink)} .zsf .sfi small{display:block; margin-top:8px; color:var(--dim); font-size:14px}
-.zsf .bar{display:grid; grid-template-columns:96px 1fr 64px; gap:8px; align-items:center; margin-top:8px}
+.zona.grande{display:flex; flex-direction:column; align-items:center; gap:12px; padding:18px 20px}
+.zona.grande h3{align-self:stretch; text-align:center; font-size:26px}
+.zona.grande canvas{width:500px; height:500px; border-radius:6px; cursor:zoom-in; flex:none}
+.zona.grande.final{border:2px solid var(--amber); box-shadow:0 0 0 1px rgba(255,179,64,.2)} .zona.grande.final h3{color:var(--amber)}
+#zfin .mar{display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:center; width:500px}
+#zfin .pl{display:flex; flex-direction:column; align-items:flex-start; border:0; background:none; font:600 20px var(--mono); color:var(--ink); min-width:0; padding:4px 0}
+#zfin .pl[data-b]{align-items:flex-end} #zfin .pl span{max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap} #zfin .pl i{font:14px var(--mono); color:var(--muted); font-style:normal}
+#zfin .tan{font:700 34px var(--mono); color:var(--ink)} #zfin .iv{font:16px var(--mono); color:var(--muted)}
+.zsf .sfi{width:500px; font:16px/1.45 var(--mono); color:var(--muted)}
+.zsf .sfi b{color:var(--ink)} .zsf .sfi small{display:block; margin-top:6px; color:var(--dim); font-size:14px}
+.zsf .bar{display:grid; grid-template-columns:96px 1fr 64px; gap:8px; align-items:center; margin-top:6px}
 .zsf .ev{height:10px; border-radius:3px; background:#403e3b; overflow:hidden} .zsf .ev b{display:block; height:100%; background:#fff}
-.zsf .esc{position:absolute; right:24px; top:110px}
+#zcla .cla{display:grid; grid-template-columns:1fr 1fr; gap:0 28px; margin-top:6px}
+.cf{display:grid; grid-template-columns:34px 1fr 56px 56px 64px; gap:8px; width:100%; border:0; background:none; text-align:left; font:16px/1.25 var(--mono); color:var(--ink); padding:2px 0; align-items:center}
+.cf i,.cf em{font-style:normal; color:var(--muted); text-align:right} .cf b{text-align:right} .cf span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cf.ca0{color:var(--muted); font-size:14px; border-bottom:1px solid var(--line); margin-bottom:2px}
+.cf.fi span{color:var(--amber)} .cf.ca span::after{content:" ★"; color:var(--amber)}
+.rot{position:absolute; font:600 20px var(--mono); color:var(--cyan); letter-spacing:.02em}
+#lienzo.lejos #zfin .mar, #lienzo.lejos #zfin .iv, #lienzo.lejos #zcla .cla{display:none}
+.mesa .pl b{font-weight:700; color:var(--ink)}
 .zcz canvas{position:absolute; left:24px; top:62px; width:240px; height:240px; border-radius:6px; cursor:zoom-in}
 .zcz .czi{position:absolute; left:288px; top:66px; width:280px; bottom:20px; overflow:hidden; font:16px/1.45 var(--mono); color:var(--muted)}
 .zcz .czi b{color:var(--ink)} .zcz .czi small{display:block; margin-top:8px; color:var(--dim); font-size:14px}
 .zcz .czl{position:absolute; left:600px; top:62px; right:24px; display:grid; grid-template-columns:1fr 1fr; gap:4px 20px}
 .zcz .pl{display:flex; justify-content:space-between; gap:8px; border:0; background:none; font:500 16px var(--mono); padding:6px 0; color:var(--ink); min-width:0}
 .zcz .pl span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap} .zcz .pl i{font-style:normal; color:#ff5c5c}
-#lienzo.lejos .zona p, #lienzo.lejos .zsf .sfi, #lienzo.lejos .zcz .czi, #lienzo.lejos .zcz .czl{display:none}
+#lienzo.lejos .zona p, #lienzo.lejos .zsf .sfi, #lienzo.lejos .zcz .czi, #lienzo.lejos .zcz .czl, #lienzo.lejos .rot{display:none}
 /* Tablero grande, análisis de Stockfish y jugadas (visor, partida contra la araña) */
 .tabg{width:100%; max-width:420px; aspect-ratio:1; display:block; margin:0 auto; border-radius:4px}
-.ana{margin:0 0 10px; min-height:8px}
+.ana{margin:0 0 10px; height:118px; overflow:hidden}
+.ana .anan{margin:4px 0 0; height:18px; white-space:nowrap; overflow:hidden}
+.linea{height:26px}
+.var{font:14px/1.9 var(--mono); margin-top:8px; padding:8px; border:1px dashed var(--pink); border-radius:8px}
+.var b{color:var(--pink)}
+.var button[data-vi]{border:0; background:none; padding:1px 4px; border-radius:4px; font:inherit; color:var(--ink)} .var button.cur{background:rgba(255,79,163,.25)}
+.corona{position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:20; background:var(--sheet); border:1px solid var(--cyan); border-radius:14px; padding:12px; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.corona p{grid-column:1/-1; margin:0 0 4px; font:600 14px var(--mono); text-align:center}
+.corona button{border:1px solid var(--line); background:#eeeed2; border-radius:10px; padding:6px; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:64px}
+.corona img{width:48px; height:48px} .corona span{font:12px var(--mono); color:#333}
 .evbar{position:relative; height:28px; border-radius:4px; background:#403e3b; overflow:hidden; margin-bottom:6px}
 .evbar b{position:absolute; left:0; top:0; bottom:0; background:#fff; transition:width .3s}
 .evbar span{position:absolute; left:6px; top:4px; font:700 13px/20px var(--sys); color:#111; background:rgba(255,255,255,.9); padding:0 7px; border-radius:3px}
@@ -170,6 +195,7 @@ select.full{width:100%; font:14px var(--mono); background:#141832; color:var(--i
 <nav id="aux" aria-label="Vistas de la evolución">
   <button data-aux="biblioteca">Biblioteca</button>
   <button data-aux="registro">Registro</button>
+  <button data-aux="lichess">Lichess</button>
   <button data-aux="escalera">Escalera</button>
   <button data-aux="grafica">Gráfica</button>
   <button data-aux="arbol">Árbol</button>

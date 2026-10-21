@@ -45,7 +45,9 @@ struct ContentView: View {
                 Wallpaper().ignoresSafeArea()
                 Telarana(threads: hilos).ignoresSafeArea().allowsHitTesting(false)
                 VStack(spacing: typing ? 8 : 18) {
-                    HStack { Spacer(); Button { showSettings = true } label: { Image(systemName: "gearshape").font(.title2) } }
+                    HStack(spacing: 18) { Spacer()
+                        Button { abrirAjedrez(entrenar: false) } label: { Image(systemName: "checkerboard.rectangle").font(.title2) }.accessibilityLabel("Ajedrez")
+                        Button { showSettings = true } label: { Image(systemName: "gearshape").font(.title2) } }
                         .foregroundStyle(.white.opacity(0.8)).padding(.horizontal)
                     Spacer(minLength: 0)
                     // Con el teclado abierto el bocadillo se encoge y se puede desplazar: así no se corta nada.

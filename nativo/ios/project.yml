@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.28.0"
-    CURRENT_PROJECT_VERSION: "8"
+    MARKETING_VERSION: "0.30.0"
+    CURRENT_PROJECT_VERSION: "9"
 targets:
   Arana:
     type: application
@@ -20,6 +20,10 @@ targets:
           - CFBundleURLName: com.jrjr3333.arana
             CFBundleURLSchemes: [arana]
         NSAppleMusicUsageDescription: La araña pone, pausa y busca la música que usted le pide.
+        # 0.30.0: la sala de ajedrez. Con estos dominios iOS deja que guarde su copia (funciona sin internet) y que hable con Lichess
+        WKAppBoundDomains: [jrjr3333.github.io, lichess.org]
+        # 0.30.0: seguir entrenando con la pantalla bloqueada (audio silencioso de la sala)
+        UIBackgroundModes: [audio]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jrjr3333.arana

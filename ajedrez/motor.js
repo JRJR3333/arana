@@ -1140,7 +1140,7 @@ function aperturaAleatoria(rng, plies) {
 /* Juega una partida completa. Cw, Cb: genes compilados. alMover(info) se llama tras cada jugada */
 function jugar(Cw, Cb, fen, opc, alMover, ajW, ajB) {
   opc = opc || {};
-  const ms = opc.ms || 30, prof = opc.prof || 4, maxPlies = opc.maxPlies || 200;
+  const ms = opc.ms || 30, prof = opc.prof || 4, maxPlies = opc.maxPlies === 0 ? Infinity : (opc.maxPlies || 200);   // 0: sin límite (acaba por las reglas o por abandono)
   const pos = new Pos(fen || INICIO), jugadas = [], bus = [new Buscador(Cw), new Buscador(Cb)];
   bus[0].aj = ajW || null; bus[1].aj = ajB || null;   // memoria del rival (35)
   let res = null, malas = 0, plies = 0, evals = [];

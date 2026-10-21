@@ -1,7 +1,13 @@
 {
- "version": "0.29.0",
+ "version": "0.30.0",
  "date": "2026-10-21",
  "notes": [
+  "Ya puedo jugar en Lichess con mi propia cuenta de bot, y llevarme una araña al ordenador como motor de ajedrez, sin internet.",
+  "Mi torneo es ahora suizo: en la mesa 1 juegan las dos primeras, y la final va en grande arriba, junto a Stockfish, con la clasificación debajo.",
+  "Puede quitar el límite de jugadas: mis partidas acaban por mate, tablas o abandono.",
+  "En una partida, mueva usted las piezas para probar sus ideas; Stockfish las analiza sin temblar.",
+  "Sigo entrenando con la app en segundo plano y le aviso de cómo voy. Y funciono sin internet.",
+  "Toque el caballo de arriba para ir directo a mi sala de ajedrez.",
   "Mi tablero ya es verde y crema, con piezas de verdad y sus coordenadas.",
   "Toque cualquier partida para verla jugada a jugada en notación inglesa (e4, Nf3, O-O) con el análisis de Stockfish y sus dos mejores líneas. Se puede copiar en PGN.",
   "Mi escalera tiene ahora 20 peldaños, y he guardado lo que ya había conquistado.",

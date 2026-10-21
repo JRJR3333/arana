@@ -87,6 +87,7 @@ Al añadir una habilidad nueva:
 ## Iconos
 
 - Desde la 0.22.0 la pantalla ya no dibuja iconos de apps. No se suben imágenes de iconos al repo.
+- Excepción (0.30.0, lo pidió Juan): el botón del caballo junto a la rueda (`#chessBtn` en la web, `checkerboard.rectangle` en `ContentView.swift`) abre la sala de ajedrez. Es un acceso, no una pantalla de iconos.
 
 ## App nativa (`nativo/ios/`)
 
@@ -158,4 +159,8 @@ Juan quiere sorpresas y condiciones nuevas. Al empezar cada ejecución, tirar el
 - Guarda en IndexedDB `arana-ajedrez` (aparte de la memoria del asistente). No se cambian sus nombres ni se borran datos.
 - La sala habla con las apps nativas: en la app de iPhone por `window.webkit.messageHandlers.arana` (`Ajedrez.swift`: `salir`, `hito`, `guardar`), en Android por `AranaAndroid.guardarArchivo` y `AranaAndroid.pantalla` (`MainActivity.kt`), y en la web por `postMessage` al `index.html` de Araña. La sala debe seguir funcionando sin ellos (APK o app antiguos).
 - `stockfish/`: Stockfish 19 lite de un hilo (GPL v3, ver su `LEEME.md`). No se modifica ni se cambia por la versión grande (94 MB) ni por la de varios hilos (necesita cabeceras que GitHub Pages no da).
+- Explicación completa del diseño para Juan: `ajedrez/README.md`. Si cambia algo del funcionamiento, se actualiza ahí también.
+- **Lichess** (0.30.0): la araña juega con una cuenta BOT desde la sala (`lichess()` en `sala.js`). El token lo pega Juan y se guarda solo en `localStorage` `arana.ajedrez.lichess`; nunca va en el repo. chess.com no admite bots: no se ofrece.
+- **Motor UCI** (`exportarMotor`): un `.js` con `motor.js` dentro, los genes y un bucle UCI para Node. Si cambia la API de `motor.js` (`Pos`, `parseUci`, `uci`, `Buscador`, `compilar`), se comprueba que el motor exportado sigue funcionando.
+- **Segundo plano**: iPhone con `UIBackgroundModes: audio` (audio en silencio desde la sala, `Entreno` en `Ajedrez.swift`) y avisos locales; Android con el servicio `Entreno.kt` (primer plano, `specialUse`). Sin internet gracias a `sw.js` (y `WKAppBoundDomains` en iOS).
 - Antes de publicar un cambio en `ajedrez/`: `node ajedrez/pruebas/reglas.js` (perft y simetría), `node ajedrez/pruebas/evolucion.js 1` y `node ajedrez/pruebas/stockfish.js`.

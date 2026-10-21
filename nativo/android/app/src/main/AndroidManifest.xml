@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <!-- 0.30.0: entrenar al ajedrez con la pantalla apagada y avisar de cómo va -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Araña"
         android:icon="@drawable/arana"
@@ -34,6 +37,14 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="La araña flota sobre las demás apps para escuchar con un toque." />
+        </service>
+        <service
+            android:name=".Entreno"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Las arañas siguen jugando al ajedrez con la pantalla apagada mientras el usuario lo pide." />
         </service>
     </application>
     <queries>

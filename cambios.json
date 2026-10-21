@@ -1,5 +1,39 @@
 [
  {
+  "v": "0.30.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.30.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "Lichess y motor para el ordenador",
+    "detalle": "A petición de Juan. En la Biblioteca, «Que juegue en Lichess»: con una cuenta nueva convertida en BOT y un token que se guarda solo en el aparato, la araña acepta retos de ajedrez normal con reloj (hasta 2 a la vez), reta a quien usted diga, saluda y apunta los resultados en su memoria. chess.com no admite bots, así que no se ofrece. «Exportar como motor (UCI)» crea un archivo que se usa con Node.js en Cute Chess, Arena o lichess-bot, sin internet.",
+    "probar": "Biblioteca → una araña → «Exportar como motor»."
+   },
+   {
+    "id": "0.30.0-2",
+    "tipo": "diseño",
+    "titulo": "Torneo suizo con final en grande",
+    "detalle": "Rondas de sistema suizo: la mesa 1 la juegan las dos primeras de la clasificación, la 2 las siguientes. Cada cruce es ida y vuelta con el marcador claro en la mesa. Arriba, en grande y en el centro, la final de las dos primeras (o la mesa 1 mientras tanto) junto a Stockfish; debajo, la clasificación con puntos, Buchholz y Elo.",
+    "probar": "Entrene una generación y mire arriba de la sala."
+   },
+   {
+    "id": "0.30.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Sin límite de jugadas y variantes propias",
+    "detalle": "Opción «Sin límite» en Límite de jugadas (solo mate, tablas por repetición, 50 jugadas o material, y abandono). En el visor puede mover las piezas: se abre una variante que Stockfish analiza y la partida no cambia; al coronar elige la pieza. El análisis ya no hace temblar la pantalla.",
+    "probar": "Abra una partida y mueva una pieza."
+   },
+   {
+    "id": "0.30.0-4",
+    "tipo": "funcionalidad",
+    "titulo": "Sin internet y en segundo plano",
+    "detalle": "La sala, el motor, Stockfish y las piezas se guardan para funcionar sin conexión. En la app de iPhone sigue entrenando en segundo plano (audio en silencio) y avisa al acabar cada generación; en Android, un servicio con notificación de progreso. Botón del caballo en la pantalla principal para ir a la sala, barra de progreso de la generación y atajos de teclado en el ordenador.",
+    "probar": "Empiece a entrenar y salga de la app un rato."
+   }
+  ]
+ },
+ {
   "v": "0.29.0",
   "fecha": "2026-10-21",
   "mejoras": [

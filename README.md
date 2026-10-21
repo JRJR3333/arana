@@ -19,6 +19,10 @@ En *Ajustes → Lo que puedo hacer en…* cada versión enseña su propia lista.
 | Leer lo que hay en otras apps | Le pide que le pegue el texto en el bolsillo |
 | Instalar o borrar apps | Lo explica |
 
+## Ajedrez
+
+La araña también juega al ajedrez con un cerebro que evoluciona solo (detectores de posición + algoritmo genético) y sube una escalera contra Stockfish. Se abre con el **botón del caballo** (arriba, junto a la rueda) o diciendo «vamos a jugar al ajedrez». Puede jugar en **Lichess** con una cuenta BOT y exportarse como **motor UCI** para el ordenador. Cómo funciona todo, con las mutaciones y el torneo: [`ajedrez/README.md`](ajedrez/README.md).
+
 ## Cómo aprende
 
 - **Le entiende o le pregunta.** Si no entiende una orden, propone hasta 3 opciones. La que usted elige queda asociada a esa frase.

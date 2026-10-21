@@ -42,7 +42,8 @@ function migrarEscalera(e) {
 }
 
 /* ───── Opciones (se guardan en el aparato) ───── */
-const OPC_DEF = { ms: 30, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4, ana: 1 };
+const OPC_DEF = { ms: 30, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4, ana: 1, final: 1 };
+const limite = () => opc.maxPlies || 300;   // para estimar tiempos cuando no hay límite
 let opc = OPC_DEF;
 try { opc = Object.assign({}, OPC_DEF, JSON.parse(localStorage.getItem('arana.ajedrez.opc') || '{}')); } catch (e) { opc = Object.assign({}, OPC_DEF); }
 const guardarOpc = () => { try { localStorage.setItem('arana.ajedrez.opc', JSON.stringify(opc)); } catch (e) {} };
@@ -106,7 +107,7 @@ async function cargar() {
   }
   if (!est || !pop.length) {
     est = { gen: 1, origen: ORIGEN, opc: {}, creada: new Date().toISOString(), hitos: {}, escalera: { v: 2, peldano: 1, conquistas: {} } };
-    pop = M.poblacionInicial(rng, ORIGEN, M.OPC_EVO.poblacion);
+    pop = M.poblacionInicial(rng, ORIGEN, M.OPC_EVO.poblacion); nombresUnicos(pop);
     await guardarEstado();
   }
   est.hitos = est.hitos || {}; est.escalera = migrarEscalera(est.escalera || { peldano: 1, conquistas: {} });
@@ -131,6 +132,10 @@ function crearHilos() {
     w.onerror = e => { console.warn('hilo', e.message); }; hilos.push(w);
   }
 }
+/* Lichess (la sección está más abajo): el estado va aquí arriba para que la barra de estado lo pueda leer desde el principio. */
+const LI = 'https://lichess.org', LI_K = 'arana.ajedrez.lichess';
+const li = { token: '', cuenta: null, arana: null, aceptar: true, conectado: false, ctrl: null, partidas: new Map(), log: [], error: '' };
+try { const g = JSON.parse(localStorage.getItem(LI_K) || '{}'); li.token = g.token || ''; li.arana = g.arana || null; li.aceptar = g.aceptar !== false; } catch (e) {}
 let juegos = [], enCurso = new Map(), entrenando = false, sigId = 0, ronda = 0;
 /* Parásitos (34): 8 cazadoras que evolucionan solo para ganar a la élite. Cada una juega dos partidas contra dos arañas de la élite. */
 function asegurarCazadoras() {
@@ -139,19 +144,81 @@ function asegurarCazadoras() {
   cazadoras = M.poblacionInicial(rng, 'cazadora', 8); cazadoras.forEach(c => { c.mut = { nacio: 'cazadora' }; });
   cazById = new Map(cazadoras.map(c => [c.id, c]));
 }
+/* ═════════ El torneo de cada generación: suizo + final ═════════
+   Ronda 1: emparejadas por Elo. Las siguientes: por la clasificación (puntos, Buchholz y Elo), sin repetir rival si se puede.
+   Mesa 1 = las dos primeras, mesa 2 = las dos siguientes… Cada pareja juega ida y vuelta con la misma apertura.
+   Tras las rondas, las dos primeras juegan la final (ida y vuelta; si empatan, desempate). La ganadora es la campeona y suma 1 punto. */
+let torneo = null;
+/* Que no haya dos vivas con el mismo nombre: la nueva se llama «Vivi II», «Vivi III»… */
+const ROMANOS = ['', '', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX', ' X'];
+function nombresUnicos(lista) {
+  const usados = new Set();
+  for (const p of lista) {
+    if (!usados.has(p.nombre)) { usados.add(p.nombre); continue; }
+    const base = p.nombre.replace(/ [IVX]+$|\s\d+$/, ''); let k = 2;
+    while (usados.has(base + (ROMANOS[k] || ' ' + k))) k++;
+    p.nombre = base + (ROMANOS[k] || ' ' + k); usados.add(p.nombre);
+  }
+}
+const nuevoJuego = j => Object.assign(j, { id: ++sigId, estado: 'cola', fenAhora: j.fen, ultima: null, res: null, eval: 0 });
+function clasif() {
+  const bh = p => (p.opp || []).reduce((t, id) => t + ((byId.get(id) || {}).tor || 0), 0);
+  return pop.map(p => ({ p, tor: p.tor || 0, bh: bh(p), elo: p.elo })).sort((a, b) => b.tor - a.tor || b.bh - a.bh || b.elo - a.elo);
+}
+function nuevaRonda() {
+  const orden = clasif().map(x => x.p), libres = orden.slice(), pares = [];
+  if (torneo.ronda === 0) libres.sort((a, b) => b.elo - a.elo);
+  while (libres.length > 1) {
+    const a = libres.shift(); let k = libres.findIndex(b => !torneo.pares.has(a.id + '|' + b.id)); if (k < 0) k = 0;
+    const b = libres.splice(k, 1)[0]; pares.push([a, b]); torneo.pares.add(a.id + '|' + b.id); torneo.pares.add(b.id + '|' + a.id);
+  }
+  ronda = torneo.ronda;
+  pares.forEach(([a, b], mesa) => {
+    a.opp = (a.opp || []).concat(b.id); b.opp = (b.opp || []).concat(a.id);
+    const fen = M.aperturaAleatoria(rng, 4);
+    juegos.push(nuevoJuego({ ronda, mesa, fase: 'suizo', w: a.id, b: b.id, fen, ida: true }), nuevoJuego({ ronda, mesa, fase: 'suizo', w: b.id, b: a.id, fen, ida: false }));
+  });
+  torneo.historia.push(pares.map(([a, b]) => [a.id, b.id]));
+  if (torneo.ronda > 0) avisarProgreso(`Generación ${est.gen} · ronda ${torneo.ronda + 1} de ${torneo.R} · líder: ${orden[0].nombre} (${pts(orden[0].tor || 0)} puntos)`);
+}
+function empezarFinal() {
+  const [x, y] = clasif(); if (!x || !y) { torneo.fase = 'hecho'; return; }
+  torneo.fase = 'final'; torneo.final = { a: x.p.id, b: y.p.id };
+  const fen = M.aperturaAleatoria(rng, 4);
+  juegos.push(nuevoJuego({ ronda: torneo.R, mesa: 'F', fase: 'final', w: x.p.id, b: y.p.id, fen, ida: true }), nuevoJuego({ ronda: torneo.R, mesa: 'F', fase: 'final', w: y.p.id, b: x.p.id, fen, ida: false }));
+}
+function marcadorFinal() {
+  const f = torneo && torneo.final; if (!f) return null;
+  let pa = 0, pb = 0; for (const j of juegos) if (j.fase === 'final' && j.estado === 'fin') { const ra = j.w === f.a ? j.res : 1 - j.res; pa += ra; pb += 1 - ra; }
+  return { pa, pb };
+}
+function trasPartida(j) {   // ¿se acaba la ronda, la final o el torneo?
+  if (!torneo) return;
+  if (j.fase === 'suizo' && juegos.every(x => x.fase !== 'suizo' || x.ronda !== torneo.ronda || x.estado === 'fin')) {
+    if (torneo.ronda + 1 < torneo.R) { torneo.ronda++; nuevaRonda(); }
+    else if (opc.final && pop.length >= 2) empezarFinal(); else torneo.fase = 'hecho';
+  } else if (j.fase === 'final' && juegos.every(x => x.fase !== 'final' || x.estado === 'fin')) {
+    const f = torneo.final, m = marcadorFinal(), fn = juegos.filter(x => x.fase === 'final');
+    if (m.pa === m.pb && fn.length < 3) { const fen = M.aperturaAleatoria(rng, 4), ab = rng() < .5; juegos.push(nuevoJuego({ ronda: torneo.R, mesa: 'F', fase: 'final', w: ab ? f.a : f.b, b: ab ? f.b : f.a, fen, desempate: true })); return; }
+    const gana = m.pa > m.pb ? f.a : m.pb > m.pa ? f.b : (clasif()[0].p.id);   // si también empatan el desempate, la primera del suizo
+    torneo.campeona = gana; const pc = byId.get(gana); if (pc) { pc.pts += 1; pc.titulos = (pc.titulos || 0) + 1; }
+    torneo.fase = 'hecho';
+  }
+  claSucio = true;
+}
 function prepararGeneracion() {
   aplicarPendientes();
-  pop.forEach(p => { p.pts = 0; p.sfb = 0; p.nov = 0; p.plyT = 0; p.nJ = 0; });
-  juegos = M.emparejar(pop, opc.rondas, rng).map(j => Object.assign(j, { id: ++sigId, estado: 'cola', fenAhora: j.fen, ultima: null, res: null, eval: 0 }));
+  pop.forEach(p => { p.pts = 0; p.sfb = 0; p.nov = 0; p.plyT = 0; p.nJ = 0; p.tor = 0; p.opp = []; });
+  juegos = []; torneo = { ronda: 0, R: Math.max(1, opc.rondas), pares: new Set(), fase: 'suizo', final: null, historia: [], campeona: null };
+  nuevaRonda();
   asegurarCazadoras();
   if (flagsDe()[34] && cazadoras.length) {
     const elite = pop.slice(0, Math.min(4, pop.length));
     cazadoras.forEach((c, i) => {
       c.pts = 0;
       const a = elite[i % elite.length], b = elite[(i + 1) % elite.length], f1 = M.aperturaAleatoria(rng, 4), f2 = M.aperturaAleatoria(rng, 4);
-      juegos.push({ ronda: opc.rondas - 1, mesa: 'c' + i, tipo: 'caza', w: c.id, b: a.id, fen: f1 }, { ronda: opc.rondas - 1, mesa: 'c' + i, tipo: 'caza', w: b.id, b: c.id, fen: f2 });
+      juegos.push(nuevoJuego({ ronda: 0, mesa: 'c' + i, tipo: 'caza', w: c.id, b: a.id, fen: f1 }), nuevoJuego({ ronda: 0, mesa: 'c' + i, tipo: 'caza', w: b.id, b: c.id, fen: f2 }));
     });
-    juegos.forEach(j => { if (j.tipo) Object.assign(j, { id: ++sigId, estado: 'cola', fenAhora: j.fen, ultima: null, res: null, eval: 0 }); });
   }
   ronda = 0;
   construirPlano();
@@ -162,7 +229,6 @@ function repartir() {
     if (!w.libre) continue;
     const j = juegos.find(x => x.estado === 'cola'); if (!j) break;
     j.estado = 'juega'; w.libre = false; enCurso.set(j.id, j);
-    if (j.ronda !== ronda) { ronda = j.ronda; marcar(); }
     const pw = ind(j.w), pb = ind(j.b), F = flagsDe();
     const ajW = j.tipo === 'caza' && byId.has(j.w) ? ajusteContra(pw, 'cazadoras') : null, ajB = j.tipo === 'caza' && byId.has(j.b) ? ajusteContra(pb, 'cazadoras') : null;
     w.postMessage({ t: 'partida', id: j.id, w: { id: j.w, genes: pw.genes }, b: { id: j.b, genes: pb.genes }, fen: j.fen, opc: { ms: opc.ms, prof: opc.prof, maxPlies: opc.maxPlies }, directo: opc.directo, flags: F, ajW, ajB });
@@ -185,10 +251,11 @@ function alRecibir(w, d) {
       if (rs === 0 && s0.id === est.campeon) est.cazaGana = { gen: est.gen, cazadora: c.nombre, campeona: s0.nombre };
     } else {
       a.pts += d.res; b.pts += 1 - d.res; M.actualizarElo(a, b, d.res);
+      if (j.fase === 'suizo') { a.tor = (a.tor || 0) + d.res; b.tor = (b.tor || 0) + 1 - d.res; }
       for (const [p, v] of [[a, d.res], [b, 1 - d.res]]) { p.partidas[v === 1 ? 'g' : v === 0 ? 'p' : 'e']++; p.plyT = (p.plyT || 0) + d.plies; p.nJ = (p.nJ || 0) + 1; }
     }
-    marcar(j);
-    if (juegos.every(x => x.estado === 'fin')) finTorneo();
+    trasPartida(j); marcar(j); if (j.fase === 'suizo') marcar();
+    if (juegos.every(x => x.estado === 'fin') && (!torneo || torneo.fase === 'hecho')) finTorneo();
     else repartir();
   }
 }
@@ -208,13 +275,15 @@ async function cerrarGeneracion() {
     resSF.conquistado = ven.length >= 8 && media >= 0.5 && !est.escalera.conquistas[E.n];
     if (resSF.conquistado) { est.escalera.conquistas[E.n] = { gen: est.gen, fecha: new Date().toISOString(), por: mejor.nombre, puntos: resSF.ventana.puntos, partidas: ven.length }; est.escalera.peldano = Math.min(ESCALERA.length, E.n + 1); est.escalera.ventana = []; }
   }
-  const F = flagsDe(); est.flags = F;
+  const F = flagsDe(); est.flags = F; const clasifAntes = torneo ? clasif() : [];
   if (F[37]) novedad();
   const out = M.siguienteGeneracion(est, pop, rng);
   if (resSF) out.resumen.sf = resSF;
   out.resumen.flags = fkey(F);
   // Memoria del rival (35): las hijas heredan la memoria del padre que más les dio
   const antes = new Map(viejos.map(p => [p.id, p])), cazAntes = new Map(cazadoras.map(c => [c.id, c]));
+  if (torneo) { const cl = clasifAntes, mf = marcadorFinal(), cp = torneo.campeona && antes.get(torneo.campeona);
+    out.resumen.torneo = { rondas: torneo.R, campeona: cp ? { id: cp.id, nombre: cp.nombre } : null, final: torneo.final ? { a: (antes.get(torneo.final.a) || {}).nombre, b: (antes.get(torneo.final.b) || {}).nombre, pa: mf.pa, pb: mf.pb } : null, clasif: cl.slice(0, 32).map(x => [x.p.nombre, x.tor, x.bh]) }; }
   for (const h of out.pop) if (h.padres && h.padres.length && !h.rivales) { const cr = h.mut && h.mut.cruce, pa = antes.get(h.padres[cr && cr.b > cr.a ? 1 : 0]); if (pa && pa.rivales) h.rivales = JSON.parse(JSON.stringify(pa.rivales)); }
   // Las cazadoras también evolucionan
   const extraCaz = [];
@@ -235,18 +304,20 @@ async function cerrarGeneracion() {
     extra.push(['partidas', Object.assign({ gen: out.resumen.gen }, mejorPartida)]);
   }
   for (const p of viejos) if (!vivos.has(p.id)) { conHuella(p); p.murio = out.resumen.gen; extra.push(['individuos', Object.assign({}, p, { genes: elite.has(p.id) || genesTodas() ? p.genes : null })]); }
-  est = out.est; pop = out.pop; byId = new Map(pop.map(p => [p.id, p])); historial.push(out.resumen);
+  est = out.est; pop = out.pop; nombresUnicos(pop.concat(cazadoras)); byId = new Map(pop.map(p => [p.id, p])); historial.push(out.resumen);
   const nuevos = revisarHitos(out.resumen);
   try { await guardarEstado(extra); } catch (e) { console.warn('guardar', e); }
   juegos = []; sucio.clear();
   nuevos.forEach((h, i) => setTimeout(() => anunciarHito(h), i * 3200));
+  { const r = out.resumen, tc = r.torneo && r.torneo.campeona;
+    avisarProgreso(`Generación ${r.gen} terminada · campeona del torneo: ${tc ? tc.nombre : r.mejor.nombre} · mejor Elo ${r.mejor.elo} · Stockfish: peldaño ${est.escalera.peldano} de ${ESCALERA.length}${r.sf ? ` (${fmt(r.sf.puntos, 1)} de ${r.sf.partidas})` : ''}`); }
   pintarEstado();
   if (entrenando) { prepararGeneracion(); repartir(); } else construirPlano();
 }
 /* Búsqueda de novedad (37): premia jugar distinto. Descriptor = estilo + duración de sus partidas; novedad = distancia media a las 5 más parecidas (población y archivo) */
 function novedad() {
   const peso = est.opc && est.opc.novPeso != null ? est.opc.novPeso : 0.15;
-  const desc = p => M.estilo(p.genes).map(x => x.v).concat([(p.nJ ? p.plyT / p.nJ : opc.maxPlies / 2) / opc.maxPlies]);
+  const desc = p => M.estilo(p.genes).map(x => x.v).concat([(p.nJ ? p.plyT / p.nJ : limite() / 2) / limite()]);
   const dist = (a, b) => Math.sqrt(a.reduce((t, v, i) => t + (v - b[i]) * (v - b[i]), 0));
   const D = pop.map(desc), arch = est.archivo || [];
   const nov = D.map((d, i) => { const ds = []; D.forEach((o, j) => { if (j !== i) ds.push(dist(d, o)); }); arch.forEach(o => ds.push(dist(d, o))); ds.sort((a, b) => a - b); const k = ds.slice(0, 5); return k.length ? k.reduce((a, b) => a + b, 0) / k.length : 0; });
@@ -285,6 +356,8 @@ const HITOS = [
   { id: 'red3', texto: 'Una araña de la élite con 3 neuronas ocultas propias', ok: r => r.elite.some(id => { const p = byId.get(id); return p && p.genes && M.huella(p.genes).r >= 3; }) },
   { id: 'caza', texto: 'Una cazadora gana a la campeona', ok: () => !!est.cazaGana },
   { id: 'importa', texto: 'Llega una araña de otro aparato', ok: () => false },
+  { id: 'li-primera', texto: 'Mi primera partida en Lichess', ok: () => false },
+  { id: 'li-gana', texto: 'Gano una partida en Lichess', ok: () => false },
   { id: 'sangre', texto: 'Corre por mi población sangre de otro aparato', ok: () => pop.some(p => p.origen !== ORIGEN && p.origen !== 'cazadora') },
   { id: 'juan-gana', texto: 'Juan me gana una partida', ok: () => false },
   { id: 'gano-juan', texto: 'Le gano una partida a Juan', ok: () => false },
@@ -298,7 +371,7 @@ function revisarHitos(r) {
 function anunciarHito(h) {
   const a = $('#aviso'); a.textContent = '✦ Hito: ' + h.texto; a.classList.add('on');
   clearTimeout(anunciarHito.t); anunciarHito.t = setTimeout(() => a.classList.remove('on'), 3000);
-  avisarApp({ tipo: 'hito', texto: h.texto });
+  avisarApp({ tipo: 'hito', texto: h.texto }); avisarProgreso('Hito: ' + h.texto, true);
 }
 function darHito(id) { const h = HITOS.find(x => x.id === id); if (!h || est.hitos[id]) return; est.hitos[id] = { fecha: new Date().toISOString(), gen: est.gen }; guardarEstado().catch(() => {}); anunciarHito(h); pintarEstado(); }
 
@@ -306,8 +379,33 @@ function darHito(id) { const h = HITOS.find(x => x.id === id); if (!h || est.hit
 let candado = null;
 async function pedirCandado() { try { if (navigator.wakeLock && entrenando) candado = await navigator.wakeLock.request('screen'); } catch (e) { candado = null; } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pedirCandado(); });
+/* ───── Segundo plano: seguir jugando con la pantalla bloqueada y avisar de cómo va ───── */
+let silencio = null;
+function audioSilencio(on) {   // en la app de iPhone, un audio silencioso mantiene viva la sala (modo de fondo «audio»)
+  if (!IOS_APP()) return;
+  try {
+    if (!silencio) {
+      const n = 8000, b = new Uint8Array(44 + n), dv = new DataView(b.buffer), txt = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+      txt(0, 'RIFF'); dv.setUint32(4, 36 + n, true); txt(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+      dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); txt(36, 'data'); dv.setUint32(40, n, true); b.fill(128, 44);
+      silencio = new Audio(URL.createObjectURL(new Blob([b], { type: 'audio/wav' }))); silencio.loop = true; silencio.setAttribute('playsinline', '');
+    }
+    if (on) silencio.play().catch(() => {}); else silencio.pause();
+  } catch (e) {}
+}
+function avisarProgreso(texto, hito) {
+  if (IOS_APP()) { avisarApp({ tipo: 'progreso', texto, hito: !!hito }); return; }
+  const aa = ANDROID(); if (aa && typeof aa.progreso === 'function') { try { aa.progreso(texto); } catch (e) {} return; }
+  try { if (document.hidden && window.Notification && Notification.permission === 'granted') new Notification(hito ? 'Araña · ¡hito de ajedrez!' : 'Araña · ajedrez', { body: texto, tag: hito ? undefined : 'ajedrez' }); } catch (e) {}
+}
+function segundoPlano(on) {
+  audioSilencio(on);
+  if (IOS_APP()) avisarApp({ tipo: 'entreno', on: !!on });
+  const aa = ANDROID(); if (aa && typeof aa.entreno === 'function') { try { aa.entreno(!!on); } catch (e) {} }
+  else if (on && !IOS_APP() && window.Notification && Notification.permission === 'default' && !/iphone|ipad/i.test(navigator.userAgent)) { try { Notification.requestPermission().catch(() => {}); } catch (e) {} }
+}
 function entrenar(si) {
-  entrenando = si;
+  entrenando = si; segundoPlano(si);
   $('#go').textContent = si ? '⏸ Pausar' : '▶ Entrenar';
   const aa = ANDROID(); if (aa && typeof aa.pantalla === 'function') { try { aa.pantalla(!!si); } catch (e) {} }
   if (si) { pedirCandado(); if (sfFase) faseStockfish(); else { if (!juegos.length) prepararGeneracion(); repartir(); } }
@@ -351,7 +449,7 @@ async function partidaSF(ind, yoB, fen0, E) {
   while (true) {
     if (!entrenando) return null;
     f = M.fin(pos); if (f) break;
-    if (jug.length >= opc.maxPlies) { const e = evSF == null ? 0 : evSF; f = { res: e > 300 ? (yoB ? 1 : 0) : e < -300 ? (yoB ? 0 : 1) : .5, motivo: 'límite de jugadas' }; break; }
+    if (opc.maxPlies && jug.length >= opc.maxPlies) { const e = evSF == null ? 0 : evSF; f = { res: e > 300 ? (yoB ? 1 : 0) : e < -300 ? (yoB ? 0 : 1) : .5, motivo: 'límite de jugadas' }; break; }
     let u;
     if ((pos.side === 0) === yoB) {
       const r = await pensarArana(ind, fen0, jug, aj); u = r.uci; if (r.uci) evYo = yoB ? r.eval : -r.eval;
@@ -417,7 +515,7 @@ function pintarSF() {
   const z = document.getElementById('zsf'); if (!z) return;
   const act = est.escalera.peldano, E = ESCALERA[act - 1], hecho = !!est.escalera.conquistas[ESCALERA.length];
   z.querySelector('h3').textContent = hecho ? 'Escalera de Stockfish · ¡conquistada!' : `Escalera de Stockfish · peldaño ${act}: ${E.nombre}`;
-  z.querySelector('.esc').innerHTML = escaleraSVG(480, 170);
+  z.querySelector('.esc').innerHTML = escaleraSVG(500, 70);
   const info = z.querySelector('.sfi'), v = sfVista;
   let t;
   if (!opc.sf) t = 'La escalera está apagada en las opciones.';
@@ -431,36 +529,75 @@ function pintarSF() {
   } else if (sfFase) t = entrenando ? 'Preparando a Stockfish…' : `En pausa: quedan ${sfFase.cola.length} partidas contra Stockfish.`;
   else t = `Cuando acabe el torneo, las ${opc.sfTop} mejores subirán aquí: blancas y negras contra Stockfish. Conquistan el peldaño si sacan la mitad de los puntos en sus últimas 8 partidas en él${(est.escalera.ventana || []).length ? ` (llevan ${fmt(est.escalera.ventana.reduce((a, b) => a + b, 0), 1)} de ${est.escalera.ventana.length})` : ''}.`;
   info.innerHTML = t;
-  if (nivel !== 'lejos') tablero(z.querySelector('canvas'), v ? v.fen : M.INICIO, v ? v.ultima : null, true, v ? (v.yoB ? 'b' : 'w') : 'b');
+  if (nivel !== 'lejos') tablero(z.querySelector('canvas'), v ? v.fen : M.INICIO, v ? v.ultima : null, true, v ? (v.yoB ? 'b' : 'w') : 'b', { base: Math.max(.6, esc0) * 500 / 240, coords: true });
 }
 
 /* ═════════ El plano ═════════ */
 const CW = 260, CH = 360, GAP = 24, PAD = 30, COLS = 4;
 let W0 = 0, H0 = 0, esc0 = 1, nivel = '', mesas = [];
 const plano = $('#plano'), tam = $('#tam'), lienzo = $('#lienzo');
+const CARD_W = () => (W0 - PAD * 2 - GAP) / 2, CARD_H = 760, CLA_H = 330;
+let yMesas = 0, claSucio = true, finSucio = true;
 function construirPlano() {
   const n = Math.max(1, Math.floor(pop.length / 2)), filas = Math.ceil(n / COLS);
   W0 = PAD * 2 + COLS * CW + (COLS - 1) * GAP;
-  const yZ = PAD + filas * CH + (filas - 1) * GAP + 40;
-  H0 = yZ + 360 + 24 + 330 + PAD + 60;
-  let h = '';
+  const cw = CARD_W(), yCla = PAD + CARD_H + GAP; yMesas = yCla + CLA_H + 70;
+  const yZ = yMesas + filas * CH + (filas - 1) * GAP + 40;
+  H0 = yZ + 330 + PAD + 60;
+  // Arriba, en el centro y grandes: la final (o la mesa 1 mientras dura el suizo) y Stockfish
+  let h = `<div class="zona grande" id="zfin" style="left:${PAD}px;top:${PAD}px;width:${cw}px;height:${CARD_H}px"><h3>Mesa 1</h3>
+      <canvas width="240" height="240" aria-label="La partida de las mejores (tóquela para verla con sus jugadas)"></canvas>
+      <div class="mar"><button class="pl" data-w></button><b class="tan"></b><button class="pl" data-b></button></div><div class="iv"></div></div>
+    <div class="zona grande zsf" id="zsf" style="left:${PAD + cw + GAP}px;top:${PAD}px;width:${cw}px;height:${CARD_H}px"><h3>Escalera de Stockfish</h3>
+      <canvas width="240" height="240" aria-label="Partida contra Stockfish (tóquela para verla con sus jugadas)"></canvas><div class="sfi"></div><div class="esc"></div></div>
+    <div class="zona" id="zcla" style="left:${PAD}px;top:${yCla}px;width:${W0 - PAD * 2}px;height:${CLA_H}px"><h3>Clasificación</h3><div class="cla"></div></div>
+    <div class="rot" id="rot" style="left:${PAD}px;top:${yMesas - 52}px;width:${W0 - PAD * 2}px"></div>`;
   for (let m = 0; m < n; m++) {
-    const x = PAD + (m % COLS) * (CW + GAP), y = PAD + Math.floor(m / COLS) * (CH + GAP);
+    const x = PAD + (m % COLS) * (CW + GAP), y = yMesas + Math.floor(m / COLS) * (CH + GAP);
     h += `<div class="mesa" id="m${m}" data-mesa="${m}" style="left:${x}px;top:${y}px">
       <button class="pl" data-b></button><canvas width="240" height="240" aria-label="Tablero de la mesa ${m + 1}"></canvas><button class="pl" data-w></button>
       <div class="info"><div class="ev"><b style="width:50%"></b></div><div class="evt"></div><div class="chips"></div></div>
       <div class="res"></div>
       <div class="lejos" aria-hidden="true"><div class="o">${m + 1}</div><div class="t">MESA ${m + 1}</div></div></div>`;
   }
-  const wz = W0 - PAD * 2;
-  h += `<div class="zona zsf" id="zsf" style="left:${PAD}px;top:${yZ}px;width:${wz}px;height:360px"><h3>Escalera de Stockfish</h3>
-      <canvas width="240" height="240" aria-label="Partida contra Stockfish (tóquela para verla con sus jugadas)"></canvas><div class="sfi"></div><div class="esc"></div></div>
-    <div class="zona zcz" id="zcz" style="left:${PAD}px;top:${yZ + 384}px;width:${wz}px;height:330px"><h3>Rincón de las cazadoras</h3>
+  h += `<div class="zona zcz" id="zcz" style="left:${PAD}px;top:${yZ}px;width:${W0 - PAD * 2}px;height:330px"><h3>Rincón de las cazadoras</h3>
       <canvas width="240" height="240" aria-label="Partida de una cazadora"></canvas><div class="czi"></div><div class="czl"></div></div>`;
   lienzo.innerHTML = h; lienzo.style.width = W0 + 'px'; lienzo.style.height = H0 + 'px';
-  mesas = Array.from(lienzo.querySelectorAll('.mesa')); sfSucio = true; cazaSucio = true;
+  mesas = Array.from(lienzo.querySelectorAll('.mesa')); sfSucio = true; cazaSucio = true; claSucio = true; finSucio = true;
   if (!esc0 || !nivel) verTodo(); else aplicarEscala(esc0, true);
   marcar();
+}
+/* Marcador de una pareja (ida y vuelta): puntos de cada una y texto «Ida 1-0 · Vuelta ½-½» */
+function marcadorPareja(js, idA) {
+  let pa = 0, pb = 0; const t = js.map((x, k) => { const nom = x.desempate ? 'Desempate' : x.ida ? 'Ida' : 'Vuelta'; if (x.estado === 'fin') { const ra = x.w === idA ? x.res : 1 - x.res; pa += ra; pb += 1 - ra; return `${nom} ${resTxt(x.res)}`; } return `${nom} ${x.estado === 'juega' ? '▶ jugando' : '—'}`; });
+  return { pa, pb, texto: t.join(' · ') };
+}
+const pts = v => v === 0 ? '0' : v % 1 ? (v > 1 ? Math.floor(v) + '½' : '½') : String(v);
+function pintarFinal() {
+  finSucio = false;
+  const z = document.getElementById('zfin'); if (!z || !torneo) return;
+  const fn = juegos.filter(x => x.fase === 'final'), enFinal = fn.length > 0, js = enFinal ? fn : juegosDeMesa(0);
+  const j = js.find(x => x.estado === 'juega') || js.slice().reverse().find(x => x.estado === 'fin') || js[0]; if (!j) return;
+  const ida = js[0], A = ind(ida.w), B = ind(ida.b); if (!A || !B) return;
+  const m = marcadorPareja(js, A.id), camp = torneo.campeona && ind(torneo.campeona);
+  z.classList.toggle('final', enFinal);
+  z.querySelector('h3').textContent = camp ? `¡Campeona: ${camp.nombre}!` : enFinal ? 'Final del torneo' : `Mesa 1 · ronda ${torneo.ronda + 1} de ${torneo.R} · las líderes`;
+  const bw = z.querySelector('[data-w]'), bb = z.querySelector('[data-b]'); bw.dataset.id = A.id; bb.dataset.id = B.id;
+  bw.innerHTML = `<span>${esc(A.nombre)}</span><i>${Math.round(A.elo)}</i>`; bb.innerHTML = `<span>${esc(B.nombre)}</span><i>${Math.round(B.elo)}</i>`;
+  z.querySelector('.tan').textContent = `${pts(m.pa)} – ${pts(m.pb)}`;
+  z.querySelector('.iv').textContent = m.texto;
+  z._juego = j;
+  if (nivel !== 'lejos') tablero(z.querySelector('canvas'), j.fenAhora, j.ultima, true, null, { base: Math.max(.6, esc0) * 500 / 240, coords: true });
+}
+function pintarCla() {
+  claSucio = false;
+  const z = document.getElementById('zcla'); if (!z || !torneo) return;
+  const cl = clasif(), fin = torneo.final ? [torneo.final.a, torneo.final.b] : [];
+  z.querySelector('h3').textContent = `Clasificación · ${torneo.fase === 'suizo' ? `ronda ${torneo.ronda + 1} de ${torneo.R}` : torneo.fase === 'final' ? 'final en juego' : 'torneo terminado'}`;
+  const fila = (x, k) => `<button class="cf${fin.includes(x.p.id) ? ' fi' : ''}${x.p.id === torneo.campeona ? ' ca' : ''}" data-id="${esc(x.p.id)}"><i>${k + 1}</i><span>${esc(x.p.nombre)}</span><b>${pts(x.tor)}</b><em>${fmt(x.bh, 1)}</em><em>${Math.round(x.elo)}</em></button>`;
+  const cab = '<div class="cf ca0"><i>#</i><span>Araña</span><b>Pts</b><em>Bh</em><em>Elo</em></div>', mitad = Math.ceil(cl.length / 2);
+  z.querySelector('.cla').innerHTML = `<div>${cab}${cl.slice(0, mitad).map(fila).join('')}</div><div>${cab}${cl.slice(mitad).map((x, k) => fila(x, k + mitad)).join('')}</div>`;
+  const r = document.getElementById('rot'); if (r) r.textContent = `Ronda ${Math.min(torneo.ronda, torneo.R - 1) + 1} de ${torneo.R} · mesa 1 = las dos primeras de la clasificación`;
 }
 const escMin = () => Math.min(1, (plano.clientWidth || 380) / (W0 || 1));
 const ESC_MAX = 2.4;
@@ -478,6 +615,10 @@ function zoomEn(s, cx, cy) {   // cx, cy: punto del plano visible que se queda q
   const px = (plano.scrollLeft + mx) / esc0, py = (plano.scrollTop + my) / esc0;
   aplicarEscala(s);
   plano.scrollLeft = px * esc0 - mx; plano.scrollTop = py * esc0 - my;
+}
+function acercarZona(z) {
+  const s = Math.min(ESC_MAX, Math.max(.6, (plano.clientWidth - 24) / parseFloat(z.style.width)));
+  aplicarEscala(s, true); plano.scrollLeft = parseFloat(z.style.left) * esc0 - 12; plano.scrollTop = parseFloat(z.style.top) * esc0 - 12;
 }
 function verTodo() { aplicarEscala(escMin(), true); plano.scrollLeft = 0; plano.scrollTop = 0; }
 function acercarMesa(m) {
@@ -613,30 +754,68 @@ function casillaOcupada(fen, sq) {
 /* ═════════ El visor de partidas: tablero grande, jugadas en inglés y análisis de Stockfish ═════════ */
 let visor = null;
 function verPartida(o) {
-  const v = Object.assign({ fen0: M.INICIO, ucis: [], idx: null, girar: false, info: {} }, o);
+  const v = Object.assign({ fen0: M.INICIO, ucis: [], idx: null, girar: false, info: {}, var: null, sel: -1 }, o);
   if (v.idx == null) v.idx = v.ucis.length;
   hoja(`<h3>${esc(v.titulo || 'Partida')}</h3><div class="sub" id="vSub">${esc(v.sub || '')}</div>
     <div class="ana" id="vAna"></div>
-    <canvas id="vCv" class="tabg" width="240" height="240" aria-label="Tablero"></canvas>
+    <canvas id="vCv" class="tabg" width="240" height="240" aria-label="Tablero: toque una pieza y su casilla para probar sus propias jugadas" style="touch-action:manipulation"></canvas>
     <div class="rep"><button id="v0" aria-label="Al principio">⏮</button><button id="v1" aria-label="Jugada anterior">◀</button><button id="v2" aria-label="Jugada siguiente">▶</button><button id="v3" aria-label="Al final">⏭</button><button id="vG" aria-label="Girar el tablero">⇅</button></div>
     <div class="jugadas" id="vLista"></div>
-    <div class="ctrl" style="margin-top:12px"><button class="btn sec" id="vSF" aria-pressed="${!!opc.ana}">Análisis de Stockfish</button><button class="btn sec" id="vPgn">Copiar PGN</button><button class="btn sec" data-cerrar>Cerrar</button></div>`);
+    <div id="vVar"></div>
+    <div class="ctrl" style="margin-top:12px"><button class="btn sec" id="vSF" aria-pressed="${!!opc.ana}">Análisis de Stockfish</button><button class="btn sec" id="vPgn">Copiar PGN</button><button class="btn sec" data-cerrar>Cerrar</button></div>
+    <p class="nota">Mueva usted las piezas para probar sus ideas: se abre una variante y Stockfish la analiza. La partida no cambia.</p>`);
   visor = v;
-  const ir = n => { visor.idx = Math.max(0, Math.min(visor.ucis.length, n)); pintarVisor(); };
-  $('#v0').onclick = () => ir(0); $('#v1').onclick = () => ir(visor.idx - 1); $('#v2').onclick = () => ir(visor.idx + 1); $('#v3').onclick = () => ir(visor.ucis.length);
+  const ir = n => { const V = visor.var; if (V) V.idx = Math.max(0, Math.min(V.ucis.length, n)); else visor.idx = Math.max(0, Math.min(visor.ucis.length, n)); visor.sel = -1; pintarVisor(); };
+  const cur = () => visor.var ? visor.var.idx : visor.idx, fin = () => visor.var ? visor.var.ucis.length : visor.ucis.length;
+  $('#v0').onclick = () => ir(0); $('#v1').onclick = () => ir(cur() - 1); $('#v2').onclick = () => ir(cur() + 1); $('#v3').onclick = () => ir(fin());
   $('#vG').onclick = () => { visor.girar = !visor.girar; pintarVisor(); };
   $('#vSF').onclick = () => { opc.ana = opc.ana ? 0 : 1; guardarOpc(); $('#vSF').setAttribute('aria-pressed', String(!!opc.ana)); if (!opc.ana) anaParar(); pintarVisor(); };
   $('#vPgn').onclick = () => copiar(M.pgn(visor.fen0, visor.ucis, visor.info), $('#vPgn'));
-  $('#vLista').onclick = e => { const b = e.target.closest('[data-i]'); if (b) ir(+b.dataset.i); };
+  $('#vLista').onclick = e => { const b = e.target.closest('[data-i]'); if (b) { visor.var = null; visor.idx = +b.dataset.i; visor.sel = -1; pintarVisor(); } };
+  $('#vVar').onclick = e => { const b = e.target.closest('[data-vi]'); if (b) ir(+b.dataset.vi); if (e.target.closest('#vVolver')) { visor.var = null; visor.sel = -1; pintarVisor(); } };
+  $('#vCv').addEventListener('click', toqueVisor);
   pintarVisor();
 }
 function posEn(fen0, ucis, n) { const pos = new M.Pos(fen0); for (let i = 0; i < n; i++) { const m = M.parseUci(pos, ucis[i]); if (!m) break; pos.make(m); } return pos; }
+const lineaVisor = () => visor.var ? visor.ucis.slice(0, visor.var.desde).concat(visor.var.ucis.slice(0, visor.var.idx)) : visor.ucis.slice(0, visor.idx);
+/* Casilla tocada en un tablero (0x88), según esté girado */
+function casillaToque(e, girar) {
+  const r = e.currentTarget.getBoundingClientRect(), q = (r.width || 320) / 8;
+  let c = Math.floor((e.clientX - r.left) / q), f = 7 - Math.floor((e.clientY - r.top) / q); if (girar) { c = 7 - c; f = 7 - f; }
+  return c < 0 || c > 7 || f < 0 || f > 7 ? -1 : c + f * 16;
+}
+/* Si una jugada corona, pregunta en qué pieza; si no, la hace directamente */
+function conCoronacion(ms, blancas, hacer) {
+  if (ms.length === 1) return hacer(ms[0]);
+  const caja = document.createElement('div'); caja.className = 'corona'; caja.setAttribute('role', 'dialog'); caja.setAttribute('aria-label', 'Coronar en');
+  caja.innerHTML = '<p>¿En qué pieza corona?</p>' + [[5, 'Q', 'Dama'], [4, 'R', 'Torre'], [3, 'B', 'Alfil'], [2, 'N', 'Caballo']].map(([t, l, n]) => { const im = IMG[(blancas ? 'w' : 'b') + l]; return `<button data-t="${t}" aria-label="${n}">${im && im.src ? `<img src="${im.src}" alt="">` : l}<span>${n}</span></button>`; }).join('');
+  caja.onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return; caja.remove(); const m = ms.find(x => (x >> 14 & 7) === +b.dataset.t); if (m) hacer(m); };
+  $('#hojac').appendChild(caja); const b = caja.querySelector('button'); if (b) b.focus();
+}
+function toqueVisor(e) {
+  if (!visor) return;
+  const sq = casillaToque(e, visor.girar); if (sq < 0) return;
+  const pos = posEn(visor.fen0, lineaVisor(), lineaVisor().length), mia = pos.b[sq] && (pos.b[sq] >> 3) === pos.side;
+  if (visor.sel < 0 || mia) { visor.sel = mia ? sq : -1; return pintarVisor(); }
+  const ms = M.legal(pos).filter(m => M.mFrom(m) === visor.sel && M.mTo(m) === sq);
+  visor.sel = -1; if (!ms.length) return pintarVisor();
+  conCoronacion(ms, pos.side === 0, m => {
+    const u = M.uci(m);
+    if (!visor.var && visor.ucis[visor.idx] === u) { visor.idx++; return pintarVisor(); }   // es la jugada de la partida: solo avanza
+    if (!visor.var) visor.var = { desde: visor.idx, ucis: [], idx: 0 };
+    const V = visor.var; V.ucis = V.ucis.slice(0, V.idx); V.ucis.push(u); V.idx++;
+    pintarVisor();
+  });
+}
 function pintarVisor() {
   if (!visor || !$('#vCv')) return;
-  const pos = posEn(visor.fen0, visor.ucis, visor.idx), fen = pos.fen();
-  tablero($('#vCv'), fen, null, false, null, { coords: true, girar: visor.girar, base: 1.6 });
-  $('#vLista').innerHTML = listaHTML(visor.fen0, visor.ucis, visor.idx);
-  const cur = $('#vLista .cur'); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const linea = lineaVisor(), pos = posEn(visor.fen0, linea, linea.length), fen = pos.fen();
+  const dest = visor.sel >= 0 ? M.legal(pos).filter(m => M.mFrom(m) === visor.sel).map(M.mTo) : null;
+  tablero($('#vCv'), fen, null, false, null, { coords: true, girar: visor.girar, base: 1.6, sel: visor.sel, destinos: dest });
+  const L = $('#vLista'); L.innerHTML = listaHTML(visor.fen0, visor.ucis, visor.var ? -1 : visor.idx);
+  const cur = L.querySelector('.cur'); if (cur) L.scrollTop = Math.max(0, cur.offsetTop - L.clientHeight / 2);   // sin mover la hoja entera
+  const V = visor.var;
+  $('#vVar').innerHTML = V ? `<div class="var"><b>Su variante</b> desde ${V.desde ? 'la jugada ' + Math.ceil(V.desde / 2) : 'el principio'}: ${listaHTML(posEn(visor.fen0, visor.ucis, V.desde).fen(), V.ucis, V.idx).replace(/data-i=/g, 'data-vi=')} <button class="btn sec" id="vVolver" style="min-height:32px;padding:3px 10px;margin-left:6px">Volver a la partida</button></div>` : '';
   if (visor.estado) $('#vSub').textContent = visor.estado();
   if (opc.ana) analizar(fen, '#vAna'); else $('#vAna').innerHTML = '';
 }
@@ -688,6 +867,7 @@ function anaArrancar() {
   const fen = ana.pend; ana.pend = null; if (!fen) return;
   ana.fen = fen; ana.lineas = [];
   const p = new M.Pos(fen); if (M.fin(p)) { ana.corriendo = false; return pintarAnalisis(); }
+  { const el = ana.destino && $(ana.destino); if (el) el.querySelectorAll('.linea span:last-child').forEach(x => { x.style.opacity = '.45'; }); }
   ana.corriendo = true; ana.w.postMessage('position fen ' + fen); ana.w.postMessage('go depth 18 movetime 4000'); pintarAnalisis();
 }
 function anaParar() { ana.pend = null; ana.destino = null; if (ana.corriendo && ana.w) ana.w.postMessage('stop'); }
@@ -701,16 +881,27 @@ function anaLinea(l) {
 function pintarAnalisis() {
   const el = ana.destino && $(ana.destino); if (!el) return;
   if (ana.fallo) { el.innerHTML = '<p class="nota">Stockfish no carga en este aparato: sin análisis.</p>'; return; }
-  const fen = ana.fen; if (!fen) { el.innerHTML = ''; return; }
+  const fen = ana.fen; if (!fen) return;
   const p = new M.Pos(fen), f = M.fin(p), negras = p.side === 1;
-  if (f) { el.innerHTML = `<div class="evbar"><b style="width:${f.res === 1 ? 100 : f.res === 0 ? 0 : 50}%"></b><span>${f.motivo === 'mate' ? 'Jaque mate' : 'Tablas'}</span></div>`; return; }
-  const val = x => { const cp = x.cp == null ? null : negras ? -x.cp : x.cp, mt = x.mate == null ? null : negras ? -x.mate : x.mate; return { cp, mt, txt: mt != null ? (mt > 0 ? '#' : '#-') + Math.abs(mt) : (cp > 0 ? '+' : '') + fmt(cp / 100, 2), pct: mt != null ? (mt > 0 ? 100 : 0) : 100 / (1 + Math.pow(10, -cp / 400)) }; };
-  const ls = ana.lineas.filter(Boolean);
-  if (!ls.length) { el.innerHTML = '<div class="evbar"><b style="width:50%"></b><span>…</span></div><p class="nota">Stockfish está pensando…</p>'; return; }
-  const v0 = val(ls[0]);
-  el.innerHTML = `<div class="evbar"><b style="width:${v0.pct.toFixed(1)}%"></b><span>${v0.txt}</span></div>` +
-    ls.slice(0, 2).map(x => { const v = val(x); return `<div class="linea"><span class="ev">${v.txt}</span><span>${esc(lineaSAN(fen, x.pv.slice(0, 10)))}</span></div>`; }).join('') +
-    `<p class="nota" style="margin:4px 0 0">Stockfish 19 · profundidad ${ls[0].depth}${ana.corriendo ? '…' : ''}</p>`;
+  // Siempre la misma estructura y altura (barra, dos líneas y la nota), para que la pantalla no salte
+  let pct = ana.pct == null ? 50 : ana.pct, txt = '…', l1 = ['…', 'Stockfish está pensando…'], l2 = ['', ''], nota = 'Stockfish 19';
+  if (f) { pct = f.res === 1 ? 100 : f.res === 0 ? 0 : 50; txt = f.motivo === 'mate' ? 'Mate' : 'Tablas'; l1 = [txt, f.motivo === 'mate' ? 'Jaque mate' : 'Tablas (' + f.motivo + ')']; }
+  else {
+    const val = x => { const cp = x.cp == null ? null : negras ? -x.cp : x.cp, mt = x.mate == null ? null : negras ? -x.mate : x.mate; return { txt: mt != null ? (mt > 0 ? '#' : '#-') + Math.abs(mt) : (cp > 0 ? '+' : '') + fmt(cp / 100, 2), pct: mt != null ? (mt > 0 ? 100 : 0) : 100 / (1 + Math.pow(10, -cp / 400)) }; };
+    const ls = ana.lineas.filter(Boolean);
+    if (ls.length) {
+      if (el.querySelector('.linea')) el.querySelectorAll('.linea span:last-child').forEach(x => { x.style.opacity = ''; });
+      const v0 = val(ls[0]); pct = v0.pct; txt = v0.txt; l1 = [v0.txt, lineaSAN(fen, ls[0].pv.slice(0, 10))];
+      if (ls[1]) { const v1 = val(ls[1]); l2 = [v1.txt, lineaSAN(fen, ls[1].pv.slice(0, 10))]; }
+      nota = `Stockfish 19 · profundidad ${ls[0].depth}${ana.corriendo ? '…' : ''}`; ana.pct = pct;
+    }
+  }
+  if (!el.querySelector('.evbar')) el.innerHTML = '<div class="evbar"><b></b><span></span></div><div class="linea"><span class="ev"></span><span></span></div><div class="linea"><span class="ev"></span><span></span></div><p class="nota anan"></p>';
+  el.querySelector('.evbar b').style.width = pct.toFixed(1) + '%'; el.querySelector('.evbar span').textContent = txt;
+  const [a, b] = el.querySelectorAll('.linea');
+  a.children[0].textContent = l1[0]; a.children[1].textContent = l1[1]; a.children[0].style.visibility = l1[0] ? '' : 'hidden';
+  b.children[0].textContent = l2[0]; b.children[1].textContent = l2[1]; b.children[0].style.visibility = l2[0] ? '' : 'hidden';
+  el.querySelector('.anan').textContent = nota;
 }
 function lineaSAN(fen, pv) {
   const ss = M.sanLista(fen, pv), p0 = new M.Pos(fen); let n = p0.full, t = '';
@@ -718,7 +909,7 @@ function lineaSAN(fen, pv) {
   return t.trim();
 }
 let sucio = new Set(), pedido = false, redibujarSF = false;
-function marcar(j) { if (j && j.tipo === 'caza') { cazaVista = j; cazaSucio = true; return pedir(); } if (j) sucio.add(j.mesa); else { mesas.forEach((_, m) => sucio.add(m)); cazaSucio = true; } pedir(); }
+function marcar(j) { if (j && j.tipo === 'caza') { cazaVista = j; cazaSucio = true; return pedir(); } if (j && j.fase === 'final') { finSucio = true; return pedir(); } if (j) sucio.add(j.mesa); else { mesas.forEach((_, m) => sucio.add(m)); cazaSucio = true; claSucio = true; finSucio = true; } pedir(); }
 let cazaVista = null, cazaSucio = true;
 function pintarCaza() {
   cazaSucio = false;
@@ -739,10 +930,11 @@ function dibujar() {
   for (const m of sucio) pintarMesa(m);
   if (sfSucio || redibujarSF) pintarSF();
   if (cazaSucio || redibujarSF) pintarCaza();
+  if (finSucio || claSucio || redibujarSF || sucio.has(0)) { pintarFinal(); pintarCla(); }
   redibujarSF = false;
   sucio.clear(); pintarEstado();
 }
-function juegosDeMesa(m) { return juegos.filter(j => j.ronda === ronda && j.mesa === m); }
+function juegosDeMesa(m) { return juegos.filter(j => j.ronda === ronda && j.mesa === m && j.fase === 'suizo'); }
 const compilados = new Map();
 function compilado(p) { const F = flagsDe(), k = p.id + '|' + fkey(F); let c = compilados.get(k); if (!c) { c = M.compilar(M.completar(p.genes), F); compilados.set(k, c); if (compilados.size > 80) compilados.delete(compilados.keys().next().value); } return c; }
 function pintarMesa(m) {
@@ -758,9 +950,10 @@ function pintarMesa(m) {
   const a = byId.get(j.w), b = byId.get(j.b), bw = el.querySelector('[data-w]'), bb = el.querySelector('[data-b]');
   if (!a || !b) return;   // la generación acaba de cambiar
   bw.dataset.id = a.id; bb.dataset.id = b.id;
-  bw.innerHTML = `<span>○ ${esc(a.nombre)}</span><i>${Math.round(a.elo)}</i>`;
-  bb.innerHTML = `<span>● ${esc(b.nombre)}</span><i>${Math.round(b.elo)}</i>`;
-  el.querySelector('.res').textContent = j.estado === 'juega' ? (js.indexOf(j) ? 'vuelta' : 'ida') : fin.length ? fin.map(x => x.res === 1 ? '1-0' : x.res === 0 ? '0-1' : '½').join(' · ') : 'espera';
+  const ida = js[0], mk = marcadorPareja(js, ida.w), ptsDe = id => id === ida.w ? mk.pa : mk.pb;
+  bw.innerHTML = `<span>○ ${esc(a.nombre)}</span><b>${pts(ptsDe(a.id))}</b>`;
+  bb.innerHTML = `<span>● ${esc(b.nombre)}</span><b>${pts(ptsDe(b.id))}</b>`;
+  el.querySelector('.res').textContent = mk.texto;
   if (nivel === 'cerca') {
     const ev = j.eval || 0, pct = 100 / (1 + Math.pow(10, -ev / 400));
     el.querySelector('.ev b').style.width = pct.toFixed(1) + '%';
@@ -779,7 +972,8 @@ function pintarMesa(m) {
 lienzo.addEventListener('click', e => {
   const pl = e.target.closest('.pl'); if (pl && pl.dataset.id && nivel !== 'lejos') return ficha(pl.dataset.id);
   const z = e.target.closest('.zona');
-  if (z) { if (nivel !== 'lejos' && e.target.tagName === 'CANVAS') { if (z.id === 'zsf') verSF(); else if (z.id === 'zcz' && cazaVista) verJuego(cazaVista); } return; }
+  const cf = e.target.closest('.cf[data-id]'); if (cf && nivel !== 'lejos') return ficha(cf.dataset.id);
+  if (z) { if (nivel !== 'lejos' && e.target.tagName === 'CANVAS') { if (z.id === 'zsf') verSF(); else if (z.id === 'zcz' && cazaVista) verJuego(cazaVista); else if (z.id === 'zfin' && z._juego) verJuego(z._juego); } else if (nivel === 'lejos' && (z.id === 'zfin' || z.id === 'zsf')) acercarZona(z); return; }
   const me = e.target.closest('.mesa'); if (!me) return;
   if (nivel !== 'cerca') return acercarMesa(+me.dataset.mesa);
   if (e.target.tagName === 'CANVAS') { const js = juegosDeMesa(+me.dataset.mesa), j = js.find(x => x.estado === 'juega') || js.slice().reverse().find(x => x.estado === 'fin'); if (j) verJuego(j); }
@@ -789,7 +983,7 @@ function verJuego(j) {
   const a = ind(j.w), b = ind(j.b); if (!a || !b) return;
   verPartida({ titulo: `${a.nombre} – ${b.nombre}`, fen0: j.fen, ucis: (j.lista || j.jugadas || []).slice(), fuente: () => j.lista || j.jugadas,
     info: { blancas: a.nombre, negras: b.nombre, resultado: resTxt(j.res), evento: 'Araña · generación ' + est.gen },
-    estado: () => (j.tipo === 'caza' ? 'Cazadora contra la élite · ' : `Generación ${est.gen} · mesa ${+j.mesa + 1} · `) + (j.estado === 'fin' ? `${resTxt(j.res)} (${j.motivo})` : j.estado === 'juega' ? (opc.directo ? 'en directo' : 'jugando (active «Directo» para verla en vivo)') : 'en espera') });
+    estado: () => (j.tipo === 'caza' ? 'Cazadora contra la élite · ' : j.fase === 'final' ? `Generación ${est.gen} · final${j.desempate ? ' · desempate' : j.ida ? ' · ida' : ' · vuelta'} · ` : `Generación ${est.gen} · ronda ${j.ronda + 1} · mesa ${+j.mesa + 1} · ${j.ida ? 'ida' : 'vuelta'} · `) + (j.estado === 'fin' ? `${resTxt(j.res)} (${j.motivo})` : j.estado === 'juega' ? (opc.directo ? 'en directo' : 'jugando (active «Directo» para verla en vivo)') : 'en espera') });
 }
 function verSF() {
   const v = sfVista; if (!v || !v.jug) return;
@@ -815,12 +1009,21 @@ function chispa(vals, titulo, color) {
   const pts = vals.map((v, i) => `${(i / (vals.length - 1) * 300).toFixed(1)},${(52 - (v - mn) / d * 44).toFixed(1)}`).join(' ');
   return `<svg class="spark" viewBox="0 0 300 56" preserveAspectRatio="none" role="img" aria-label="${esc(titulo)}: de ${Math.round(vals[0])} a ${Math.round(vals[vals.length - 1])}"><polyline points="${pts}" fill="none" stroke="${color || '#5ee8ff'}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
 }
+function avance() {   // parte hecha de la generación: rondas, final y escalera de Stockfish
+  if (sfFase) return .85 + .15 * sfFase.hechos.length / Math.max(1, sfFase.total);
+  if (!torneo) return 0;
+  const R = torneo.R + (opc.final ? 1 : 0), dentro = juegos.filter(j => j.fase === torneo.fase && (j.fase !== 'suizo' || j.ronda === torneo.ronda)), h = dentro.filter(j => j.estado === 'fin').length;
+  const r = torneo.fase === 'suizo' ? torneo.ronda : torneo.fase === 'final' ? torneo.R : R;
+  return Math.min(1, (r + (dentro.length ? h / dentro.length : 1)) / R) * .85;
+}
 function pintarEstado() {
   const hechas = juegos.filter(j => j.estado === 'fin').length, total = juegos.length;
   const ult = historial[historial.length - 1];
   $('#estado').innerHTML = `<b>Generación ${est.gen}</b> · ${entrenando ? 'entrenando' : 'en pausa'}` +
-    (sfFase ? ` · escalera ${sfFase.hechos.length}/${sfFase.total}` : total ? ` · ronda ${ronda + 1}/${opc.rondas} · ${hechas}/${total}` : '') +
-    (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${NHILOS} hilos`);
+    (sfFase ? ` · escalera ${sfFase.hechos.length}/${sfFase.total}` : torneo && total ? ` · ${torneo.fase === 'final' ? 'final' : torneo.fase === 'hecho' ? 'cazadoras' : `ronda ${torneo.ronda + 1}/${torneo.R}`} · ${hechas}/${total}` : '') +
+    (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${NHILOS} hilos`) +
+    (li.conectado ? ` · <b>Lichess</b> ${[...li.partidas.values()].filter(g => !g.fin).length ? 'jugando' : 'esperando'}` : '') +
+    `<i class="prog" style="width:${(avance() * 100).toFixed(1)}%"></i>`;
   const nh = Object.keys(est.hitos || {}).length, bh = document.querySelector('[data-aux=hitos]');
   if (bh) bh.innerHTML = 'Hitos' + (nh ? ` <b>${nh}</b>` : '');
 }
@@ -930,6 +1133,7 @@ function bloqueNombre(k) { if (k === 'jugada') return 'Valor de cada jugada'; if
 /* ═════════ Vistas auxiliares ═════════ */
 const AUX = {
   biblioteca() { return biblioteca(); },
+  lichess() { return lichess(); },
   registro() { return registro(); },
   grafica() {
     if (historial.length < 2) return hoja('<h3>Gráfica</h3><p class="nota">Hacen falta al menos dos generaciones terminadas.</p>' + CERRAR);
@@ -1088,7 +1292,9 @@ async function accionesDe(id) {
       <button class="btn" data-ac="jugar">Jugar yo contra ella</button>
       ${camp && camp.id !== p.id ? `<button class="btn sec" data-ac="duelo">Duelo contra mi campeona (${esc(camp.nombre)}), 4 partidas</button>` : ''}
       ${viva ? '' : `<button class="btn sec" data-ac="mezclar">Mezclarla en mi población</button><button class="btn sec" data-ac="retomar">Retomar la evolución desde ella</button>`}
-      <button class="btn sec" data-ac="exportar">Exportar esta araña</button>
+      <button class="btn sec" data-ac="lichess">Que juegue en Lichess</button>
+      <button class="btn sec" data-ac="motor">Exportar como motor para el ordenador (UCI)</button>
+      <button class="btn sec" data-ac="exportar">Exportar esta araña (copia)</button>
       <button class="btn sec" data-ac="ficha">Ver su ficha</button>
     </div>
     <p class="nota">Mezclar: entra en su población en lugar de la araña con menos Elo y se cruza con las suyas. Retomar: su población pasa a ser ella y 31 hijas suyas con mutaciones; la población de ahora queda guardada en la biblioteca.</p>` + CERRAR);
@@ -1097,6 +1303,8 @@ async function accionesDe(id) {
     if (ac === 'ficha') return ficha(p.id);
     if (ac === 'jugar') return elegirColor(p);
     if (ac === 'duelo') return duelo(camp, p);
+    if (ac === 'lichess') { liElegir(p); return lichess(); }
+    if (ac === 'motor') return exportarMotor(p);
     if (ac === 'exportar') return guardarArchivo(`arana-${p.nombre.toLowerCase()}-${ORIGEN}.json`, JSON.stringify({ app: 'arana-ajedrez', v: 2, origen: ORIGEN, fecha: new Date().toISOString(), individuos: [p] }));
     if (ac === 'retomar' && !confirm(`¿Retomo la evolución desde ${p.nombre}? Su población de ahora queda guardada en la biblioteca.`)) return;
     encolar(ac, p);
@@ -1186,8 +1394,7 @@ function moverHumano(sq) {
   if (ph.sel < 0 || mia) { ph.sel = mia ? sq : -1; return pintarHumana(); }
   const ms = M.legal(pos).filter(m => M.mFrom(m) === ph.sel && M.mTo(m) === sq);
   ph.sel = -1; if (!ms.length) return pintarHumana();
-  const m = ms.find(x => (x >> 14 & 7) === 5) || ms[0];   // corona en dama
-  jugarEn(m); if (!ph.fin) turnoArana();
+  conCoronacion(ms, pos.side === 0, m => { jugarEn(m); if (!ph.fin) turnoArana(); });
 }
 function jugarEn(m) {
   const u = M.uci(m); ph.pos.make(m); ph.jug.push(u); ph.ultima = u;
@@ -1355,7 +1562,8 @@ function opciones() {
     <label class="op">Tiempo por jugada ${sel('ms', [10, 30, 60, 120, 250], v => v + ' ms')}</label>
     <label class="op">Profundidad máxima ${sel('prof', [2, 3, 4, 5, 6], v => v + ' jugadas')}</label>
     <label class="op">Partidas por araña ${sel('rondas', [2, 4, 6, 8], v => v * 2)}</label>
-    <label class="op">Límite de jugadas ${sel('maxPlies', [120, 160, 240], v => v / 2)}</label>
+    <label class="op">Límite de jugadas ${sel('maxPlies', [120, 160, 240, 0], v => v ? v / 2 : 'Sin límite')}</label>
+    <label class="op">Final entre las dos primeras ${sel('final', [1, 0], v => v ? 'Sí' : 'No')}</label>
     <label class="op">Escalera de Stockfish ${sel('sf', [1, 0], v => v ? 'Sí' : 'No')}</label>
     <label class="op">Arañas que suben a la escalera ${sel('sfTop', [2, 4, 8], v => v)}</label>
     <label class="op">Arañas por generación ${sel('poblacion', [16, 24, 32, 48, 64], v => v, est.opc)}</label>
@@ -1365,7 +1573,7 @@ function opciones() {
     <label class="op">Peso de la novedad ${sel('novPeso', [0, 0.05, 0.15, 0.3], v => Math.round(v * 100) + ' %', est.opc)}</label>
     <label class="op">Guardar los genes de las que mueren ${sel('genesTodas', [0, 1], v => v ? 'Sí (ocupa más)' : 'No, solo sus cualidades', est.opc)}</label>
     <p class="nota">Apagar una distópica no borra sus genes: siguen heredándose y vuelven a contar si la enciende. Los parásitos añaden 16 partidas por generación.</p>
-    <p class="nota">Más tiempo por jugada juega mejor pero evoluciona más despacio. Con ${NHILOS} hilos, una generación de ${pop.length} arañas tarda unos ${Math.max(1, Math.round(pop.length * opc.rondas * (opc.maxPlies * .45) * opc.ms / 1000 / NHILOS / 60))} min.</p>
+    <p class="nota">Sin límite, las partidas acaban por mate, ahogado, triple repetición, la regla de las 50 jugadas, material insuficiente o porque una se rinde (cuando las dos la ven perdida 8 jugadas seguidas). Más tiempo por jugada juega mejor pero evoluciona más despacio. Con ${NHILOS} hilos, una generación de ${pop.length} arañas tarda unos ${Math.max(1, Math.round(pop.length * opc.rondas * (limite() * .45) * opc.ms / 1000 / NHILOS / 60))} min.</p>
     <div class="ctrl"><button class="btn sec" id="exp">Exportar copia</button><button class="btn sec" id="reset">Nueva evolución desde cero</button><button class="btn" data-cerrar>Hecho</button></div>`);
   $('#hojac').querySelectorAll('select').forEach(s => s.onchange = () => {
     if (s.dataset.dist) { est.opc.dist = Object.assign({}, est.opc.dist || {}, { [s.dataset.dist]: +s.value }); compilados.clear(); guardarEstado().catch(() => {}); marcar(); return; }
@@ -1381,12 +1589,204 @@ async function exportar() {
   if (!db) datos.individuos = pop;
   return guardarArchivo(`arana-ajedrez-${ORIGEN}-gen${est.gen}.json`, JSON.stringify(datos));
 }
-async function guardarArchivo(nombreF, texto) {
+async function guardarArchivo(nombreF, texto, tipo) {
+  tipo = tipo || 'application/json';
   const io = IOS_APP(); if (io) { io.postMessage({ tipo: 'guardar', nombre: nombreF, texto }); return; }
   const aa = ANDROID(); if (aa && typeof aa.guardarArchivo === 'function') { aa.guardarArchivo(nombreF, texto); return; }
-  const blob = new Blob([texto], { type: 'application/json' });
-  try { const f = new File([blob], nombreF, { type: 'application/json' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: nombreF }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  const blob = new Blob([texto], { type: tipo });
+  try { const f = new File([blob], nombreF, { type: tipo }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: nombreF }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombreF; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/* ═════════ Sacar una araña a jugar fuera ═════════ */
+
+/* ───── Motor UCI: un archivo .js con el cerebro de la araña y sus genes, para el ordenador y sin internet.
+   Se usa con Node.js en cualquier programa de ajedrez que admita motores UCI (Cute Chess, Arena, BanksiaGUI…) o con lichess-bot. ───── */
+async function exportarMotor(p) {
+  let motor = '';
+  try { motor = await (await fetch('motor.js')).text(); } catch (e) { return avisar('No he podido leer mi motor.'); }
+  const nombre = p.nombre.replace(/[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ ]/g, '').trim() || 'Arana', archivo = 'arana-' + nombre.toLowerCase().replace(/\s+/g, '-') + '.js';
+  const texto = `#!/usr/bin/env node
+/* Araña «${nombre}» como motor de ajedrez UCI (generación ${p.gen}, Elo ${Math.round(p.elo)} en su evolución).
+   Funciona sin internet. Necesita Node.js 14 o posterior (https://nodejs.org).
+   Probar en una terminal:   node ${archivo}   y escriba: uci  ·  isready  ·  position startpos moves e2e4  ·  go movetime 1000
+   En un programa de ajedrez (Cute Chess, Arena, BanksiaGUI…): añada un motor con el comando «node» y el argumento «${archivo}»
+   (o haga ejecutable este archivo). Con lichess-bot: póngalo en su carpeta de motores con protocolo UCI. */
+${motor}
+;(function () {
+  'use strict';
+  const M = (typeof module !== 'undefined' && module.exports && module.exports.Pos) ? module.exports : globalThis.AjedrezMotor;
+  const GENES = ${JSON.stringify(M.completar(JSON.parse(JSON.stringify(p.genes))))};
+  const FLAGS = ${JSON.stringify(flagsDe())};
+  const C = M.compilar(GENES, FLAGS);
+  let pos = new M.Pos(), bus = new M.Buscador(C);
+  const out = t => process.stdout.write(t + '\\n');
+  function posicion(args) {
+    let i = 0;
+    if (args[0] === 'startpos') { pos = new M.Pos(); i = 1; }
+    else if (args[0] === 'fen') { const f = []; i = 1; while (i < args.length && args[i] !== 'moves') f.push(args[i++]); pos = new M.Pos(f.join(' ')); }
+    if (args[i] === 'moves') for (const u of args.slice(i + 1)) { const m = M.parseUci(pos, u); if (!m) break; pos.make(m); }
+  }
+  function ir(args) {
+    const v = k => { const i = args.indexOf(k); return i >= 0 ? +args[i + 1] : null; };
+    const yo = pos.side ? 'b' : 'w', t = v(yo + 'time'), inc = v(yo + 'inc') || 0, mt = v('movetime'), d = v('depth');
+    const ms = mt || (t != null ? Math.max(30, Math.min(t / 25 + inc * .8, t * .5)) : d ? 1e9 : 2000);
+    const r = bus.pensar(pos, ms, d || 64);
+    if (r.move) { const sc = Math.abs(r.score) > 29000 ? 'mate ' + Math.sign(r.score) * Math.ceil((30000 - Math.abs(r.score)) / 2) : 'cp ' + r.score;
+      out(\`info depth \${r.depth} score \${sc} nodes \${r.nodes} pv \${M.uci(r.move)}\`); out('bestmove ' + M.uci(r.move)); }
+    else out('bestmove 0000');
+  }
+  let buf = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\\n')) >= 0) { const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1); orden(l); } });
+  function orden(l) {
+    const [c, ...a] = l.split(/\\s+/);
+    if (c === 'uci') { out('id name Arana ${nombre}'); out('id author Juan y su arana'); out('uciok'); }
+    else if (c === 'isready') out('readyok');
+    else if (c === 'ucinewgame') { pos = new M.Pos(); bus = new M.Buscador(C); }
+    else if (c === 'position') posicion(a);
+    else if (c === 'go') ir(a);
+    else if (c === 'quit') process.exit(0);
+  }
+})();
+`;
+  return guardarArchivo(archivo, texto, 'text/javascript');
+}
+
+/* ───── Lichess: la araña juega con una cuenta BOT (API oficial: https://lichess.org/api#tag/bot) ───── */
+const liGuardar = () => { try { localStorage.setItem(LI_K, JSON.stringify({ token: li.token, arana: li.arana, aceptar: li.aceptar })); } catch (e) {} };
+const liLog = t => { li.log.push(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + ' · ' + t); li.log = li.log.slice(-30); liPintar(); };
+function liElegir(p) { li.arana = { id: p.id, nombre: p.nombre, gen: p.gen, genes: JSON.parse(JSON.stringify(p.genes)) }; liGuardar(); }
+async function liFetch(ruta, o) {
+  o = o || {};
+  const r = await fetch(LI + ruta, { method: o.method || 'GET', headers: Object.assign({ Authorization: 'Bearer ' + li.token }, o.form ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}), body: o.form ? new URLSearchParams(o.form).toString() : undefined, signal: o.signal });
+  if (!r.ok) { let m = r.status + ''; try { const j = await r.json(); m = j.error || m; } catch (e) {} throw new Error(m); }
+  return r;
+}
+async function liStream(ruta, alObjeto, signal) {   // ndjson: un objeto por línea; líneas vacías para mantener viva la conexión
+  const r = await liFetch(ruta, { signal }), rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+  while (true) {
+    const { value, done } = await rd.read(); if (done) break;
+    buf += dec.decode(value, { stream: true }); let i;
+    while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (l) { try { await alObjeto(JSON.parse(l)); } catch (e) { console.warn('lichess', e); } } }
+  }
+}
+async function liConectar() {
+  li.error = '';
+  if (!li.token) { li.error = 'Falta el token.'; return liPintar(); }
+  if (!li.arana) { const c = campeona(); if (c) liElegir(c); }
+  try { li.cuenta = await (await liFetch('/api/account')).json(); } catch (e) { li.error = 'Lichess no acepta el token (' + e.message + ').'; return liPintar(); }
+  if (li.cuenta.title !== 'BOT') { li.error = 'Esta cuenta aún no es BOT. Conviértala abajo (solo si es una cuenta nueva, sin partidas).'; return liPintar(); }
+  li.conectado = true; li.ctrl = new AbortController(); segundoPlano(true);
+  liLog(`Conectada como ${li.cuenta.username}. Juega ${li.arana ? li.arana.nombre : '—'}.`);
+  (async () => {
+    while (li.conectado) {
+      try { await liStream('/api/stream/event', liEvento, li.ctrl.signal); } catch (e) { if (!li.conectado) break; liLog('Se ha cortado la conexión; reintento…'); }
+      if (li.conectado) await new Promise(r => setTimeout(r, 5000));
+    }
+  })();
+  liPintar();
+}
+function liDesconectar() { li.conectado = false; if (li.ctrl) li.ctrl.abort(); if (!entrenando) segundoPlano(false); liLog('Desconectada.'); }
+async function liEvento(ev) {
+  if (ev.type === 'challenge') {
+    const c = ev.challenge; if (!c || (li.cuenta && c.challenger && c.challenger.id === li.cuenta.id)) return;
+    const vivas = [...li.partidas.values()].filter(x => !x.fin).length;
+    const motivo = !li.aceptar ? 'later' : c.variant && c.variant.key !== 'standard' ? 'standard' : c.speed === 'correspondence' ? 'timeControl' : vivas >= 2 ? 'later' : null;
+    try {
+      if (motivo) { await liFetch(`/api/challenge/${c.id}/decline`, { method: 'POST', form: { reason: motivo } }); liLog(`Rechazo el reto de ${c.challenger.name} (${motivo}).`); }
+      else { await liFetch(`/api/challenge/${c.id}/accept`, { method: 'POST' }); liLog(`Acepto el reto de ${c.challenger.name} (${c.speed}${c.rated ? ', con puntos' : ''}).`); }
+    } catch (e) { liLog('Reto: ' + e.message); }
+  } else if (ev.type === 'gameStart') {
+    const id = ev.game.gameId || ev.game.id; if (!li.partidas.has(id)) liPartida(id);
+  } else if (ev.type === 'challengeDeclined') liLog('Han rechazado mi reto.');
+}
+async function liPartida(id) {
+  const g = { id, color: null, fen0: M.INICIO, rival: '?', ucis: [], piensa: false, fin: null, ev: 0, saludo: false };
+  li.partidas.set(id, g); liLog(`Empieza la partida ${id}.`);
+  const alEstado = async st => {
+    g.ucis = st.moves ? st.moves.split(' ') : [];
+    if (st.status && st.status !== 'started' && st.status !== 'created') {
+      if (!g.fin) {
+        g.fin = st.status + (st.winner ? ' · ganan ' + (st.winner === 'white' ? 'blancas' : 'negras') : '');
+        const res = st.winner ? (st.winner === g.color ? 1 : 0) : .5;
+        liLog(`Partida ${id} terminada: ${res === 1 ? '¡gano!' : res === 0 ? 'pierdo' : 'tablas'} (${st.status}).`);
+        darHito('li-primera'); if (res === 1) darHito('li-gana');
+        const p = await individuo(li.arana.id); if (p) { recordarRival(p, 'lichess', res); if (!byId.has(p.id)) escribir([['individuos', p]]).catch(() => {}); else guardarEstado().catch(() => {}); }
+      }
+      return liPintar();
+    }
+    const pos = posEn(g.fen0, g.ucis, g.ucis.length), mia = (pos.side === 0) === (g.color === 'white');
+    if (g.color && (g.color === 'white' ? st.bdraw : st.wdraw) && g.ev < -150) { try { await liFetch(`/api/bot/game/${id}/draw/yes`, { method: 'POST' }); liLog('Acepto las tablas que me ofrecen.'); } catch (e) {} }
+    if (!mia || g.piensa) return liPintar();
+    g.piensa = true; liPintar();
+    const yo = g.color === 'white' ? 'w' : 'b', t = st[yo + 'time'] || 60000, inc = st[yo + 'inc'] || 0;
+    const ms = Math.max(50, Math.min(t / 30 + inc * .8, t * .4, 8000)), n = g.ucis.length;
+    const r = await new Promise(ok => { const k = 'l' + (++sigAparte); aparte.set(k, { fin: ok }); hiloAparte().postMessage({ t: 'pensar', id: k, ind: { id: li.arana.id, genes: li.arana.genes }, fen0: g.fen0, jugadas: g.ucis.slice(), ms, prof: 64, flags: flagsDe(), aj: null }); });
+    g.piensa = false; g.ev = (r.eval || 0) * (g.color === 'white' ? 1 : -1);
+    if (r.uci && n === g.ucis.length && !g.fin) { try { await liFetch(`/api/bot/game/${id}/move/${r.uci}`, { method: 'POST' }); } catch (e) { liLog('Jugada rechazada: ' + e.message); } }
+    liPintar();
+  };
+  try {
+    await liStream(`/api/bot/game/stream/${id}`, async o => {
+      if (o.type === 'gameFull') {
+        g.color = o.white && li.cuenta && o.white.id === li.cuenta.id ? 'white' : 'black';
+        const riv = g.color === 'white' ? o.black : o.white; g.rival = riv ? (riv.name || riv.id || 'IA') + (riv.rating ? ` (${riv.rating})` : '') : 'IA de Lichess';
+        g.fen0 = !o.initialFen || o.initialFen === 'startpos' ? M.INICIO : o.initialFen;
+        if (!g.saludo) { g.saludo = true; liFetch(`/api/bot/game/${id}/chat`, { method: 'POST', form: { room: 'player', text: `Hola, soy ${li.arana.nombre}, una araña de ajedrez que evoluciona sola. ¡Suerte!` } }).catch(() => {}); }
+        await alEstado(o.state);
+      } else if (o.type === 'gameState') await alEstado(o);
+    }, li.ctrl && li.ctrl.signal);
+  } catch (e) { if (li.conectado) liLog(`Partida ${id}: ${e.message}`); }
+}
+async function liRetar(usuario, min, inc, puntos) {
+  try {
+    await liFetch('/api/challenge/' + encodeURIComponent(usuario), { method: 'POST', form: { rated: puntos ? 'true' : 'false', 'clock.limit': String(min * 60), 'clock.increment': String(inc), color: 'random', variant: 'standard' } });
+    liLog(`Reto enviado a ${usuario} (${min}+${inc}).`);
+  } catch (e) { liLog(`No he podido retar a ${usuario}: ${e.message}.`); }
+}
+async function liBot() {
+  if (!confirm('Convertir la cuenta en BOT no tiene vuelta atrás y solo funciona si la cuenta no ha jugado ninguna partida. Use una cuenta nueva, no la suya. ¿Sigo?')) return;
+  try { await liFetch('/api/bot/account/upgrade', { method: 'POST' }); li.cuenta = await (await liFetch('/api/account')).json(); liLog('La cuenta ya es BOT.'); li.error = ''; }
+  catch (e) { li.error = 'Lichess no deja convertirla: ' + e.message + '.'; }
+  liPintar();
+}
+function lichess() {
+  hoja(`<h3>Lichess</h3><div class="sub">Su araña juega en Lichess con una cuenta BOT, mientras la sala esté abierta y con internet.</div>
+    <details${li.token ? '' : ' open'}><summary>Cómo se prepara (una vez)</summary><div class="lin">
+      1. Cree en Lichess una cuenta nueva solo para su araña y no juegue ninguna partida con ella.<br>
+      2. Con esa cuenta abierta, cree un token con el permiso «Play games with the bot API»: <a href="https://lichess.org/account/oauth/token/create?scopes[]=bot:play&description=Arana" target="_blank" rel="noopener">crear el token</a>.<br>
+      3. Péguelo aquí, pulse «Guardar» y luego «Convertir en BOT».<br>
+      chess.com no admite bots: jugar allí con un motor cierra la cuenta.</div></details>
+    <label class="op">Token <input id="liTok" type="password" autocomplete="off" placeholder="${li.token ? 'Guardado · …' + esc(li.token.slice(-4)) : 'lip_…'}" style="flex:1;font:14px var(--mono);background:#141832;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0"></label>
+    <div class="ctrl" style="margin:8px 0"><button class="btn sec" id="liGuarda">Guardar</button><button class="btn" id="liCon"></button><button class="btn sec" id="liBot">Convertir en BOT</button></div>
+    <div id="liEstado"></div>
+    <label class="op">Aceptar retos <select id="liAcep"><option value="1"${li.aceptar ? ' selected' : ''}>Sí (hasta 2 partidas a la vez)</option><option value="0"${li.aceptar ? '' : ' selected'}>No</option></select></label>
+    <h2>Retar a alguien</h2>
+    <div class="ctrl"><input id="liUser" placeholder="usuario (p. ej. maia1)" style="flex:1;min-width:120px;font:14px var(--mono);background:#141832;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px">
+      <select id="liMin" style="font:14px var(--mono);background:#141832;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px">${[1, 3, 5, 10, 15].map(m => `<option value="${m}"${m === 5 ? ' selected' : ''}>${m} min</option>`).join('')}</select>
+      <select id="liInc" style="font:14px var(--mono);background:#141832;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px">${[0, 2, 3, 5].map(m => `<option value="${m}"${m === 3 ? ' selected' : ''}>+${m} s</option>`).join('')}</select>
+      <button class="btn sec" id="liRetar">Retar</button></div>
+    <p class="nota">Los bots pueden retar a otros bots (como maia1, maia5 o maia9). A personas es mejor que le reten ellas a su bot desde su perfil.</p>
+    <h2>Partidas y registro</h2><div id="liPart"></div>` + CERRAR);
+  $('#liGuarda').onclick = () => { const t = $('#liTok').value.trim(); if (t) { li.token = t; liGuardar(); $('#liTok').value = ''; avisar('Token guardado solo en este aparato.'); lichess(); } };
+  $('#liCon').onclick = () => li.conectado ? liDesconectar() : liConectar();
+  $('#liBot').onclick = liBot;
+  $('#liAcep').onchange = e => { li.aceptar = e.target.value === '1'; liGuardar(); };
+  $('#liRetar').onclick = () => { const u = $('#liUser').value.trim(); if (!u) return avisar('Escriba un usuario.'); if (!li.conectado) return avisar('Conecte primero.'); liRetar(u, +$('#liMin').value, +$('#liInc').value, false); };
+  liPintar();
+}
+function liPintar() {
+  const e = $('#liEstado'); if (!e) return;
+  $('#liCon').textContent = li.conectado ? 'Desconectar' : 'Conectar';
+  $('#liBot').style.display = li.cuenta && li.cuenta.title === 'BOT' ? 'none' : '';
+  e.innerHTML = `<div class="det"><span>Cuenta</span><span class="v">${li.cuenta ? esc(li.cuenta.username) + (li.cuenta.title === 'BOT' ? ' · BOT' : ' · aún no es BOT') : '—'}</span>
+    <span>Juega</span><span class="v">${li.arana ? esc(li.arana.nombre) + ' (g' + li.arana.gen + ')' : 'su campeona'} · <a href="#" id="liCambiar">cambiar</a></span>
+    <span>Estado</span><span class="v">${li.conectado ? 'conectada, esperando retos' : 'desconectada'}</span></div>${li.error ? `<p class="nota" style="color:#ff8a8a">${esc(li.error)}</p>` : ''}`;
+  const c = $('#liCambiar'); if (c) c.onclick = ev => { ev.preventDefault(); biblioteca(); };
+  const ps = [...li.partidas.values()].reverse();
+  $('#liPart').innerHTML = (ps.length ? '<div class="det">' + ps.map(g => `<span><a href="${LI}/${esc(g.id)}" target="_blank" rel="noopener">${esc(g.id)}</a> contra ${esc(g.rival)}</span><span class="v">${g.fin ? esc(g.fin) : g.piensa ? 'pensando…' : 'jugada ' + Math.ceil(g.ucis.length / 2)}</span>`).join('') + '</div>' : '') +
+    `<div class="lin" style="margin-top:8px">${li.log.slice().reverse().map(esc).join('<br>') || 'Sin actividad todavía.'}</div>`;
 }
 
 /* ───── Botones ───── */
@@ -1400,12 +1800,22 @@ $('#vista').onclick = () => { opc.directo = !opc.directo; guardarOpc(); ponerVis
 $('#opc').onclick = opciones;
 $('#evo').onclick = evoluciones;
 $('#salir').onclick = () => { entrenar(false); if (!avisarApp({ tipo: 'salir' })) location.href = '../'; };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarHoja(); });
+document.addEventListener('keydown', e => {   // atajos en el ordenador
+  if (e.key === 'Escape') return cerrarHoja();
+  if (/INPUT|SELECT|TEXTAREA/.test((e.target && e.target.tagName) || '') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (visor && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { const b = $(e.key === 'ArrowLeft' ? '#v1' : '#v2'); if (b) { e.preventDefault(); b.click(); } return; }
+  if ($('#hoja').classList.contains('on')) return;
+  if (e.key === ' ') { e.preventDefault(); entrenar(!entrenando); }
+  else if (e.key === '+') $('#zp').click(); else if (e.key === '-') $('#zm').click(); else if (e.key === '0') $('#zt').click();
+  else if (e.key === 'l' || e.key === 'L') lichess(); else if (e.key === 'b' || e.key === 'B') biblioteca();
+});
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
+// Sin internet: la sala se guarda en el aparato (sw.js de Araña) también si se abre directamente
+try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); } catch (e) {}
 cargar().then(() => {
   ponerTitulo(); crearHilos(); construirPlano(); ponerVista(); pintarEstado();
   if (qs.get('entrenar') === '1') entrenar(true);

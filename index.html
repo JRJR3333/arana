@@ -45,7 +45,7 @@ body{position:fixed; inset:0; background:var(--home); color:#fff; font-family:va
 #tela{position:fixed; inset:0; width:100%; height:100%; pointer-events:none}
 #app{position:fixed; left:0; right:0; top:var(--vt,0px); height:var(--vh,100%); display:flex; flex-direction:column; align-items:center; gap:18px;
   padding:calc(env(safe-area-inset-top,0px) + 8px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
-.top{align-self:stretch; display:flex; justify-content:flex-end; padding:0 16px}
+.top{align-self:stretch; display:flex; justify-content:flex-end; gap:14px; padding:0 16px}
 .top button{border:0; background:none; padding:4px; color:rgba(255,255,255,.8); line-height:0}
 .grow{flex:1; min-height:0}
 #say{max-width:min(560px,calc(100% - 32px)); margin:0 16px; padding:14px; border-radius:10px; border:1px solid var(--pink);
@@ -179,7 +179,7 @@ textarea{min-height:110px; resize:vertical; border:0}
 <div id="wall" aria-hidden="true"></div>
 <canvas id="tela" aria-hidden="true"></canvas>
 <main id="app">
-  <div class="top"><button id="gear" type="button" aria-label="Ajustes"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
+  <div class="top"><button id="chessBtn" type="button" aria-label="Ajedrez"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h10"/><path d="M8 18h8"/><path d="M9 18c0-3 1-5 2.5-7L9 12l-1.5-2L11 5.5V3l2 1.5c3 1 5 4 5 8.5 0 2-.5 3.7-1 5"/><circle cx="12.2" cy="7.6" r=".5" fill="currentColor"/></svg></button><button id="gear" type="button" aria-label="Ajustes"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
   <div class="grow"></div>
   <div id="say" aria-live="polite"></div>
   <div id="nest" aria-hidden="true"></div>
@@ -589,7 +589,7 @@ let anchors=[], anchorAt=0; const flashes=[], feelers=[];
 const AP=[[0,0],[1,0],[0,1],[1,1],[.5,0],[.5,1],[0,.5],[1,.5]];
 function refreshAnchors(){
   anchors=[]; if(!$('#sheet').hidden) return;
-  document.querySelectorAll(kbOpen?'#say, #choices:not([hidden]) .choice, #gear':'#say, #choices:not([hidden]) .choice, #cmd, #go, #mic, #gear').forEach(el=>{ const r=el.getBoundingClientRect(); if(!r.width||!r.height) return; for(const [u,v] of AP) anchors.push({x:r.left+r.width*u,y:r.top+r.height*v,el}); });
+  document.querySelectorAll(kbOpen?'#say, #choices:not([hidden]) .choice, #gear, #chessBtn':'#say, #choices:not([hidden]) .choice, #cmd, #go, #mic, #gear, #chessBtn').forEach(el=>{ const r=el.getBoundingClientRect(); if(!r.width||!r.height) return; for(const [u,v] of AP) anchors.push({x:r.left+r.width*u,y:r.top+r.height*v,el}); });
 }
 function snapTo(p){ let best=null,bd=22*S.sz; for(const a of anchors){ const d=Math.hypot(a.x-p.x,a.y-p.y); if(d<bd){ bd=d; best=a; } } return best; }
 function flashUnder(el,col){ const r=el.getBoundingClientRect(), w=r.width*(.35+Math.random()*.55); flashes.push({x:r.left+Math.random()*Math.max(1,r.width-w),y:Math.random()<.5?r.bottom+3:r.top-6,w,h:3,col:[...col],t:0,life:.7+Math.random()*.5}); }
@@ -811,7 +811,7 @@ function setFollow(on){
   else { say(was?'Me quedo aquí.':'Ya estoy quieta.'); }
 }
 function followTo(e){
-  if(!follow||busy||S.user||overlayOpen()||e.target===hit||(e.target.closest&&e.target.closest('#bar,#sheet,#gear,#choices'))) return;
+  if(!follow||busy||S.user||overlayOpen()||e.target===hit||(e.target.closest&&e.target.closest('#bar,#sheet,#gear,#chessBtn,#choices'))) return;
   if(e.type==='pointermove'&&!(e.buttons||e.pointerType==='touch')) return;
   S.hidden=false; S.face=null; const x=clampX(e.clientX), y=clampY(e.clientY); S.travelFloat=Math.hypot(x-S.x,y-S.y)>170; S.tx=x; S.ty=y; lastActive=performance.now();
 }
@@ -1887,6 +1887,7 @@ function importMemory(t){ t=String(t).trim(); if(!t.startsWith('ARANA1:')) retur
   try{ localStorage.setItem('arana.backup',JSON.stringify({ts:Date.now(),d:bk})); }catch(e){}
   let n=0; for(const k in j.d){ if(TRAVEL_SKIP.has(k)||typeof j.d[k]!=='string') continue; try{ localStorage.setItem('arana.'+k,j.d[k]); n++; }catch(e){} } return n; }
 $('#gear').onclick=openSettings;
+$('#chessBtn').onclick=()=>openChess(false);
 
 /* ================= Evolución ================= */
 const TAG={fact:['Sé','ok'],idea:['Propuse','up'],ok:['Bien','ok'],ko:['Mal','ko'],cancel:['No',''],cant:['No puedo',''],unknown:['No sé',''],learned:['Aprendí','ok'],req:['Pedido',''],up:['Nivel','up'],update:['Versión','up'],answer:['Respondí','ok'],voz:['Siri','up']};

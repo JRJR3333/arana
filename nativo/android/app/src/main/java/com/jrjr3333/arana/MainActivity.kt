@@ -61,6 +61,8 @@ class MainActivity : Activity() {
             }
         }
         web.addJavascriptInterface(Puente(), "AranaAndroid")
+        // 0.30.0: que la página no se frene cuando la app pasa a segundo plano (entrenar al ajedrez)
+        web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
         tts = TextToSpeech(this) { ok ->
             ttsLista = ok == TextToSpeech.SUCCESS
             if (ttsLista) tts?.language = Locale("es", "ES")
@@ -96,6 +98,17 @@ class MainActivity : Activity() {
                 try { @Suppress("DEPRECATION") startActivityForResult(i, GUARDAR) } catch (e: ActivityNotFoundException) { porGuardar = null; Toast.makeText(this@MainActivity, "Este móvil no deja elegir dónde guardar.", Toast.LENGTH_LONG).show() }
             }
         }
+        /** 0.30.0: seguir entrenando en segundo plano, con una notificación que dice cómo va. */
+        @JavascriptInterface fun entreno(on: Boolean) {
+            runOnUiThread {
+                if (on) {
+                    if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 10)
+                    val i = Intent(this@MainActivity, Entreno::class.java).putExtra(Entreno.TEXTO, "Mis arañas están jugando. Puede apagar la pantalla.")
+                    try { if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i) } catch (e: Exception) { }
+                } else stopService(Intent(this@MainActivity, Entreno::class.java))
+            }
+        }
+        @JavascriptInterface fun progreso(texto: String) { runOnUiThread { try { Entreno.actualizar(this@MainActivity, texto) } catch (e: Exception) { } } }
         /** 0.28.0: mientras entrena al ajedrez, la pantalla no se apaga. */
         @JavascriptInterface fun pantalla(encendida: Boolean) {
             runOnUiThread { if (encendida) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
