@@ -7,7 +7,11 @@
 - El código está en `nativo/ios/` y se compila solo en un Mac de GitHub cada vez que cambia (pestaña **Actions** del repositorio, «App nativa (iOS)»).
 - Sabe: hablar, escuchar con su propio micrófono, pensar con Claude (la clave va en el llavero del iPhone) siguiendo el hilo y recordando lo que usted le cuenta, temporizadores, recordatorios con aviso, llamar, mandar mensajes, abrir apps y «Oye Siri, Araña».
 
-## Lo que falta para instalarla
+## Instalarla desde el Mac (gratis)
+
+Juan ya tiene Mac: la forma más rápida es Xcode con su Apple ID. Guía paso a paso: [nativo/ios/INSTALAR.md](../ios/INSTALAR.md).
+
+## Instalarla sin Mac (cuenta de desarrollador)
 
 Apple solo deja instalar una app así si está **firmada**. Sin Mac y sin instalar otras apps, el único camino es la **cuenta de desarrollador de Apple** (Apple Developer Program, 99 $ al año). Con ella:
 

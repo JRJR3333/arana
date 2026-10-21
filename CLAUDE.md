@@ -77,6 +77,7 @@ Al añadir una habilidad nueva:
 
 - SwiftUI, iOS 17+, proyecto generado con XcodeGen (`project.yml`). No se sube el `.xcodeproj`.
 - Se compila en GitHub Actions (`.github/workflows/ios.yml`, macOS). Es la única compilación permitida: en la nube, nunca en el iPhone de Juan.
+- Desde el 2026-10-21 Juan tiene Mac: instala con Xcode y su Apple ID siguiendo `nativo/ios/INSTALAR.md` (script `nativo/ios/instalar.sh`). El proyecto debe seguir sin capacidades que exijan cuenta de pago (App Groups, push, iCloud…), para que funcione con el *Personal Team* gratuito.
 - Antes de dar algo por hecho, comprobar que el workflow del último commit está en verde (`gh api repos/JRJR3333/arana/actions/runs?per_page=1`). Si está rojo, leer el log del job y arreglarlo en esa misma ejecución.
 - Funciones nuevas: dentro del código de la app (EventKit, App Intents, AVFoundation, WidgetKit, ActivityKit…), no en Atajos.
 - Gastar poco con Claude, igual que en la web: `max_tokens` corto, sin historial largo.

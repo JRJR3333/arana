@@ -1,0 +1,7 @@
+nativo/ios/Arana.xcodeproj/
+nativo/ios/Arana/Info.plist
+nativo/ios/AranaIsla/Info.plist
+nativo/ios/build.log
+.DS_Store
+xcuserdata/
+DerivedData/
