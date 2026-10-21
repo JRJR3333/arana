@@ -5,8 +5,8 @@
 # Se puede repetir cuando quiera: baja la última versión y vuelve a preparar el proyecto.
 set -euo pipefail
 
-DEST="$HOME/Arana"
-TOOLS="$HOME/.arana"
+DEST="${HOME}/Arana"
+TOOLS="${HOME}/.arana"
 REPO="https://github.com/JRJR3333/arana.git"
 
 say() { printf '\n\033[1m🕷  %s\033[0m\n' "$1"; }
@@ -23,34 +23,34 @@ fi
 xcodebuild -version | head -1
 
 # 2. Código de la araña
-if [ -d "$DEST/.git" ]; then
+if [ -d "${DEST}/.git" ]; then
   say "Bajo la última versión de la araña…"
-  git -C "$DEST" pull --ff-only
+  git -C "${DEST}" pull --ff-only
 else
-  say "Descargo la araña en $DEST…"
-  git clone --depth 1 "$REPO" "$DEST"
+  say "Descargo la araña en ${DEST}…"
+  git clone --depth 1 "${REPO}" "${DEST}"
 fi
 
 # 3. XcodeGen (genera el proyecto de Xcode a partir de project.yml)
 if command -v xcodegen >/dev/null 2>&1; then
   XCODEGEN="xcodegen"
 else
-  XCODEGEN="$TOOLS/xcodegen/bin/xcodegen"
-  if [ ! -x "$XCODEGEN" ]; then
+  XCODEGEN="${TOOLS}/xcodegen/bin/xcodegen"
+  if [ ! -x "${XCODEGEN}" ]; then
     say "Descargo XcodeGen (solo la primera vez)…"
-    mkdir -p "$TOOLS"
-    curl -fsSL -o "$TOOLS/xcodegen.zip" \
+    mkdir -p "${TOOLS}"
+    curl -fsSL -o "${TOOLS}/xcodegen.zip" \
       https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip
-    rm -rf "$TOOLS/xcodegen"
-    unzip -q -o "$TOOLS/xcodegen.zip" -d "$TOOLS"
-    chmod +x "$TOOLS/xcodegen/bin/xcodegen"
-    rm -f "$TOOLS/xcodegen.zip"
+    rm -rf "${TOOLS}/xcodegen"
+    unzip -q -o "${TOOLS}/xcodegen.zip" -d "${TOOLS}"
+    chmod +x "${TOOLS}/xcodegen/bin/xcodegen"
+    rm -f "${TOOLS}/xcodegen.zip"
   fi
 fi
 
 say "Preparo el proyecto…"
-cd "$DEST/nativo/ios"
-"$XCODEGEN" generate --quiet
+cd "${DEST}/nativo/ios"
+"${XCODEGEN}" generate --quiet
 
 # 4. Abrir Xcode
 say "Abro Xcode. Ahora siga la guía: elegir su equipo y pulsar ▶."
