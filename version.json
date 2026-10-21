@@ -1,7 +1,10 @@
 {
- "version": "0.23.0",
+ "version": "0.24.0",
  "date": "2026-10-21",
  "notes": [
+  "Ya juego al ajedrez: dígame «vamos a jugar al ajedrez» y me voy a mi sala de partidas.",
+  "Mi cerebro de ajedrez evoluciona: 32 arañas juegan entre ellas, las mejores tienen hijas y cada generación se guarda.",
+  "Toque una araña de la sala para ver su ficha: padres, mutaciones, Elo y sus 45 detectores.",
   "Vuelvo a caminar por toda la pantalla: paseo, curioseo, le sigo el dedo y me escondo en el borde.",
   "Vuelvo a bailar: tres toques o «baila». Dos toques, salto; mantenerme pulsada, mi menú; y me puede arrastrar.",
   "Vuelvo a hacerle preguntas de vez en cuando para conocerle mejor (se apaga en Ajustes).",

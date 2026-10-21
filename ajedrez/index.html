@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090a14">
+<title>Sala de partidas</title>
+<style>
+/* La sala de partidas de la araña (fase 1). Mismo estilo que Araña: rejilla, puntos y líneas. */
+:root{
+  --home:#090a14; --pink:#ff4fa3; --green:#3dff99; --cyan:#5ee8ff; --amber:#ffb340;
+  --ink:#fff; --muted:rgba(235,235,245,.6); --line:rgba(94,232,255,.22); --card:rgba(10,13,23,.86);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0; min-height:100%; background:var(--home); color:var(--ink); font-family:var(--sys); font-size:16px; -webkit-tap-highlight-color:transparent}
+body{background:
+  repeating-linear-gradient(0deg,rgba(94,232,255,.05) 0 1px,transparent 1px 28px),
+  repeating-linear-gradient(90deg,rgba(94,232,255,.05) 0 1px,transparent 1px 28px),
+  radial-gradient(420px circle at 15% 5%,#33205e,transparent),
+  radial-gradient(420px circle at 95% 95%,#0e4152,transparent),var(--home); background-attachment:fixed}
+button{font:inherit; color:inherit; cursor:pointer}
+header{position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px;
+  padding:calc(env(safe-area-inset-top,0px) + 8px) 16px 8px; background:rgba(9,10,20,.88); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+header h1{flex:1; margin:0; font:600 17px/1.2 var(--mono); letter-spacing:.02em}
+.ib{border:1px solid var(--line); background:none; border-radius:10px; min-width:44px; height:40px; padding:0 12px; font:500 15px var(--mono)}
+.ib:focus-visible,.btn:focus-visible,.mesa button:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
+main{padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 24px); max-width:1100px; margin:0 auto}
+#estado{font:500 14px/1.4 var(--mono); color:var(--muted); margin:2px 0 12px}
+#estado b{color:var(--ink); font-weight:600}
+.ctrl{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px}
+.btn{border:1px solid var(--pink); background:rgba(255,79,163,.12); border-radius:10px; padding:10px 16px; font:600 15px var(--mono)}
+.btn.sec{border-color:var(--line); background:none; font-weight:500}
+.btn[aria-pressed=true]{border-color:var(--cyan); background:rgba(94,232,255,.12)}
+#mesas{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px}
+.mesa{border:1px solid var(--line); border-radius:10px; background:var(--card); padding:8px; position:relative}
+.mesa.juega{border-color:var(--cyan); box-shadow:0 0 14px -6px var(--cyan)}
+.mesa canvas{display:block; width:100%; aspect-ratio:1; border-radius:4px}
+.mesa .n{font:600 10px var(--mono); color:var(--muted); margin-bottom:6px; display:flex; justify-content:space-between}
+.mesa button{display:flex; justify-content:space-between; gap:6px; width:100%; border:0; background:none; padding:4px 2px; font:500 13px var(--mono); text-align:left}
+.mesa button span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mesa button i{font-style:normal; color:var(--muted)}
+.dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:0}
+.dot.w{background:#e9f6ff} .dot.b{background:#1b1430; border:1.5px solid var(--pink)}
+.res{font:600 11px var(--mono); color:var(--green)}
+#resumen table{width:100%; border-collapse:collapse; font:13px/1.35 var(--mono)}
+#resumen th,#resumen td{padding:7px 6px; border-bottom:1px solid var(--line); text-align:left}
+#resumen th{color:var(--muted); font-weight:500}
+#resumen td.num,#resumen th.num{text-align:right; font-variant-numeric:tabular-nums}
+#resumen tr[data-id]{cursor:pointer}
+h2{font:600 14px var(--mono); color:var(--cyan); margin:18px 0 8px; letter-spacing:.04em; text-transform:uppercase}
+/* Hoja inferior: ficha de una araña y opciones */
+#hoja{position:fixed; inset:0; z-index:10; background:rgba(0,0,0,.45); display:none; align-items:flex-end; justify-content:center}
+#hoja.on{display:flex}
+#hoja .c{width:100%; max-width:640px; max-height:88vh; overflow:auto; background:#0d1020; border:1px solid var(--line); border-bottom:0; border-radius:16px 16px 0 0;
+  padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 20px)}
+#hoja h3{margin:0 0 2px; font:600 20px var(--mono)}
+#hoja .sub{color:var(--muted); font:13px/1.4 var(--mono); margin-bottom:12px}
+.kv{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font:14px/1.35 var(--mono); margin:6px 0 4px}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+.det{display:grid; grid-template-columns:1fr auto; gap:2px 10px; font:13px/1.5 var(--mono)}
+.det .off{color:rgba(235,235,245,.35)}
+.det .on::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin-right:7px}
+.det .off::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; border:1px solid rgba(235,235,245,.35); margin-right:7px}
+.det .v{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted)}
+label.op{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); font:14px var(--mono)}
+label.op select{font:inherit; background:#141832; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 8px}
+.nota{font:12.5px/1.45 var(--mono); color:var(--muted); margin:10px 0}
+svg.spark{width:100%; height:56px; display:block}
+@media (prefers-reduced-motion:reduce){ .mesa.juega{box-shadow:none} }
+</style>
+</head>
+<body>
+<header>
+  <button class="ib" id="salir" aria-label="Salir de la sala">←</button>
+  <h1>Sala de partidas</h1>
+  <button class="ib" id="opc" aria-label="Opciones de entrenamiento">⚙</button>
+</header>
+<main>
+  <div id="estado">Preparando la sala…</div>
+  <div class="ctrl">
+    <button class="btn" id="go">▶ Entrenar</button>
+    <button class="btn sec" id="vista" aria-pressed="true">Directo</button>
+  </div>
+  <div id="mesas" aria-label="Mesas de la ronda actual"></div>
+  <div id="resumen" hidden></div>
+</main>
+<div id="hoja" role="dialog" aria-modal="true"><div class="c" id="hojac"></div></div>
+<script src="motor.js"></script>
+<script src="sala.js"></script>
+</body>
+</html>

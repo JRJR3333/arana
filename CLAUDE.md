@@ -149,3 +149,11 @@ Juan quiere sorpresas y condiciones nuevas. Al empezar cada ejecución, tirar el
   10. Una mejora pensada para usar la araña de noche o a oscuras.
 - **Lo que el dado no cambia:** las reglas de calidad, el freno, la seguridad, ni la obligación de incluir una mejora hacia el objetivo y otra de asistente. Una mejora puede cumplir varias cosas a la vez.
 - **Apuntarlo:** el resultado del dado va en `evolucion/diario.md`, y la condición elegida en el `detalle` de alguna mejora de `cambios.json`.
+
+## Ajedrez (`ajedrez/`, desde la 0.24.0)
+
+- La araña juega al ajedrez y su cerebro evoluciona (red de detectores + algoritmo genético). **El diseño es de Juan** y se construye por fases (ver `ajedrez/DISENO.md`). La tarea diaria **no cambia el diseño** del ajedrez ni añade fases por su cuenta: solo arregla fallos o lo que Juan pida en una petición.
+- `motor.js`: reglas, detectores, búsqueda y evolución; funciona en la web, en los hilos y en Node. `worker.js`: un hilo de partidas. `sala.js` + `index.html`: la sala.
+- Se abre con «vamos a jugar al ajedrez» / «entrena» (`chessCmd` y `openChess` en `index.html`) como un `<iframe id="ajz">`; la sala avisa con `postMessage({arana:'ajedrez-salir'})`.
+- Guarda en IndexedDB `arana-ajedrez` (aparte de la memoria del asistente). No se cambian sus nombres ni se borran datos.
+- Antes de publicar un cambio en `ajedrez/`: `node ajedrez/pruebas/reglas.js` (perft y simetría) y `node ajedrez/pruebas/evolucion.js 1`.

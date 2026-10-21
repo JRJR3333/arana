@@ -1,5 +1,25 @@
 [
  {
+  "v": "0.24.0",
+  "fecha": "2026-10-21",
+  "mejoras": [
+   {
+    "id": "0.24.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "La sala de partidas de ajedrez",
+    "detalle": "A petición de Juan (fase 1 del diseño de ajedrez): «vamos a jugar al ajedrez», «entrena» o Ajustes → Ajedrez abre la sala, sin gastar consultas. 16 mesas con las 32 arañas, en directo o en resumen, opciones de tiempo, profundidad y partidas, y exportar copia.",
+    "probar": "Diga «vamos a jugar al ajedrez» y pulse «Entrenar». Deje la pantalla encendida unos minutos."
+   },
+   {
+    "id": "0.24.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Mi cerebro de ajedrez evoluciona",
+    "detalle": "Reglas propias comprobadas con perft, 45 detectores con gen de encendido, tres ejes (fase, estructura, temperatura), alfa-beta con quiescencia y algoritmo genético: élite de 4, minitorneos, cruce por bloques, mutación que se afina e inmigrantes. Guarda al terminar cada generación.",
+    "probar": "Tras una generación, toque una araña nacida en la 2: debe enseñar sus padres y dónde mutó."
+   }
+  ]
+ },
+ {
   "v": "0.23.0",
   "fecha": "2026-10-21",
   "mejoras": [

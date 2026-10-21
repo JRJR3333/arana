@@ -171,6 +171,8 @@ textarea{min-height:110px; resize:vertical; border:0}
 .events time{margin-left:auto; flex:none; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums}
 .wish button{font:inherit; font-size:14px; border:0; background:var(--fill); color:var(--tint); border-radius:8px; padding:6px 10px; white-space:nowrap}
 .wish button.sent{color:var(--muted)}
+/* 0.24.0: la sala de partidas de ajedrez ocupa toda la pantalla, encima de todo */
+#ajz{position:fixed; inset:0; width:100%; height:100%; border:0; z-index:60; background:var(--home)}
 </style>
 </head>
 <body>
@@ -841,6 +843,25 @@ function runMove(v){
   return run(async()=>{ moving=true; try{ await MOVES[v](); } finally{ moving=false; } });
 }
 const MOVE_NAMES={dance:'Bailar',walk:'Dar un paseo',spin:'Dar una vuelta',jump:'Saltar',come:'Volver a su sitio',hide:'Esconderme',follow:'Seguirle el dedo',stay:'Quedarme quieta',bow:'Hacer una reverencia'};
+/* 0.24.0: el ajedrez. La araña es la jugadora; su cerebro evoluciona en ajedrez/ (motor.js, sala.js) */
+function chessCmd(l){
+  if(/^(vamos a |a )?(entrena|entrenar|entrenate|ponte a entrenar)( (al|el) ajedrez| tus aranas)?$/.test(l)) return 'train';
+  if(/\bajedrez\b|\bsala de partidas\b/.test(l)&&!/\b(que es|historia|reglas de)\b/.test(l)) return /\bentren/.test(l)?'train':'open';
+  return null;
+}
+function openChess(train){
+  if(document.getElementById('ajz')) return;
+  try{ closeSheet(); }catch(e){}
+  const t=pick(['Voy a la sala de partidas.','A mi mesa de ajedrez.','Me siento a jugar.']); say(t); speak(t);
+  hideAtEdge();
+  setTimeout(()=>{ const f=document.createElement('iframe'); f.id='ajz'; f.title='Sala de partidas';
+    f.src='ajedrez/?plat='+(PLAT==='ios'?'iphone':PLAT)+(train?'&entrenar=1':''); document.body.appendChild(f); try{ f.focus(); }catch(e){} },650);
+}
+function closeChess(){
+  const f=document.getElementById('ajz'); if(!f) return; f.remove(); goHome();
+  const t=pick(['He vuelto de la sala.','Ya estoy aquí. Mis arañas me esperan en la sala.','Vuelvo a su servicio.']); say(t); speak(t);
+}
+window.addEventListener('message',e=>{ if(e.data&&e.data.arana==='ajedrez-salir') closeChess(); });
 function moveCmd(l){
   if(/\b(deja de seguir\w*|para de seguir\w*|no me sigas|no me persigas|quieta|quieto|estate quiet[ao]|no te muevas|para quieta)\b/.test(l)) return 'stay';
   if(/\b(sigueme|seguirme|sigue (mi|el) dedo|persigueme|ven conmigo)\b/.test(l)) return 'follow';
@@ -1263,6 +1284,8 @@ async function interpret(raw){
   // Sorpresa 0.15.0: si me da las gracias, hago una reverencia de mayordomo (gratis, sin cerebro)
   if(/^(?:muchas |mil |pues )?gracias(?: arana| de verdad| majo| crack)?$/.test(l)){ const t=pick(['A usted.','Es un honor.','Siempre a su servicio.','No hay de qué. Me inclino.']); bow(); say(t,2600); speak(t); logEv('answer',null,l); return; }
   // 0.23.0: lo que hago con el cuerpo (bailar, pasear, seguirle…), gratis y sin cerebro
+  // 0.24.0: «vamos a jugar al ajedrez», «entrena»… abre la sala de partidas, gratis y sin cerebro
+  const cz=chessCmd(l); if(cz){ logEv('answer',null,l); return openChess(cz==='train'); }
   const mv=moveCmd(l); if(mv){ logEv('answer',null,l); return runMove(mv); }
   // 0.23.0: que me pregunte cosas
   if(/\b(preguntame|hazme (una )?pregunta(s)?|pregunta(me)? algo|quiero que me preguntes|conoceme)\b/.test(l)) return askQuestion(true);
@@ -1771,6 +1794,7 @@ function openSettings(){
       <ul class="cells" style="margin-top:6px"><li><button type="button" class="act" id="askNow">Pregúnteme algo ahora</button></li></ul></div>
     <div><span class="lbl">Evolución</span><ul class="cells">
       ${navRow('nEvo','Evolución',`<span class="val">${escapeHTML(L.name)}</span>`)}
+      ${navRow('nChess','Ajedrez: sala de partidas')}
       ${navRow('nRate','Valorar mejoras',nUn?`<span class="badge">${nUn}</span>`:'')}
       ${navRow('nLearn','Lo que he aprendido',`<span class="val">${learnedN}</span>`)}
       ${navRow('nPocket','Bolsillo',`<span class="val">${pocket?'Lleno':'Vacío'}</span>`)}</ul></div>
@@ -1818,7 +1842,7 @@ function openSettings(){
   if($('#keyTest')) $('#keyTest').onclick=()=>{ closeSheet(); thinking=true; setThinking(true);
     think('Preséntate en una frase y dime qué sabes de mí.').then(p=>{ say(p.say||'Funciona.'); happy(); }).catch(e=>say(/401/.test(String(e))?'La clave no es válida.':'No consigo conectar: '+String(e).replace(/^Error: /,'').slice(0,200))).finally(()=>{ thinking=false; setThinking(false); }); };
   document.querySelectorAll('#sheet [data-fact]').forEach(b=>b.onclick=()=>{ facts=facts.filter(f=>f.t!==b.dataset.fact); saveBrain(); openSettings(); });
-  $('#nEvo').onclick=openEvolution; $('#nRate').onclick=openRatings; $('#nLearn').onclick=openLearned; $('#nPocket').onclick=fillPocket;
+  $('#nEvo').onclick=openEvolution; $('#nChess').onclick=()=>openChess(false); $('#nRate').onclick=openRatings; $('#nLearn').onclick=openLearned; $('#nPocket').onclick=fillPocket;
   if($('#aFloat')) $('#aFloat').onclick=()=>{ closeSheet(); say('Salgo y me quedo flotando.'); apkLaunch('arana://flotar'); };
   if($('#test')) $('#test').onclick=()=>{ launch(scURL('test','1')); };
   if($('#testMulti')) $('#testMulti').onclick=()=>{ launch(scRaw('test|1;test|2')); };
@@ -2004,7 +2028,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent};
+window.__arana={chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent};
 })();
 </script>
 </body>
