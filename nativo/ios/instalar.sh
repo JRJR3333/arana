@@ -13,7 +13,7 @@ say() { printf '\n\033[1m🕷  %s\033[0m\n' "$1"; }
 fail() { printf '\n\033[31m✗ %s\033[0m\n' "$1"; exit 1; }
 
 # 1. Xcode
-say "Compruebo Xcode…"
+say "Compruebo Xcode..."
 if ! xcodebuild -version >/dev/null 2>&1; then
   if [ -d /Applications/Xcode.app ]; then
     fail "Xcode está instalado pero no activo. Ejecute:  sudo xcode-select -s /Applications/Xcode.app  y vuelva a lanzar este comando."
@@ -24,10 +24,10 @@ xcodebuild -version | head -1
 
 # 2. Código de la araña
 if [ -d "${DEST}/.git" ]; then
-  say "Bajo la última versión de la araña…"
+  say "Bajo la última versión de la araña..."
   git -C "${DEST}" pull --ff-only
 else
-  say "Descargo la araña en ${DEST}…"
+  say "Descargo la araña en ${DEST}..."
   git clone --depth 1 "${REPO}" "${DEST}"
 fi
 
@@ -37,7 +37,7 @@ if command -v xcodegen >/dev/null 2>&1; then
 else
   XCODEGEN="${TOOLS}/xcodegen/bin/xcodegen"
   if [ ! -x "${XCODEGEN}" ]; then
-    say "Descargo XcodeGen (solo la primera vez)…"
+    say "Descargo XcodeGen (solo la primera vez)..."
     mkdir -p "${TOOLS}"
     curl -fsSL -o "${TOOLS}/xcodegen.zip" \
       https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip
@@ -48,7 +48,7 @@ else
   fi
 fi
 
-say "Preparo el proyecto…"
+say "Preparo el proyecto..."
 cd "${DEST}/nativo/ios"
 "${XCODEGEN}" generate --quiet
 
