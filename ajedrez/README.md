@@ -231,7 +231,7 @@ Juan quiere que en el Arch entrene la **RTX 5080**. La búsqueda alfa-beta y los
 |---|---|---|
 | 1 | WebGPU en el Chromium del servidor, convolución 3×3 y capa densa en la gráfica, comparadas con el procesador, y medida de velocidad (`gpu.js`, `gpu.html`, `servidor/probar-gpu.js`). llama-server lo para Juan a mano. En la RTX 5080 de Juan funciona con la forma «nativo» (Vulkan sin caja de arena y sin la lista de bloqueo de Dawn): mismos resultados que el procesador (diferencia 1,6·10⁻⁶) y **53.002 posiciones/s** con la red de prueba (4,8 ms por lote de 256, unos 3 TFLOP/s, sin optimizar). | hecha (0.37.0) |
 | 2 | La red y su entrenamiento en la gráfica, con las posiciones que etiqueta Stockfish (`red.js`; la sala la entrena al cerrar cada generación). En la 5080: 36 ms por paso de 256 posiciones; con 20.000 posiciones de prueba acierta la jugada objetivo el 53 % y el error del valor baja de 0,117 a 0,096 (solo el valor: 0,071). Elegido con un barrido: cabeza «plano», ritmo 0,001, política con peso 0,1, ReLU con fuga y entropía cruzada para el valor. | hecha (0.38.0) |
-| 3 | Búsqueda MCTS por lotes; las arañas con red juegan torneo y escalera | pendiente |
+| 3 | Búsqueda MCTS por lotes (`mcts.js`, PUCT con pérdida virtual, lotes de 64 en la gráfica, finales exactos). Tras entrenar, la red juega ida y vuelta contra su propio peldaño de Stockfish (sube con 1,5 de 2, baja con 0) y contra la primera del torneo; su Elo sale de sus últimas 40 partidas. Se ven en *Partidas → La red en la gráfica* y en la Gráfica («Elo jugando»). Opciones: simulaciones por jugada (400) y si juega. Aún no entra en la evolución. | hecha (0.39.0) |
 | 4 | Evolución del tamaño de la red, la búsqueda y el aprendizaje | pendiente |
 
 ## Sin internet y en segundo plano
@@ -259,6 +259,7 @@ Juan quiere que en el Arch entrene la **RTX 5080**. La búsqueda alfa-beta y los
 | `sala.js` | La sala: torneo, Stockfish, vistas, fichas, visor, biblioteca, Lichess, exportar. |
 | `index.html` | La página de la sala y sus estilos. |
 | `gpu.js`, `gpu.html` | La gráfica (WebGPU): convolución y capa densa, y la página de prueba. |
+| `red.js`, `mcts.js` | La red en la gráfica (distópica 40) y su búsqueda MCTS. |
 | `piezas.js` | Piezas cburnett (GPLv2+, ver `PIEZAS.md`). |
 | `stockfish/` | Stockfish 19 lite de un hilo (GPL v3, ver `stockfish/LEEME.md`). |
 | `DISENO.md` | Las decisiones de diseño y el estado de cada fase. |
@@ -270,4 +271,5 @@ node ajedrez/pruebas/reglas.js        # perft y simetría blancas/negras
 node ajedrez/pruebas/evolucion.js 1   # una generación completa
 node ajedrez/pruebas/stockfish.js     # Stockfish responde y se juega una partida
 node ajedrez/pruebas/gradiente.js     # distópica 39: valoración exacta, etiquetas y el error baja
+node ajedrez/pruebas/mcts.js          # distópica 40: la búsqueda encuentra mates, gana material y juega legal
 ```

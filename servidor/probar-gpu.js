@@ -19,7 +19,7 @@ const { buscarChromium, argsGPU, VARIANTES, GPU_JSON, pararLlama, reanudarLlama,
 const WEB = path.resolve(__dirname, '..'), arg = process.argv.slice(2);
 const val = k => { const i = arg.indexOf('--' + k); return i >= 0 ? arg[i + 1] : null; };
 const PAGINA = process.argv.includes('--red') ? 'pruebas/red.html' : 'gpu.html';
-const q = ['lote', 'filtros', 'bloques', 'vueltas', 'F', 'nb', 'B', 'pasos', 'bench', 'N', 'barrido'].filter(val).map(k => `${k}=${+val(k)}`).join('&');
+const q = ['lote', 'filtros', 'bloques', 'vueltas', 'F', 'nb', 'B', 'pasos', 'bench', 'N', 'barrido', 'mcts', 'sims'].filter(val).map(k => `${k}=${+val(k)}`).join('&');
 let PUERTO_DIAG = 0;
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json' };
 
@@ -59,6 +59,7 @@ const srv = http.createServer((req, res) => {
     for (const p of r.pruebas) if (p.diferencia == null) console.log(`${p.ok ? '✓' : '✗'} ${p.nombre}`);
     const a = r.aprende; if (a) { console.log(`Red de ${a.F} filtros y ${a.nb} bloques, lote ${a.B}: acierta la jugada ${Math.round(a.antes.acierto * 100)} % → ${Math.round(a.mejor.acierto * 100)} % (mejor momento) · ${a.msPorPaso} ms por paso`); console.log('Curva (paso: error del valor / pérdida de la política / acierto):'); for (const c of a.curva) console.log(`   ${String(c.paso).padStart(5)}: ${c.valor} / ${c.politica} / ${Math.round(c.acierto * 100)} %`); }
     if (r.barrido) { console.log('Barrido (cabeza · ritmo · peso de la política → error del valor: antes / al final / mejor · acierto):'); for (const x of r.barrido) console.log(`   ${x.cabeza.padEnd(5)} · ${String(x.lr).padEnd(6)} · ${String(x.wp).padEnd(3)} → ${x.valorAntes} / ${x.valorFin} / ${x.valorMejor} · ${x.acierto} %`); }
+    if (r.mcts) console.log(`Búsqueda MCTS: ${r.mcts.msPorJugada} ms por jugada con ${r.mcts.sims} simulaciones · ${r.mcts.simsPorSegundo.toLocaleString('es-ES')} simulaciones por segundo`);
     if (vel) console.log(`Entrenamiento (lote ${vel.lote}, ${vel.filtros} filtros, ${vel.bloques} bloques): ${vel.msPorPaso} ms por paso · ${vel.posicionesPorSegundo.toLocaleString('es-ES')} posiciones/s aprendidas`);
     console.log(r.ok ? '\nLa red funciona en la gráfica.' : '\nAlgo no cuadra: mándele esta salida a Claude.');
     return fin(r.ok ? 0 : 1);

@@ -1,6 +1,6 @@
 // Guarda la app para que abra sin conexión. Cambie la versión al publicar cambios.
-const V = 'arana-v42';
-const FILES = ['./', './index.html', './ajedrez/', './ajedrez/index.html', './ajedrez/motor.js', './ajedrez/sala.js', './ajedrez/worker.js', './ajedrez/gpu.js', './ajedrez/red.js', './ajedrez/gpu.html', './ajedrez/piezas.js', './ajedrez/stockfish/stockfish-19-lite-single.js', './ajedrez/stockfish/stockfish-19-lite-single.wasm', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const V = 'arana-v43';
+const FILES = ['./', './index.html', './ajedrez/', './ajedrez/index.html', './ajedrez/motor.js', './ajedrez/sala.js', './ajedrez/worker.js', './ajedrez/gpu.js', './ajedrez/red.js', './ajedrez/mcts.js', './ajedrez/gpu.html', './ajedrez/piezas.js', './ajedrez/stockfish/stockfish-19-lite-single.js', './ajedrez/stockfish/stockfish-19-lite-single.wasm', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener('fetch', e => {

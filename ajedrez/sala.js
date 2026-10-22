@@ -353,6 +353,7 @@ async function cerrarGeneracion() {
   const viejos = pop.slice(), mejorPartida = elegirPartida(), fase = sfFase; sfFase = null;
   if (flagsDe()[39] || redActiva()) { try { await etiquetarGradiente(fase); } catch (e) { console.warn('gradiente', e); } gradVista = ''; }
   if (redActiva()) { try { redUltima = await entrenarRed(); } catch (e) { redUltima = { error: (e && e.message) || String(e) }; console.warn('red', e); } gradVista = ''; }
+  if (redActiva()) { try { const j = await faseRed(); if (j) redUltima = Object.assign(redUltima || {}, { juego: j }); } catch (e) { redUltima = Object.assign(redUltima || {}, { errorJuego: (e && e.message) || String(e) }); console.warn('red juega', e); } gradVista = ''; }
   let resSF = null;
   if (fase && fase.hechos.length) {
     const E = fase.E, puntos = fase.hechos.reduce((a, j) => a + j.res, 0), n = fase.hechos.length, conquistado = false;
@@ -404,10 +405,12 @@ async function cerrarGeneracion() {
   if (mejorPartida) {   // todas las partidas de la generación, con sus jugadas
     const nom = id => (ind(id) || antes.get(id) || cazAntes.get(id) || { nombre: '?' }).nombre;
     mejorPartida.todas = juegos.filter(j => j.estado === 'fin').map(j => ({ tipo: j.tipo || '', wn: nom(j.w), bn: nom(j.b), w: j.w, b: j.b, fen: j.fen, jugadas: (j.jugadas || []).join(' '), res: j.res, motivo: j.motivo }))
-      .concat(fase ? fase.hechos.map(x => ({ tipo: 'sf', wn: x.yoB ? x.nombre : 'Stockfish', bn: x.yoB ? 'Stockfish' : x.nombre, fen: x.fen0, jugadas: x.jugadas.join(' '), res: x.yoB ? x.res : 1 - x.res, motivo: x.motivo, peldano: fase.E.n })) : []);
+      .concat(fase ? fase.hechos.map(x => ({ tipo: 'sf', wn: x.yoB ? x.nombre : 'Stockfish', bn: x.yoB ? 'Stockfish' : x.nombre, fen: x.fen0, jugadas: x.jugadas.join(' '), res: x.yoB ? x.res : 1 - x.res, motivo: x.motivo, peldano: fase.E.n })) : [])
+      .concat(redJuegos);
     extra.push(['partidas', Object.assign({ gen: out.resumen.gen }, mejorPartida)]);
   }
   for (const p of viejos) if (!vivos.has(p.id)) { conHuella(p); p.murio = out.resumen.gen; extra.push(['individuos', Object.assign({}, p, { genes: elite.has(p.id) || genesTodas() ? p.genes : null })]); }
+  redJuegos = [];
   est = out.est; pop = out.pop; nombresUnicos(pop.concat(cazadoras)); byId = new Map(pop.map(p => [p.id, p])); historial.push(out.resumen);
   const nuevos = revisarHitos(out.resumen);
   try { await guardarEstado(extra); } catch (e) { console.warn('guardar', e); }
@@ -469,11 +472,81 @@ async function entrenarRed() {
     return { red: `${red.filtros}×${red.bloques}`, posiciones: n, entrenamiento: ent.length, prueba: pr.length, pasos: hechos, tope, totalPasos: red.pasos, antes: m(antes), despues: m(despues), ms };
   } finally { redOcupada = false; }
 }
+/* ═════════ La red juega (40), fase 3 (0.39.0) ═════════
+   Tras entrenar, la red juega con búsqueda MCTS (mcts.js, «redSims» simulaciones por jugada, valoradas en la gráfica por lotes de 64):
+   ida y vuelta contra su propio peldaño de Stockfish (sube si saca 1,5 de 2, baja si saca 0) y contra la primera del torneo.
+   Su Elo sale de sus últimas 40 partidas (máxima verosimilitud contra el Elo de cada rival). De momento no entra en la evolución (fase 4). */
+let redJuego = null, redJuegos = [];
+async function evaluadorRed() {
+  if (!redJuego || redJuego.pasosCargados !== red.pasos) { if (redJuego) redJuego.cerrar(); redJuego = await Red.enGPU(red, { lote: 64 }); redJuego.pasosCargados = red.pasos; }
+  return async fens => {
+    const out = [];
+    for (let i = 0; i < fens.length; i += 64) {
+      const trozo = fens.slice(i, i + 64).map(f => ({ x: Red.codificar(f, new Float32Array(Red.PL * 64)), t: 0, obj: -1 })), r = await redJuego.valorar(trozo);
+      for (let k = 0; k < trozo.length; k++) out.push({ v: r.valor[k], logits: r.politica.subarray(k * Red.NP, (k + 1) * Red.NP) });
+    }
+    return out;
+  };
+}
+async function partidaRed(rival, redBlancas, fen0) {
+  const evaluar = await evaluadorRed(), pos = new M.Pos(fen0), jug = [];
+  if (rival.tipo === 'sf') { sf.w.postMessage('ucinewgame'); sf.w.postMessage('setoption name Skill Level value ' + rival.E.skill); await sfCmd('isready', /^readyok/); }
+  const maxP = opc.maxPlies || 300; let f = null, malas = 0, msRed = 0, movRed = 0, qs = [];
+  while (!(f = M.fin(pos))) {
+    if (!entrenando) return null;
+    if (jug.length >= maxP) {   // como en la escalera: decide Stockfish por la valoración de la posición
+      let res = .5;
+      if (sf.listo && !sfFallo) { try { sf.w.postMessage('setoption name Skill Level value 20'); sf.w.postMessage('position fen ' + pos.fen()); const sc = puntuacion(await sfCmd('go depth 12', /^bestmove/, 30000)); if (sc != null) { const bl = pos.side ? -sc : sc; res = bl > 300 ? 1 : bl < -300 ? 0 : .5; } } catch (e) {} }
+      f = { res, motivo: 'límite de jugadas' }; break;
+    }
+    let u;
+    if ((pos.side === 0) === redBlancas) {
+      const ta = Date.now(), r = await MCTS.buscar(pos, evaluar, { sims: gopc('redSims'), lote: 64, temperatura: jug.length < 8 ? 1 : 0, rng });
+      msRed += Date.now() - ta; movRed++; u = r.uci; qs.push(Math.round((r.q || 0) * 100) / 100);
+      if ((r.q || 0) < -.95) { if (++malas >= 6) { f = { res: redBlancas ? 0 : 1, motivo: 'la red abandona' }; break; } } else malas = 0;
+    } else if (rival.tipo === 'sf') {
+      sf.w.postMessage('position fen ' + fen0 + (jug.length ? ' moves ' + jug.join(' ') : ''));
+      const ls = await sfCmd('go ' + rival.E.go, /^bestmove/, 30000); u = ls.length ? ls[ls.length - 1].split(/\s+/)[1] : null;
+    } else { const r = await pensarArana(rival.p, fen0, jug, null); u = r.uci; }
+    if (!u || u === '(none)') { f = M.fin(pos) || { res: .5, motivo: 'sin jugada' }; break; }
+    const m = M.parseUci(pos, u); if (!m) { f = { res: .5, motivo: 'jugada imposible' }; break; }
+    pos.make(m); jug.push(u);
+    if (jug.length % 10 === 0) { gradVista = gradVista.replace(/ · jugada \d+$/, '') + ' · jugada ' + Math.ceil(jug.length / 2); pintarEstado(); }
+  }
+  return { res: redBlancas ? f.res : 1 - f.res, blancasRes: f.res, motivo: f.motivo, jugadas: jug, fen0, redBlancas, msJugada: movRed ? Math.round(msRed / movRed) : 0, q: qs };
+}
+async function faseRed() {
+  if (!red || (red.pasos || 0) < 100 || !gopc('redJuega')) return null;
+  redOcupada = true;
+  try {
+    if (!sf.listo && !sfFallo) { try { await sfIniciar(); } catch (e) { sfFallo = (e && e.message) || 'no carga'; } }
+    red.peldano = Math.max(1, Math.min(ESCALERA.length, red.peldano || 1));
+    const E = ESCALERA[red.peldano - 1], cl = torneo ? clasif() : [], camp = cl.length ? cl[0].p : null;
+    const f1 = M.aperturaAleatoria(rng, 4), f2 = M.aperturaAleatoria(rng, 4), rivales = [];
+    if (sf.listo && !sfFallo) rivales.push([{ tipo: 'sf', E }, true, f1], [{ tipo: 'sf', E }, false, f1]);
+    if (camp) rivales.push([{ tipo: 'arana', p: camp }, true, f2], [{ tipo: 'arana', p: camp }, false, f2]);
+    const salida = { peldano: E.n, sims: gopc('redSims'), partidas: [] };
+    for (const [rv, b, f0] of rivales) {
+      const nombre = rv.tipo === 'sf' ? 'Stockfish' : rv.p.nombre, R = rv.tipo === 'sf' ? E.elo : Math.round(rv.p.elo);
+      gradVista = `la red juega con ${b ? 'blancas' : 'negras'} contra ${rv.tipo === 'sf' ? `Stockfish (peldaño ${E.n})` : nombre}`; pintarEstado();
+      const r = await partidaRed(rv, b, f0); if (!r) break;
+      red.juegos = (red.juegos || []).concat([{ R, s: r.res, gen: est.gen, contra: nombre }]).slice(-40);
+      salida.partidas.push({ contra: nombre, R, blancas: b, res: r.res, motivo: r.motivo, plies: r.jugadas.length, msJugada: r.msJugada });
+      redJuegos.push({ tipo: 'red', wn: b ? 'Red' : nombre, bn: b ? nombre : 'Red', fen: f0, jugadas: r.jugadas.join(' '), res: r.blancasRes, motivo: r.motivo, peldano: rv.tipo === 'sf' ? E.n : undefined });
+    }
+    const contraSF = salida.partidas.filter(x => x.contra === 'Stockfish'), pts = contraSF.reduce((a, x) => a + x.res, 0);
+    if (contraSF.length === 2) { if (pts >= 1.5 && red.peldano < ESCALERA.length) red.peldano++; else if (pts === 0 && red.peldano > 1) red.peldano--; }
+    red.elo = Math.round(1500 + anclaElo(red.juegos.map(j => ({ e: 1500, R: j.R, s: j.s })), 0, 400));
+    salida.elo = red.elo; salida.peldanoNuevo = red.peldano;
+    return salida;
+  } finally { redOcupada = false; }
+}
 function textoRed() {
   if (!redActiva()) return ORIGEN === 'linux' ? 'Encienda la distópica 40 y la gráfica (WebGPU) para que entrene.' : 'Solo entrena en el servidor de Linux, con su gráfica.';
   const u = historial.slice().reverse().find(g => g.red && g.red.despues);
   return `Tiene ${redDatos.pos.length.toLocaleString('es-ES')} posiciones etiquetadas` + (red ? ` y una red de ${red.filtros} filtros × ${red.bloques} bloques con ${(red.pasos || 0).toLocaleString('es-ES')} pasos de entrenamiento.` : '. La red nace cuando haya 512.') +
-    (u ? ` En la última generación acertó la jugada de Stockfish en el ${Math.round(u.red.despues.acierto * 100)} % de las posiciones que no ha visto (error del valor ${u.red.despues.valor.toFixed(3)}).` : '');
+    (u ? ` En la última generación acertó la jugada de Stockfish en el ${Math.round(u.red.despues.acierto * 100)} % de las posiciones que no ha visto (error del valor ${u.red.despues.valor.toFixed(3)}).` : '') +
+    (red && red.elo ? ` Jugando con ${gopc('redSims')} simulaciones por jugada tiene un Elo de unos ${red.elo} y se enfrenta al peldaño ${red.peldano} de Stockfish.` : '');
 }
 /* ═════════ Gradiente (39) ═════════
    Al cerrar cada generación: de sus partidas se sacan posiciones tranquilas y se etiquetan (Stockfish a poca profundidad o,
@@ -1375,7 +1448,7 @@ const AUX = {
       <h2>Detectores encendidos de media</h2>${eje([g.map(x => x.encendidos)], ['#a99bff'])}
       ${g.some(x => x.neuronas != null) ? `<h2>Neuronas de su red de media</h2>${eje([g.map(x => x.neuronas || 0)], ['#ff4fa3'])}` : ''}
       ${g.some(x => x.gradiente && x.gradiente.hijas) ? `<h2>Gradiente: error antes y después (‰)</h2><div class="ley"><span><i style="background:#ffb340"></i>antes</span><span><i style="background:#3dff99"></i>después (discontinua)</span></div>${eje([g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.antes * 1000 : NaN), g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.despues * 1000 : NaN)], ['#ffb340', '#3dff99'])}<p class="nota">Error cuadrático entre la probabilidad de ganar que ve la araña y la de Stockfish, en posiciones que no se usaron para ajustar. Si baja generación a generación, las arañas valoran cada vez más como Stockfish.</p>` : ''}
-      ${g.some(x => x.red && x.red.despues) ? `<h2>Red en la gráfica: acierta la jugada de Stockfish (%)</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.acierto * 100 : NaN)], ['#3dff99'])}<h2>Red en la gráfica: error del valor</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.valor : NaN)], ['#ffb340'])}<p class="nota">Medido en posiciones que la red no usa para aprender. Si el acierto sube y el error baja, aprende de verdad.</p>` : ''}
+      ${g.some(x => x.red && x.red.despues) ? `<h2>Red en la gráfica: acierta la jugada de Stockfish (%)</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.acierto * 100 : NaN)], ['#3dff99'])}${g.some(x => x.red && x.red.juego && x.red.juego.elo) ? `<h2>Red en la gráfica: Elo jugando</h2>${eje([g.map(x => x.red && x.red.juego && x.red.juego.elo ? x.red.juego.elo : NaN)], ['#5ee8ff'])}` : ''}<h2>Red en la gráfica: error del valor</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.valor : NaN)], ['#ffb340'])}<p class="nota">Medido en posiciones que la red no usa para aprender. Si el acierto sube y el error baja, aprende de verdad.</p>` : ''}
       <p class="nota">Si la diversidad cae mucho, entran inmigrantes. La mutación nunca baja de 0,03; si la campeona no cambia en 5 generaciones o el Elo no sube en 15, se sacude y vuelve a crecer.</p>` + CERRAR);
   },
   async arbol() {
@@ -1429,9 +1502,9 @@ const AUX = {
     const g = ps.find(x => x.gen === genElegida) || ps[0];
     const lista = g.todas ? g.todas.map(x => Object.assign({}, x, { jugadas: typeof x.jugadas === 'string' ? (x.jugadas ? x.jugadas.split(' ') : []) : x.jugadas || [] }))
       : [{ wn: g.wn, bn: g.bn, fen: g.fen, jugadas: g.jugadas, res: g.res, motivo: g.motivo, tipo: '' }].concat(g.sf ? [{ tipo: 'sf', wn: g.sf.yoB ? g.sf.nombre : 'Stockfish', bn: g.sf.yoB ? 'Stockfish' : g.sf.nombre, fen: g.sf.fen, jugadas: g.sf.jugadas, res: g.sf.yoB ? g.sf.res : 1 - g.sf.res, motivo: g.sf.motivo, peldano: g.sf.peldano }] : []);
-    const grupo = { '': 'Torneo', caza: 'Contra las cazadoras', sf: 'Contra Stockfish' };
+    const grupo = { '': 'Torneo', caza: 'Contra las cazadoras', sf: 'Contra Stockfish', red: 'La red en la gráfica' };
     let h = `<h3>Partidas</h3><select class="full" id="pGen" aria-label="Generación">${ps.slice(0, 300).map(x => `<option value="${x.gen}"${x === g ? ' selected' : ''}>Generación ${x.gen}${x.todas ? ` · ${x.todas.length} partidas` : ' · la mejor'}</option>`).join('')}</select>`;
-    for (const t of ['sf', 'caza', '']) {
+    for (const t of ['sf', 'red', 'caza', '']) {
       const ls = lista.map((x, k) => [x, k]).filter(([x]) => (x.tipo || '') === t); if (!ls.length) continue;
       h += `<h2>${grupo[t]} · ${ls.length}</h2><div class="det">` + ls.map(([x, k]) => `<span data-par="${k}" style="cursor:pointer">${esc(x.wn)} – ${esc(x.bn)}${x.peldano ? ` <i style="font-style:normal;color:var(--muted)">(peldaño ${x.peldano})</i>` : ''}</span><span class="v">${resTxt(x.res)} · ${Math.ceil((x.jugadas || []).length / 2)} jug.</span>`).join('') + '</div>';
     }
@@ -1810,6 +1883,8 @@ function opciones() {
     <label class="op">Tamaño de la red ${sel('redTam', [0, 1, 2], v => TAMS_RED[v].filtros + ' filtros × ' + TAMS_RED[v].bloques + ' bloques', est.opc)}</label>
     <label class="op">Pasos de entrenamiento por generación ${sel('redPasos', [100, 300, 1000, 3000], v => v, est.opc)}</label>
     <label class="op">Posiciones nuevas por generación ${sel('redPos', [500, 1000, 2000, 4000], v => v, est.opc)}</label>
+    <label class="op">Que juegue cada generación ${sel('redJuega', [1, 0], v => v ? 'Sí: contra Stockfish y la campeona' : 'No, solo aprende', est.opc)}</label>
+    <label class="op">Simulaciones por jugada ${sel('redSims', [100, 400, 1600, 6400], v => v, est.opc)}</label>
     <p class="nota">Cambiar el tamaño empieza una red nueva (la de ahora se pierde). Cada paso aprende de 256 posiciones; guarda las últimas ${gopc('redMax').toLocaleString('es-ES')}. Para no memorizar, nunca da más de ${gopc('redVueltas')} vueltas por generación a lo que tiene: con pocas posiciones hace menos pasos.</p>` : ''}
     <h2>Distópicas</h2>
     ${M.DIST.map(([n, nombre]) => `<label class="op">${n}. ${nombre} <select data-dist="${n}"><option value="1"${flagsDe()[n] ? ' selected' : ''}>Sí</option><option value="0"${flagsDe()[n] ? '' : ' selected'}>No</option></select></label>`).join('')}
@@ -2072,7 +2147,8 @@ document.addEventListener('keydown', e => {   // atajos en el ordenador
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { usaGPU: () => gpuOcupada || redOcupada, red: () => ({ red, datos: redDatos.pos.length, ultima: historial.slice().reverse().find(g => g.red) }), entrenarRed, probarGPU, gpuPrueba: () => gpuPrueba, rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { usaGPU: () => gpuOcupada || redOcupada, faseRed, ponerRed: r => { red = r; },   // ponerRed: solo para las pruebas
+  red: () => ({ red, datos: redDatos.pos.length, ultima: historial.slice().reverse().find(g => g.red) }), entrenarRed, probarGPU, gpuPrueba: () => gpuPrueba, rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 // Sin internet: la sala se guarda en el aparato (sw.js de Araña) también si se abre directamente
 try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); } catch (e) {}

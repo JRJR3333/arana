@@ -1167,7 +1167,7 @@ function jugar(Cw, Cb, fen, opc, alMover, ajW, ajB) {
 /* ───────────── Evolución ───────────── */
 const SIL = ['te', 'ji', 'ra', 'ña', 'lo', 'mi', 'sa', 'vi', 'ta', 'no', 'ke', 'ru', 'li', 'da', 'po', 'ga', 'se', 'ba', 'ni', 'zu'];
 function nombre(rng) { const n = 2 + (rng() < .35 ? 1 : 0); let s = ''; for (let i = 0; i < n; i++) s += SIL[Math.floor(rng() * SIL.length)]; return s[0].toUpperCase() + s.slice(1); }
-const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.03, sigmaSacudida: 0.15, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5, estanco: 15, mejoraMin: 25, gradSF: 1, gradPos: 400, gradProf: 8, gradMax: 6000, redPos: 2000, redPasos: 300, redMax: 100000, redTam: 1, redVueltas: 2 };
+const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.03, sigmaSacudida: 0.15, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5, estanco: 15, mejoraMin: 25, gradSF: 1, gradPos: 400, gradProf: 8, gradMax: 6000, redPos: 2000, redPasos: 300, redMax: 100000, redTam: 1, redVueltas: 2, redSims: 400, redJuega: 1 };
 /* σ (0.34.0, lo pidió Juan): el suelo era 0,002 y desde la generación ~123 las hijas casi no cambiaban.
    Ahora el suelo es 0,03 y hay sacudidas de verdad (σ sube al menos a 0,15) en dos casos:
    - la misma campeona gana «racha» generaciones seguidas (como antes);

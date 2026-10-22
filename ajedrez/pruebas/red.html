@@ -16,6 +16,7 @@
 <script src="../motor.js"></script>
 <script src="../gpu.js"></script>
 <script src="../red.js"></script>
+<script src="../mcts.js"></script>
 <script>
 /* 1) La red en la gráfica da lo mismo que en el procesador (valor y política).
    2) Sus gradientes coinciden con los del procesador por diferencias finitas.
@@ -87,6 +88,15 @@
         out.barrido.push({ cabeza, lr, wp, valorAntes: +a.valor.toFixed(3), valorFin: +d.valor.toFixed(3), valorMejor: +mejor.valor.toFixed(3), acierto: Math.round(d.acierto * 100) });
         const x = out.barrido[out.barrido.length - 1]; va(`barrido ${out.barrido.length}/${CFG.length}: ${x.cabeza} · ${x.lr} · ${x.wp} → valor ${x.valorAntes} / ${x.valorFin} / ${x.valorMejor} · acierto ${x.acierto} %`);
       }
+    }
+    // 3c) la búsqueda MCTS con la red de verdad (?mcts=1): milisegundos por jugada y simulaciones por segundo
+    if (num('mcts', 0) && window.MCTS) {
+      const red = Red.crear({ filtros: num('F', 64), bloques: num('nb', 6) }), g = await Red.enGPU(red, { lote: 64 }), sims = num('sims', 400);
+      const evaluar = async fens => { const out = []; for (let i = 0; i < fens.length; i += 64) { const tr = fens.slice(i, i + 64).map(f => ({ x: Red.codificar(f, new Float32Array(Red.PL * 64)), t: 0, obj: -1 })), r = await g.valorar(tr); for (let k = 0; k < tr.length; k++) out.push({ v: r.valor[k], logits: r.politica.subarray(k * Red.NP, (k + 1) * Red.NP) }); } return out; };
+      const pos = new M.Pos(); await MCTS.buscar(pos, evaluar, { sims: 64 });
+      const t0 = performance.now(), n = 6; for (let k = 0; k < n; k++) { const r = await MCTS.buscar(pos, evaluar, { sims }); pos.make(M.parseUci(pos, r.uci)); }
+      const ms = (performance.now() - t0) / n; out.mcts = { sims, msPorJugada: Math.round(ms), simsPorSegundo: Math.round(sims / ms * 1000) }; g.cerrar();
+      va(`búsqueda: ${out.mcts.msPorJugada} ms por jugada con ${sims} simulaciones (${out.mcts.simsPorSegundo} por segundo)`);
     }
     // 4) velocidad con la red de verdad
     if (num('bench', 0)) { const B = num('benchB', 256), red = Red.crear({ filtros: num('benchF', 64), bloques: num('benchNb', 6) }), g = await Red.enGPU(red, { lote: B }), lote = datos.slice(0, B);
