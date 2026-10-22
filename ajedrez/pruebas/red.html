@@ -60,11 +60,15 @@
     { const F = num('F', 8), nb = num('nb', 1), B = num('B', 32), pasos = num('pasos', 60);
       const red = Red.crear({ filtros: F, bloques: nb, semilla: 5 }), g = await Red.enGPU(red, { lote: B });
       const prueba = datos.filter((_, i) => i % 5 === 0), ent = datos.filter((_, i) => i % 5 !== 0), r3 = M.mulberry(11);
-      const antes = await g.medir(prueba), t0 = performance.now();
-      for (let s = 0; s < pasos; s++) { const lote = []; for (let i = 0; i < B; i++) lote.push(ent[Math.floor(r3() * ent.length)]); await g.paso(lote); if (s % 10 === 9) await g.esperar(); }
-      await g.esperar(); const ms = (performance.now() - t0) / pasos, despues = await g.medir(prueba);
-      out.aprende = { F, nb, B, pasos, antes, despues, msPorPaso: Math.round(ms * 10) / 10 };
-      out.pruebas.push({ nombre: `aprende (${pasos} pasos): error del valor ${antes.valor.toFixed(3)} → ${despues.valor.toFixed(3)}, pérdida de la política ${antes.politica.toFixed(2)} → ${despues.politica.toFixed(2)}`, ok: despues.valor < antes.valor && despues.politica < antes.politica });
+      // Se mide cada 10 % de los pasos y se queda el mejor momento: con pocos datos, una red grande acaba memorizando (sobreajuste)
+      const antes = await g.medir(prueba), t0 = performance.now(), curva = []; let mejor = null, msEnt = 0;
+      for (let s = 0; s < pasos; s++) {
+        const ta = performance.now(), lote = []; for (let i = 0; i < B; i++) lote.push(ent[Math.floor(r3() * ent.length)]); await g.paso(lote); if (s % 10 === 9) await g.esperar(); msEnt += performance.now() - ta;
+        if ((s + 1) % Math.max(1, Math.round(pasos / 10)) === 0) { await g.esperar(); const m = await g.medir(prueba); curva.push({ paso: s + 1, valor: +m.valor.toFixed(3), politica: +m.politica.toFixed(2), acierto: +m.acierto.toFixed(3) }); if (!mejor || m.politica + m.valor < mejor.politica + mejor.valor) mejor = Object.assign({ paso: s + 1 }, m); }
+      }
+      await g.esperar(); const despues = await g.medir(prueba), sobre = despues.politica > mejor.politica * 1.1 || despues.valor > mejor.valor * 1.1;
+      out.aprende = { F, nb, B, pasos, antes, mejor, despues, curva, sobreajuste: sobre, vueltas: Math.round(pasos * B / ent.length), msPorPaso: Math.round(msEnt / pasos * 10) / 10 };
+      out.pruebas.push({ nombre: `aprende: en su mejor momento (paso ${mejor.paso}) error del valor ${antes.valor.toFixed(3)} → ${mejor.valor.toFixed(3)}, pérdida de la política ${antes.politica.toFixed(2)} → ${mejor.politica.toFixed(2)}, acierta ${Math.round(mejor.acierto * 100)} %` + (sobre ? ` (después memoriza: ${out.aprende.vueltas} vueltas a ${ent.length} posiciones)` : ''), ok: mejor.valor < antes.valor && mejor.politica < antes.politica && mejor.acierto > antes.acierto });
       g.cerrar(); }
     // 4) velocidad con la red de verdad
     if (num('bench', 0)) { const B = num('benchB', 256), red = Red.crear({ filtros: num('benchF', 64), bloques: num('benchNb', 6) }), g = await Red.enGPU(red, { lote: B }), lote = datos.slice(0, B);

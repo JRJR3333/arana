@@ -57,7 +57,7 @@ const srv = http.createServer((req, res) => {
   const vel = r.velocidad;
   if (PAGINA !== 'gpu.html') {   // fase 2: la red
     for (const p of r.pruebas) if (p.diferencia == null) console.log(`${p.ok ? '✓' : '✗'} ${p.nombre}`);
-    const a = r.aprende; if (a) console.log(`Red de ${a.F} filtros y ${a.nb} bloques, lote ${a.B}: acierta la jugada ${Math.round(a.antes.acierto * 100)} % → ${Math.round(a.despues.acierto * 100)} % · ${a.msPorPaso} ms por paso`);
+    const a = r.aprende; if (a) { console.log(`Red de ${a.F} filtros y ${a.nb} bloques, lote ${a.B}: acierta la jugada ${Math.round(a.antes.acierto * 100)} % → ${Math.round(a.mejor.acierto * 100)} % (mejor momento) · ${a.msPorPaso} ms por paso`); console.log('Curva (paso: error del valor / pérdida de la política / acierto):'); for (const c of a.curva) console.log(`   ${String(c.paso).padStart(5)}: ${c.valor} / ${c.politica} / ${Math.round(c.acierto * 100)} %`); }
     if (vel) console.log(`Entrenamiento (lote ${vel.lote}, ${vel.filtros} filtros, ${vel.bloques} bloques): ${vel.msPorPaso} ms por paso · ${vel.posicionesPorSegundo.toLocaleString('es-ES')} posiciones/s aprendidas`);
     console.log(r.ok ? '\nLa red funciona en la gráfica.' : '\nAlgo no cuadra: mándele esta salida a Claude.');
     return fin(r.ok ? 0 : 1);

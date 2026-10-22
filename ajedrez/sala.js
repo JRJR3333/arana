@@ -154,6 +154,8 @@ const genesTodas = () => !!(est && est.opc && est.opc.genesTodas);   // guardar 
 let est = null, pop = [], byId = new Map(), historial = [], cazadoras = [], cazById = new Map();
 /* Gradiente (39): posiciones tranquilas etiquetadas [fen, y, fuente]; y = probabilidad de ganar de las blancas. Se guardan en «estado» con la clave «grad». */
 let grad = { pos: [] }, gradVista = '';
+/* Red en la gráfica (40): sus posiciones [fen, y, fuente, mejor jugada] (clave «red40datos») y sus pesos (clave «red40») */
+let redDatos = { pos: [] }, red = null, redGPU = null, redUltima = null, redOcupada = false;
 const gradCache = new Map();
 const ind = id => byId.get(id) || cazById.get(id);
 /* Interruptores de las distópicas (29–38): todos encendidos salvo que Juan apague alguno en Opciones */
@@ -179,6 +181,7 @@ async function cargar() {
   if (est.cazPop) { const cs = await Promise.all(est.cazPop.map(id => leer('individuos', id))); cazadoras = cs.every(c => c && c.genes) ? cs : []; cazadoras.forEach(c => M.completar(c.genes)); }
   historial = (await todos('generaciones')).sort((a, b) => a.gen - b.gen);
   try { const g = await leer('estado', 'grad'); if (g && Array.isArray(g.pos)) grad = g; } catch (e) {}
+  try { const d = await leer('estado', 'red40datos'); if (d && Array.isArray(d.pos)) redDatos = d; const r = await leer('estado', 'red40'); if (r && r.pesos) red = r; } catch (e) {}
   byId = new Map(pop.map(p => [p.id, p])); cazById = new Map(cazadoras.map(c => [c.id, c]));
   await migrarTodoElo();
 }
@@ -348,7 +351,8 @@ function alRecibir(w, d) {
 }
 async function cerrarGeneracion() {
   const viejos = pop.slice(), mejorPartida = elegirPartida(), fase = sfFase; sfFase = null;
-  if (flagsDe()[39]) { try { await etiquetarGradiente(fase); } catch (e) { console.warn('gradiente', e); } gradVista = ''; }
+  if (flagsDe()[39] || redActiva()) { try { await etiquetarGradiente(fase); } catch (e) { console.warn('gradiente', e); } gradVista = ''; }
+  if (redActiva()) { try { redUltima = await entrenarRed(); } catch (e) { redUltima = { error: (e && e.message) || String(e) }; console.warn('red', e); } gradVista = ''; }
   let resSF = null;
   if (fase && fase.hechos.length) {
     const E = fase.E, puntos = fase.hechos.reduce((a, j) => a + j.res, 0), n = fase.hechos.length, conquistado = false;
@@ -375,6 +379,7 @@ async function cerrarGeneracion() {
   if (resSF) out.resumen.sf = resSF;
   { const d = mediaAntes - mediaEloDe(out.pop); out.pop.forEach(p => { p.elo += d; p.eloReal = 1; }); }   // sin inflación: las hijas no suben la media por nacer
   if (F[39]) { try { const g = afinarHijas(out.pop, new Set(out.resumen.elite), F); if (g) out.resumen.gradiente = g; } catch (e) { console.warn('gradiente', e); } }
+  if (redUltima) { out.resumen.red = redUltima; redUltima = null; }
   out.resumen.flags = fkey(F);
   // Memoria del rival (35): las hijas heredan la memoria del padre que más les dio
   const antes = new Map(viejos.map(p => [p.id, p])), cazAntes = new Map(cazadoras.map(c => [c.id, c]));
@@ -395,6 +400,7 @@ async function cerrarGeneracion() {
   const elite = new Set(out.resumen.elite);
   const vivos = new Set(out.pop.map(p => p.id)), extra = [['generaciones', out.resumen]].concat(extraCaz);
   if (F[39]) extra.push(['estado', grad, 'grad']);
+  if (redActiva()) { extra.push(['estado', redDatos, 'red40datos']); if (red) extra.push(['estado', red, 'red40']); }
   if (mejorPartida) {   // todas las partidas de la generación, con sus jugadas
     const nom = id => (ind(id) || antes.get(id) || cazAntes.get(id) || { nombre: '?' }).nombre;
     mejorPartida.todas = juegos.filter(j => j.estado === 'fin').map(j => ({ tipo: j.tipo || '', wn: nom(j.w), bn: nom(j.b), w: j.w, b: j.b, fen: j.fen, jugadas: (j.jugadas || []).join(' '), res: j.res, motivo: j.motivo }))
@@ -428,13 +434,53 @@ function textoGPU() {
   const g = r.gpu, v = r.velocidad, nombre = [g.fabricante, g.arquitectura, g.descripcion].filter(Boolean).join(' · ') || 'sin nombre';
   return `${nombre}${g.simulada ? ' (simulada: no acelera)' : ''}. ${r.ok ? 'Calcula igual que el procesador' : 'Sus cálculos NO coinciden con el procesador'}.` + (v ? ` Red de prueba (${v.bloques} bloques de ${v.filtros} filtros): ${v.posicionesPorSegundo.toLocaleString('es-ES')} posiciones/s.` : '');
 }
+/* ═════════ La red en la gráfica (40), fase 2 (0.38.0) ═════════
+   Solo en el servidor de Linux con WebGPU. Al cerrar cada generación: Stockfish etiqueta posiciones de sus partidas (valor y mejor
+   jugada), y la red entrena «redPasos» pasos de 256 posiciones con Adam en la gráfica. Una de cada diez posiciones (siempre las
+   mismas) no se usa para aprender: sirve para medir si de verdad aprende o solo memoriza. De momento la red no juega (fase 3). */
+const TAMS_RED = [{ filtros: 32, bloques: 4 }, { filtros: 64, bloques: 6 }, { filtros: 128, bloques: 10 }];
+const redActiva = () => !!(flagsDe()[40] && ORIGEN === 'linux' && typeof GPU !== 'undefined' && GPU.disponible() && typeof Red !== 'undefined');
+const hashTexto = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+async function entrenarRed() {
+  const n = redDatos.pos.length; if (n < 512) return { posiciones: n, nota: 'aún pocas posiciones (hacen falta 512)' };
+  const tam = TAMS_RED[Math.max(0, Math.min(2, gopc('redTam')))];
+  if (!red || red.filtros !== tam.filtros || red.bloques !== tam.bloques) { if (redGPU) redGPU.cerrar(); redGPU = null; red = Object.assign(Red.crear({ filtros: tam.filtros, bloques: tam.bloques, semilla: (Date.now() % 1e9) + 1 }), { creada: new Date().toISOString(), gen: est.gen }); }
+  redOcupada = true;
+  try {
+    if (!redGPU) redGPU = await Red.enGPU(red, { lote: 256 });
+    const ent = [], prueba = [];
+    for (const x of redDatos.pos) (hashTexto(x[0]) % 10 === 0 ? prueba : ent).push(x);
+    if (!ent.length || !prueba.length) return { posiciones: n, nota: 'faltan posiciones' };
+    const aM = x => Red.muestra(x[0], x[1], x[3] || ''), pr = prueba.slice(-2048).map(aM);
+    // Como mucho «redVueltas» vueltas sobre lo que tiene: con pocas posiciones, una red grande las memoriza (medido en la 5080)
+    const tope = Math.max(5, Math.round(ent.length * gopc('redVueltas') / 256)), pasos = Math.min(gopc('redPasos'), tope);
+    const antes = await redGPU.medir(pr), t0 = Date.now(); let hechos = 0;
+    for (let s = 0; s < pasos; s++) {
+      if (!entrenando) break;
+      const lote = []; for (let i = 0; i < 256; i++) lote.push(aM(ent[Math.floor(rng() * ent.length)]));
+      await redGPU.paso(lote); hechos++;
+      if (s % 10 === 9) { await redGPU.esperar(); gradVista = `red en la gráfica: paso ${s + 1} de ${pasos}`; if (s % 50 === 49) pintarEstado(); }
+    }
+    await redGPU.esperar();
+    const despues = await redGPU.medir(pr), ms = Date.now() - t0;
+    await redGPU.pesos();
+    const q4 = v => Math.round(v * 1e4) / 1e4, m = x => ({ valor: q4(x.valor), politica: q4(x.politica), acierto: q4(x.acierto) });
+    return { red: `${red.filtros}×${red.bloques}`, posiciones: n, entrenamiento: ent.length, prueba: pr.length, pasos: hechos, tope, totalPasos: red.pasos, antes: m(antes), despues: m(despues), ms };
+  } finally { redOcupada = false; }
+}
+function textoRed() {
+  if (!redActiva()) return ORIGEN === 'linux' ? 'Encienda la distópica 40 y la gráfica (WebGPU) para que entrene.' : 'Solo entrena en el servidor de Linux, con su gráfica.';
+  const u = historial.slice().reverse().find(g => g.red && g.red.despues);
+  return `Tiene ${redDatos.pos.length.toLocaleString('es-ES')} posiciones etiquetadas` + (red ? ` y una red de ${red.filtros} filtros × ${red.bloques} bloques con ${(red.pasos || 0).toLocaleString('es-ES')} pasos de entrenamiento.` : '. La red nace cuando haya 512.') +
+    (u ? ` En la última generación acertó la jugada de Stockfish en el ${Math.round(u.red.despues.acierto * 100)} % de las posiciones que no ha visto (error del valor ${u.red.despues.valor.toFixed(3)}).` : '');
+}
 /* ═════════ Gradiente (39) ═════════
    Al cerrar cada generación: de sus partidas se sacan posiciones tranquilas y se etiquetan (Stockfish a poca profundidad o,
    si no hay Stockfish o así se elige, el resultado de la partida). Después, cada hija recibe unos pasos de descenso de gradiente
    sobre los genes de sus medidas encendidas y de su red, antes de jugar (Lamarck). La élite pasa intacta, como siempre. */
 const gopc = k => (est.opc && est.opc[k] != null ? est.opc[k] : M.OPC_EVO[k]);
 async function etiquetarGradiente(fase) {
-  const cuantas = gopc('gradPos'), prof = gopc('gradProf');
+  const cuantas = Math.max(flagsDe()[39] ? gopc('gradPos') : 0, redActiva() ? gopc('redPos') : 0), prof = gopc('gradProf');
   let usarSF = !!gopc('gradSF');
   const partidas = juegos.filter(j => j.estado === 'fin' && j.jugadas && j.jugadas.length > 12).map(j => ({ fen: j.fen, jug: j.jugadas, res: j.res }))
     .concat(fase ? fase.hechos.map(x => ({ fen: x.fen0, jug: x.jugadas, res: x.yoB ? x.res : 1 - x.res })) : []);
@@ -457,12 +503,14 @@ async function etiquetarGradiente(fase) {
     if (usarSF && entrenando) {
       gradVista = `gradiente: Stockfish etiqueta ${k + 1} de ${lista.length}`; if (k % 10 === 0) pintarEstado();
       sf.w.postMessage('position fen ' + c.fen);
-      let sc = null; try { sc = puntuacion(await sfCmd('go depth ' + prof, /^bestmove/, 20000)); } catch (e) { usarSF = false; }
-      if (sc != null) { const blancas = / w /.test(c.fen) ? sc : -sc, cp = Math.max(-1500, Math.min(1500, blancas)); nuevas.push([c.fen, Math.round(1e6 / (1 + Math.exp(-M.K_TEXEL * cp))) / 1e6, 's']); continue; }
+      let ls = null, sc = null; try { ls = await sfCmd('go depth ' + prof, /^bestmove/, 20000); sc = puntuacion(ls); } catch (e) { usarSF = false; }
+      const mejor = ls && ls.length ? (ls[ls.length - 1].split(/\s+/)[1] || '') : '';   // la mejor jugada de Stockfish: el objetivo de la política (40)
+      if (sc != null) { const blancas = / w /.test(c.fen) ? sc : -sc, cp = Math.max(-1500, Math.min(1500, blancas)); nuevas.push([c.fen, Math.round(1e6 / (1 + Math.exp(-M.K_TEXEL * cp))) / 1e6, 's', mejor === '(none)' ? '' : mejor]); continue; }
     }
     nuevas.push([c.fen, c.res, 'r']);   // sin Stockfish (o en pausa): el resultado de la partida
   }
-  grad.pos = grad.pos.concat(nuevas).slice(-gopc('gradMax'));
+  if (flagsDe()[39]) grad.pos = grad.pos.concat(nuevas.map(x => x.slice(0, 3))).slice(-gopc('gradMax'));
+  if (redActiva()) redDatos.pos = redDatos.pos.concat(nuevas).slice(-gopc('redMax'));
   grad.ultima = { gen: est.gen, nuevas: nuevas.length, sf: nuevas.filter(x => x[2] === 's').length, prof };
 }
 function datosGradiente() {
@@ -1326,6 +1374,7 @@ const AUX = {
       <h2>Detectores encendidos de media</h2>${eje([g.map(x => x.encendidos)], ['#a99bff'])}
       ${g.some(x => x.neuronas != null) ? `<h2>Neuronas de su red de media</h2>${eje([g.map(x => x.neuronas || 0)], ['#ff4fa3'])}` : ''}
       ${g.some(x => x.gradiente && x.gradiente.hijas) ? `<h2>Gradiente: error antes y después (‰)</h2><div class="ley"><span><i style="background:#ffb340"></i>antes</span><span><i style="background:#3dff99"></i>después (discontinua)</span></div>${eje([g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.antes * 1000 : NaN), g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.despues * 1000 : NaN)], ['#ffb340', '#3dff99'])}<p class="nota">Error cuadrático entre la probabilidad de ganar que ve la araña y la de Stockfish, en posiciones que no se usaron para ajustar. Si baja generación a generación, las arañas valoran cada vez más como Stockfish.</p>` : ''}
+      ${g.some(x => x.red && x.red.despues) ? `<h2>Red en la gráfica: acierta la jugada de Stockfish (%)</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.acierto * 100 : NaN)], ['#3dff99'])}<h2>Red en la gráfica: error del valor</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.valor : NaN)], ['#ffb340'])}<p class="nota">Medido en posiciones que la red no usa para aprender. Si el acierto sube y el error baja, aprende de verdad.</p>` : ''}
       <p class="nota">Si la diversidad cae mucho, entran inmigrantes. La mutación nunca baja de 0,03; si la campeona no cambia en 5 generaciones o el Elo no sube en 15, se sacude y vuelve a crecer.</p>` + CERRAR);
   },
   async arbol() {
@@ -1755,6 +1804,12 @@ function opciones() {
     ${typeof GPU !== 'undefined' && GPU.disponible() ? `<h2>Gráfica</h2>
     <p class="nota" id="gpuTxt">${esc(textoGPU())}</p>
     <div class="ctrl"><button class="btn sec" id="gpuProbar">Probar la gráfica</button></div>` : ''}
+    ${ORIGEN === 'linux' ? `<h2>Red en la gráfica (40)</h2>
+    <p class="nota">${esc(textoRed())}</p>
+    <label class="op">Tamaño de la red ${sel('redTam', [0, 1, 2], v => TAMS_RED[v].filtros + ' filtros × ' + TAMS_RED[v].bloques + ' bloques', est.opc)}</label>
+    <label class="op">Pasos de entrenamiento por generación ${sel('redPasos', [100, 300, 1000, 3000], v => v, est.opc)}</label>
+    <label class="op">Posiciones nuevas por generación ${sel('redPos', [500, 1000, 2000, 4000], v => v, est.opc)}</label>
+    <p class="nota">Cambiar el tamaño empieza una red nueva (la de ahora se pierde). Cada paso aprende de 256 posiciones; guarda las últimas ${gopc('redMax').toLocaleString('es-ES')}. Para no memorizar, nunca da más de ${gopc('redVueltas')} vueltas por generación a lo que tiene: con pocas posiciones hace menos pasos.</p>` : ''}
     <h2>Distópicas</h2>
     ${M.DIST.map(([n, nombre]) => `<label class="op">${n}. ${nombre} <select data-dist="${n}"><option value="1"${flagsDe()[n] ? ' selected' : ''}>Sí</option><option value="0"${flagsDe()[n] ? '' : ' selected'}>No</option></select></label>`).join('')}
     <label class="op">Gradiente: etiquetas ${sel('gradSF', [1, 0], v => v ? 'Stockfish' : 'Resultado de la partida', est.opc)}</label>
@@ -2016,7 +2071,7 @@ document.addEventListener('keydown', e => {   // atajos en el ordenador
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { usaGPU: () => gpuOcupada, probarGPU, gpuPrueba: () => gpuPrueba, rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { usaGPU: () => gpuOcupada || redOcupada, red: () => ({ red, datos: redDatos.pos.length, ultima: historial.slice().reverse().find(g => g.red) }), entrenarRed, probarGPU, gpuPrueba: () => gpuPrueba, rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 // Sin internet: la sala se guarda en el aparato (sw.js de Araña) también si se abre directamente
 try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); } catch (e) {}

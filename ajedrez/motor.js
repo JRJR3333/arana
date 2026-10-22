@@ -835,8 +835,9 @@ const PIENSA_RANGO = [[-1, 1], [0, 10], [-1, 2], [0.5, 2]];
    automut: su propio ritmo de mutación, tamaño y probabilidad, en escala logarítmica (36). azar: imprevisibilidad (38).
    La 33 (un cerebro por fase) son los tres pesos de fase de cada medida; apagada, las tres fases usan el del medio juego.
    La 34 (parásitos), la 35 (memoria del rival) y la 37 (novedad) viven en la sala.
-   La 39 (gradiente, 0.35.0) afina los pesos de las medidas con descenso de gradiente (ver «Gradiente» más abajo). */
-const DIST = [[29, 'Red que crece sola'], [30, 'Personalidad'], [31, 'Anti-motor'], [32, 'Caos'], [33, 'Un cerebro por fase'], [34, 'Parásitos cazadores'], [35, 'Memoria del rival'], [36, 'Mutación propia'], [37, 'Búsqueda de novedad'], [38, 'Gen del azar'], [39, 'Gradiente']];
+   La 39 (gradiente, 0.35.0) afina los pesos de las medidas con descenso de gradiente (ver «Gradiente» más abajo).
+   La 40 (red en la gráfica, 0.38.0) vive en red.js y en la sala: solo entrena en el servidor de Linux con WebGPU. */
+const DIST = [[29, 'Red que crece sola'], [30, 'Personalidad'], [31, 'Anti-motor'], [32, 'Caos'], [33, 'Un cerebro por fase'], [34, 'Parásitos cazadores'], [35, 'Memoria del rival'], [36, 'Mutación propia'], [37, 'Búsqueda de novedad'], [38, 'Gen del azar'], [39, 'Gradiente'], [40, 'Red en la gráfica']];
 const RED_N = 8, RED_K = 4, RED_W = 2 + RED_K * 2;
 const CARACTER = ['agresividad', 'sacrificio', 'riesgo'], SESGO = ['anti-motor', 'caos'], AUTOMUT = ['tamaño de mutación', 'probabilidad de mutación'];
 function todasDist() { const f = {}; for (const [n] of DIST) f[n] = 1; return f; }
@@ -1166,7 +1167,7 @@ function jugar(Cw, Cb, fen, opc, alMover, ajW, ajB) {
 /* ───────────── Evolución ───────────── */
 const SIL = ['te', 'ji', 'ra', 'ña', 'lo', 'mi', 'sa', 'vi', 'ta', 'no', 'ke', 'ru', 'li', 'da', 'po', 'ga', 'se', 'ba', 'ni', 'zu'];
 function nombre(rng) { const n = 2 + (rng() < .35 ? 1 : 0); let s = ''; for (let i = 0; i < n; i++) s += SIL[Math.floor(rng() * SIL.length)]; return s[0].toUpperCase() + s.slice(1); }
-const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.03, sigmaSacudida: 0.15, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5, estanco: 15, mejoraMin: 25, gradSF: 1, gradPos: 400, gradProf: 8, gradMax: 6000 };
+const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.03, sigmaSacudida: 0.15, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5, estanco: 15, mejoraMin: 25, gradSF: 1, gradPos: 400, gradProf: 8, gradMax: 6000, redPos: 2000, redPasos: 300, redMax: 100000, redTam: 1, redVueltas: 2 };
 /* σ (0.34.0, lo pidió Juan): el suelo era 0,002 y desde la generación ~123 las hijas casi no cambiaban.
    Ahora el suelo es 0,03 y hay sacudidas de verdad (σ sube al menos a 0,15) en dos casos:
    - la misma campeona gana «racha» generaciones seguidas (como antes);
