@@ -24,7 +24,7 @@
    Parámetros: ?F=8&nb=1&B=32&pasos=60&N=600&bench=0&barrido=0 (N: posiciones de la prueba; una red grande necesita muchas o las memoriza) */
 (async () => {
   const q = new URLSearchParams(location.search), num = (k, d) => (q.get(k) ? +q.get(k) : d);
-  const M = window.AjedrezMotor, out = { ok: false, pruebas: [], error: '' }, log = t => { document.getElementById('salida').textContent += '\n' + t; };
+  const M = window.AjedrezMotor, out = { ok: false, pruebas: [], error: '' }, log = t => { document.getElementById('salida').textContent += '\n' + t; }, va = t => console.info(t);
   try {
     out.gpu = await GPU.iniciar();
     // Posiciones de partidas al azar
@@ -37,7 +37,9 @@
       const ms = M.legal(new M.Pos(fen)).map(M.uci).sort();
       return { x: Red.codificar(fen, new Float32Array(Red.PL * 64)), t: Math.tanh((negras ? -m : m) / 5), obj: Red.indiceJugada(ms[0], negras) };
     };
+    va(`${fens.length} posiciones generadas`);
     const datos = fens.map(objetivo);
+    va('comprobando contra el procesador…');
     // 1) y 2) con una red pequeña
     { const red = Red.crear({ filtros: 6, bloques: 1, semilla: 3 }), Bp = 3, g = await Red.enGPU(red, { lote: Bp, lr: 0, l2: 0, wv: 1, wp: 1 });
       const lote = datos.slice(0, Bp), Xc = new Float32Array(Bp * Red.PL * 64); lote.forEach((m, i) => Xc.set(m.x, i * Red.PL * 64));
@@ -56,6 +58,7 @@
       }
       out.pruebas.push({ nombre: `gradientes contra el procesador (${n} pesos de ${D.tensores.length} tensores)`, diferencia: peor, malos, ok: malos <= Math.ceil(n * .1) });
       g.cerrar(); }
+    va('aprendiendo…');
     // 3) aprende
     { const F = num('F', 8), nb = num('nb', 1), B = num('B', 32), pasos = num('pasos', 60);
       const red = Red.crear({ filtros: F, bloques: nb, semilla: 5 }), g = await Red.enGPU(red, { lote: B });
@@ -82,7 +85,7 @@
         for (let s = 0; s < pasos; s++) { const lote = []; for (let i = 0; i < B; i++) lote.push(ent[Math.floor(r4() * ent.length)]); await g.paso(lote); if ((s + 1) % Math.round(pasos / 5) === 0) { const m = await g.medir(prueba); if (m.valor < mejor.valor) mejor = m; } }
         const d = await g.medir(prueba); g.cerrar();
         out.barrido.push({ cabeza, lr, wp, valorAntes: +a.valor.toFixed(3), valorFin: +d.valor.toFixed(3), valorMejor: +mejor.valor.toFixed(3), acierto: Math.round(d.acierto * 100) });
-        log(JSON.stringify(out.barrido[out.barrido.length - 1]));
+        const x = out.barrido[out.barrido.length - 1]; va(`barrido ${out.barrido.length}/${CFG.length}: ${x.cabeza} · ${x.lr} · ${x.wp} → valor ${x.valorAntes} / ${x.valorFin} / ${x.valorMejor} · acierto ${x.acierto} %`);
       }
     }
     // 4) velocidad con la red de verdad

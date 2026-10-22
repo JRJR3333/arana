@@ -86,8 +86,10 @@ async function probarCon(variante, puerto) {
     let pag = null; for (let i = 0; i < 50 && !pag; i++) { try { pag = (await (await fetch(base + '/json/list')).json()).find(x => x.type === 'page' && x.url.includes(PAGINA.split('/').pop())); } catch (e) {} if (!pag) await new Promise(r => setTimeout(r, 200)); }
     if (!pag) return mal('Chromium no abre la página de prueba');
     const s = new WebSocket(pag.webSocketDebuggerUrl); let id = 0; const esp = new Map();
-    s.onmessage = e => { const m = JSON.parse(e.data); if (esp.has(m.id)) { esp.get(m.id)(m.result); esp.delete(m.id); } };
+    s.onmessage = e => { const m = JSON.parse(e.data); if (esp.has(m.id)) { esp.get(m.id)(m.result); esp.delete(m.id); }
+      else if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'info') console.log('    ' + m.params.args.map(a => a.value).join(' ')); };   // la página va contando por dónde va
     await new Promise(r => { s.onopen = r; });
+    s.send(JSON.stringify({ id: 999, method: 'Runtime.enable' }));
     const ev = expr => new Promise(r => { const i = ++id; esp.set(i, r); s.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true } })); });
     const t0 = Date.now(); let r = null;
     while (!r) { if (Date.now() - t0 > (PAGINA === 'gpu.html' ? 90000 : 1800000)) return mal('la prueba no termina (Chromium se ha quedado colgado con esta forma)'); await new Promise(k => setTimeout(k, 500)); const x = await ev('window.__prueba || null'); r = x && x.result && x.result.value; }
