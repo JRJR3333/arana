@@ -229,7 +229,7 @@ Juan quiere que en el Arch entrene la **RTX 5080**. La búsqueda alfa-beta y los
 
 | Fase | Qué | Estado |
 |---|---|---|
-| 1 | WebGPU en el Chromium del servidor, convolución 3×3 y capa densa en la gráfica, comparadas con el procesador, y medida de velocidad (`gpu.js`, `gpu.html`, `servidor/probar-gpu.js`). Parar y reanudar llama-server. | hecha (0.37.0) |
+| 1 | WebGPU en el Chromium del servidor, convolución 3×3 y capa densa en la gráfica, comparadas con el procesador, y medida de velocidad (`gpu.js`, `gpu.html`, `servidor/probar-gpu.js`). Parar y reanudar llama-server. En la RTX 5080 de Juan funciona con la forma «nativo» (Vulkan sin caja de arena y sin la lista de bloqueo de Dawn): mismos resultados que el procesador (diferencia 1,6·10⁻⁶) y **53.002 posiciones/s** con la red de prueba (4,8 ms por lote de 256, unos 3 TFLOP/s, sin optimizar). | hecha (0.37.0) |
 | 2 | La red y su entrenamiento en la gráfica, con las posiciones que etiqueta Stockfish | pendiente |
 | 3 | Búsqueda MCTS por lotes; las arañas con red juegan torneo y escalera | pendiente |
 | 4 | Evolución del tamaño de la red, la búsqueda y el aprendizaje | pendiente |
