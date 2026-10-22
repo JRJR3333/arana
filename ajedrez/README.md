@@ -8,9 +8,11 @@ La araña juega al ajedrez con un cerebro que **no programa nadie a mano**: nace
 - [Una generación: torneo suizo, final y Stockfish](#una-generación-torneo-suizo-final-y-stockfish)
 - [La puntuación](#la-puntuación)
 - [Cómo nacen las hijas: selección, cruce y mutación](#cómo-nacen-las-hijas-selección-cruce-y-mutación)
+- [El Elo](#el-elo)
 - [Las distópicas](#las-distópicas)
 - [La sala](#la-sala)
 - [Jugar fuera: Lichess y motor para el ordenador](#jugar-fuera-lichess-y-motor-para-el-ordenador)
+- [Rendimiento: que no se caliente el móvil](#rendimiento-que-no-se-caliente-el-móvil)
 - [Sin internet y en segundo plano](#sin-internet-y-en-segundo-plano)
 - [Dónde se guarda todo](#dónde-se-guarda-todo)
 - [Archivos y pruebas](#archivos-y-pruebas)
@@ -81,7 +83,7 @@ Cada generación es un torneo de las 32 arañas (y, si están encendidas, de las
 
 ### La escalera
 
-20 peldaños de Stockfish, del más flojo (nivel 0 con poca profundidad) al más fuerte. Un peldaño se **conquista** cuando las arañas sacan al menos la mitad de los puntos en sus últimas 8 partidas contra él; entonces se sube al siguiente. Ganar al torneo pero perder contra Stockfish no elimina a nadie: la escalera solo suma premio, y el entrenamiento sigue.
+23 peldaños de Stockfish, del más flojo (nivel 0 mirando una jugada) a Stockfish al máximo (10 segundos por jugada). Cada uno tiene su Elo aproximado (ver [El Elo](#el-elo)). Un peldaño se **conquista** cuando las arañas sacan al menos la mitad de los puntos en sus últimas 8 partidas contra él; entonces se sube al siguiente. Ganar al torneo pero perder contra Stockfish no elimina a nadie: la escalera solo suma premio, y el entrenamiento sigue.
 
 ## La puntuación
 
@@ -108,9 +110,19 @@ Después, en cada generación:
 4. **Mutación**: cada gen tiene una probabilidad del 6 % de cambiar. Si cambia, se le suma un ruido gaussiano de tamaño *σ × (|valor| + escala)*, para que los números grandes muevan más y los pequeños menos. Los genes de encendido no reciben ruido: con la mitad de probabilidad cambian de signo (encender o apagar). Los genes con límites (cómo piensa, carácter, azar…) se recortan a su rango. El valor de las piezas (detector 1) nunca se apaga.
 5. **σ se afina sola**: empieza en 0,3 y se multiplica por 0,96 en cada generación, hasta un mínimo de 0,002 (cambios cada vez más finos, con más decimales). Si la misma campeona gana 5 generaciones seguidas, la población se ha **estancado**: σ se duplica (una *sacudida*) para explorar de nuevo.
 6. **Inmigrantes**: si la diversidad de la población cae por debajo de 0,03 (todas casi iguales), entran 2 arañas nuevas al azar.
-7. **Elo**: cada partida ajusta el Elo de las dos (K = 20). Las hijas empiezan con la media de sus padres.
+7. **Elo**: cada partida ajusta el Elo de las dos (K = 20). Las hijas empiezan con la media de sus padres. Ver [El Elo](#el-elo).
 
 Todo queda apuntado: de cada araña se guardan sus padres, cuántos bloques dio cada uno, qué genes mutaron y con qué σ. Por eso la ficha puede dibujar la línea de cada gen a lo largo de su linaje.
+
+## El Elo
+
+Desde la 0.31.0 el Elo está en la **escala normal** (la de las listas de motores, CCRL, que es la que usa Stockfish con «Elo limitado»; para personas es orientativo). Antes solo era relativo entre las arañas y se inflaba sin parar (las hijas heredan la media de sus padres y las peores mueren), hasta salir cifras como 6600.
+
+- **Cada peldaño tiene su Elo**, calibrado con partidas entre peldaños vecinos y contra Stockfish con «Elo limitado» (1320, 1700, 2100, 2500 y 2900, a 1 s por jugada). Se ve en la Escalera.
+- **Las arañas se anclan a la escalera**: tras cada generación, sus partidas contra Stockfish desplazan el Elo de todas a la vez (máxima verosimilitud con el modelo de Elo, y una previa para no dar saltos con pocas partidas). Entre ellas, el Elo sigue diciendo quién es mejor que quién.
+- **Sin inflación**: al nacer una generación, la media se mantiene; si la población mejora de verdad, lo dicen las partidas contra Stockfish.
+- **Lo guardado se recalculó** al abrir la 0.31.0: cada generación con su propio desplazamiento, sacado de sus partidas contra Stockfish (y de las vecinas). Las copias importadas de antes se pasan igual, con sus propias generaciones.
+- Es una estimación: con 8 partidas por generación puede moverse ±100.
 
 ## Las distópicas
 
@@ -164,6 +176,22 @@ node arana-nombre.js
 ```
 
 Habla el protocolo **UCI**, así que sirve en cualquier programa de ajedrez (Cute Chess, Arena, BanksiaGUI…: añadir un motor con el comando `node` y el archivo como argumento) y en `lichess-bot`. Entiende `uci`, `isready`, `ucinewgame`, `position startpos|fen … moves …`, `go wtime/btime/winc/binc/movetime/depth` y `quit`.
+
+## Rendimiento: que no se caliente el móvil
+
+En Opciones, **Cuánto trabaja el aparato**:
+
+| Modo | Hilos | Descanso entre partidas | Nodos por jugada (tiempo automático) |
+|---|---|---|---|
+| Ahorro | 1 | tanto como dura la partida | 2500 |
+| Equilibrado (por defecto) | la mitad de los núcleos | un 20 % | 4000 |
+| Máximo | todos menos uno (hasta 8) | ninguno | 6000 |
+
+- **Mide el aparato**: cada hilo, cada 4 partidas, repite la misma búsqueda de prueba y mide los nodos por milisegundo.
+- **Si se calienta**: cuando la velocidad cae por debajo del 70 % de lo mejor medido, usa un hilo menos y descansa más; cuando vuelve por encima del 90 % varias veces seguidas, recupera el ritmo poco a poco. La barra de estado lo dice («bajando el ritmo para no calentar»).
+- **Batería** (donde el sistema la da, como en Android): por debajo del 20 % sin cargar pasa a Ahorro; por debajo del 8 % para y avisa, y sigue sola al ponerla a cargar.
+- **Tiempo por jugada «Automático»** (por defecto): sale de la velocidad medida, para que la araña piense más o menos los mismos nodos en un móvil lento que en uno rápido. También se puede fijar a mano, de 10 ms a 5 s.
+- **Profundidad máxima**: de 2 a 20 jugadas, o «sin tope» (manda el tiempo). Contra Stockfish la araña piensa lo mismo que en el torneo.
 
 ## Sin internet y en segundo plano
 
