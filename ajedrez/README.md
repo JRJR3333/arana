@@ -234,6 +234,16 @@ Juan quiere que en el Arch entrene la **RTX 5080**. La búsqueda alfa-beta y los
 | 3 | Búsqueda MCTS por lotes (`mcts.js`, PUCT con pérdida virtual, lotes de 64 en la gráfica, finales exactos). Tras entrenar, la red juega ida y vuelta contra su propio peldaño de Stockfish (sube con 1,5 de 2, baja con 0) y contra la primera del torneo; su Elo sale de sus últimas 40 partidas. Se ven en *Partidas → La red en la gráfica* y en la Gráfica («Elo jugando»). Opciones: simulaciones por jugada (400) y si juega. Aún no entra en la evolución. | hecha (0.39.0) |
 | 4 | **Población de redes** (entrenamiento por población, PBT): 4 redes (ajustable) aprenden de las mismas posiciones y juegan cada generación contra su peldaño de Stockfish y contra una de las dos primeras del torneo, que suma puntos y Elo por esas partidas. Cada 3 generaciones (ajustable), la de peor Elo deja su sitio a una hija de la mejor: hereda sus pesos y su Elo, y cambia un poco su ritmo de aprendizaje, el peso de la política, cómo busca (cpuct, fpu) y, una de cada cuatro veces, su número de bloques (crece con un bloque nuevo que no cambia lo que sabe, o encoge). Se ve en *Opciones → Red en la gráfica (40)* (cada red con sus genes y su Elo, y el último relevo) y en la Gráfica (Elo de la mejor y la media). | hecha (0.40.0) |
 
+### Autojuego continuo en la gráfica (0.41.0)
+
+Juan quiere que el trabajo vaya a la 5080. Las arañas de detectores no pueden ir en la gráfica (la búsqueda alfa-beta es secuencial y llena de decisiones), así que siguen en el procesador, y **la gráfica trabaja sin parar con las redes**:
+
+- Mientras la sala entrena, las redes **juegan contra sí mismas**, como AlphaZero: 8 partidas a la vez (ajustable), 200 simulaciones por jugada (ajustable), ruido de Dirichlet en la raíz y algo de azar en las 20 primeras jugadas para que no repitan siempre lo mismo. Abandonan cuando la búsqueda lo ve perdido (o ganado) 8 jugadas seguidas.
+- Un **agrupador** junta las hojas de todas las partidas en lotes de hasta 256 posiciones para la gráfica.
+- Cada posición se guarda con **el resultado de la partida** (lo que aprende el valor) y **la jugada más visitada por la búsqueda** (lo que aprende la política), junto a las de Stockfish (fuente «a»). Cada 4096 posiciones nuevas, las redes entrenan.
+- Al cerrar cada generación, el autojuego acaba sus partidas y deja la gráfica al ciclo de siempre (medir a las redes contra Stockfish y las arañas, y el relevo); después sigue.
+- Se ve en la barra de estado («autojuego en la gráfica…»), en *Opciones → Red en la gráfica (40)* y en la Gráfica («Autojuego: partidas por generación»).
+
 ## Sin internet y en segundo plano
 
 - **Sin internet**: el *service worker* (`../sw.js`) guarda la sala, el motor, las piezas y Stockfish la primera vez que se abre. Después funciona todo sin conexión menos Lichess. En la app de iPhone, la vista web lo permite gracias a `WKAppBoundDomains`.

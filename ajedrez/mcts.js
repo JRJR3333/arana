@@ -19,6 +19,16 @@
     let s = 0; const e = ls.map(l => { const x = Math.exp(l - mx); s += x; return x; });
     nodo.hijos = ucis.map((u, k) => ({ uci: u, nodo: new Nodo(e[k] / s) }));
   }
+  /* Ruido de Dirichlet en la raíz (como AlphaZero): en el autojuego, para que no juegue siempre lo mismo */
+  function gamma(a, rng) {
+    if (a < 1) return gamma(a + 1, rng) * Math.pow(rng(), 1 / a);
+    const d = a - 1 / 3, c = 1 / Math.sqrt(9 * d);
+    for (;;) { let x, v; do { const u1 = rng() || 1e-12, u2 = rng(); x = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); v = 1 + c * x; } while (v <= 0); v = v * v * v; const u = rng(); if (u < 1 - .0331 * x * x * x * x || Math.log(u) < .5 * x * x + d * (1 - v + Math.log(v))) return d * v; }
+  }
+  function ruidoRaiz(nodo, alfa, eps, rng) {
+    const g = nodo.hijos.map(() => gamma(alfa, rng)), s = g.reduce((a, b) => a + b, 0) || 1;
+    nodo.hijos.forEach((h, i) => { h.nodo.P = (1 - eps) * h.nodo.P + eps * g[i] / s; });
+  }
   function elegirHijo(nodo, cpuct, fpu) {
     const raizN = Math.sqrt(Math.max(1, nodo.N)), qPadre = nodo.N ? -nodo.W / nodo.N : 0;   // nodo.W es del rival: para mí, al revés
     let mejor = null, mv = -Infinity;
@@ -38,6 +48,7 @@
     const f0 = M.fin(pos); if (f0) return { uci: null, final: f0 };
     const legales0 = M.legal(pos).map(M.uci);
     { const [r] = await evaluar([pos.fen()]); abrir(raizNodo, legales0, negras0, r.logits); raizNodo.N = 1; raizNodo.W = -r.v; }
+    if (op.ruido) ruidoRaiz(raizNodo, op.ruido.alfa || .3, op.ruido.eps == null ? .25 : op.ruido.eps, op.rng);
     if (legales0.length === 1) return { uci: legales0[0], visitas: [[legales0[0], 1]], q: r0q(raizNodo), sims: 0 };
     let hechas = 0, lotes = 0;
     while (hechas < op.sims) {

@@ -385,6 +385,7 @@ async function cerrarGeneracion() {
   { const d = mediaAntes - mediaEloDe(out.pop); out.pop.forEach(p => { p.elo += d; p.eloReal = 1; }); }   // sin inflación: las hijas no suben la media por nacer
   if (F[39]) { try { const g = afinarHijas(out.pop, new Set(out.resumen.elite), F); if (g) out.resumen.gradiente = g; } catch (e) { console.warn('gradiente', e); } }
   if (redUltima) { out.resumen.red = redUltima; redUltima = null; }
+  if (redActiva()) { out.resumen.auto = resumenAuto(); if (out.resumen.red) out.resumen.red.auto = out.resumen.auto; }
   out.resumen.flags = fkey(F);
   // Memoria del rival (35): las hijas heredan la memoria del padre que más les dio
   const antes = new Map(viejos.map(p => [p.id, p])), cazAntes = new Map(cazadoras.map(c => [c.id, c]));
@@ -463,7 +464,7 @@ function nuevaRed(base, genes, nombre) {
   return r;
 }
 const sinGPU = r => { const o = {}; for (const k in r) if (k[0] !== '_') o[k] = r[k]; return o; };
-function cerrarGPU(r) { for (const k of ['_gpu', '_juego']) if (r[k]) { try { r[k].cerrar(); } catch (e) {} r[k] = null; } }
+function cerrarGPU(r) { for (const k of ['_gpu', '_juego', '_auto']) if (r[k]) { try { r[k].cerrar(); } catch (e) {} r[k] = null; } r._agr = null; }
 function asegurarRedes() {
   const tam = TAMS_RED[Math.max(0, Math.min(2, gopc('redTam')))], quiere = Math.max(1, gopc('redPob'));
   redes = redes.filter(r => r.pesos && r.pesos.length === Red.disposicion(r.filtros, r.bloques, r.cabeza).total);   // las de otra forma (versiones viejas) no sirven
@@ -579,6 +580,8 @@ function explotarExplorar() {
 }
 async function cicloRedes() {
   const n = redDatos.pos.length; if (n < 512) return { posiciones: n, nota: 'aún pocas posiciones (hacen falta 512)' };
+  auto.pausa = true; for (let i = 0; i < 600 && (auto.enCurso > 0 || auto.entrenando); i++) await esperar(200);   // el autojuego acaba sus partidas (hasta 2 min) y deja la gráfica
+  try {
   asegurarRedes();
   const { ent, prueba } = datosRed(); if (!ent.length || !prueba.length) return { posiciones: n, nota: 'faltan posiciones' };
   const pr = prueba.slice(-2048).map(aMuestra), salida = { posiciones: n, entrenamiento: ent.length, prueba: pr.length, redes: [] };
@@ -596,10 +599,12 @@ async function cicloRedes() {
     salida.eloMedio = Math.round(redes.reduce((a, r) => a + r.elo, 0) / redes.length);
     return salida;
   } finally { redOcupada = false; }
+  } finally { auto.pausa = false; if (entrenando && redActiva()) bucleAuto(); }
 }
 function textoRed() {
   if (!redActiva()) return ORIGEN === 'linux' ? 'Encienda la distópica 40 y la gráfica (WebGPU) para que entrene.' : 'Solo entrena en el servidor de Linux, con su gráfica.';
-  return `Tiene ${redDatos.pos.length.toLocaleString('es-ES')} posiciones etiquetadas y ${redes.length ? redes.length + ' redes' : 'aún ninguna red (nacen cuando haya 512 posiciones)'}. Juegan con ${gopc('redSims')} simulaciones por jugada; cada ${gopc('redCada')} generaciones la peor deja su sitio a una hija de la mejor.`;
+  const ua = historial.slice().reverse().find(g => g.auto && g.auto.partidas);
+  return (auto.activo ? `Autojuego en marcha: ${auto.gen.partidas} partidas en esta generación. ` : '') + (ua ? `En la generación ${ua.gen} jugó ${ua.auto.partidas} partidas contra sí misma (${ua.auto.valoracionesPorSegundo.toLocaleString('es-ES')} valoraciones por segundo en la gráfica). ` : '') + `Tiene ${redDatos.pos.length.toLocaleString('es-ES')} posiciones etiquetadas y ${redes.length ? redes.length + ' redes' : 'aún ninguna red (nacen cuando haya 512 posiciones)'}. Juegan con ${gopc('redSims')} simulaciones por jugada; cada ${gopc('redCada')} generaciones la peor deja su sitio a una hija de la mejor.`;
 }
 function listaRedes() {
   if (!redes.length) return '';
@@ -607,6 +612,87 @@ function listaRedes() {
   const ev = historial.slice().reverse().find(g => g.red && g.red.pbt && g.red.pbt.hija);
   const ult = ev ? `<p class="nota">Último cambio (generación ${ev.gen}): ${esc(ev.red.pbt.muere)} deja su sitio a ${esc(ev.red.pbt.hija)}, hija de ${esc(ev.red.pbt.madre)} · ${esc(ev.red.pbt.cambios.join(' · '))}.</p>` : '';
   return ult + '<div class="det">' + redes.slice().sort((a, b) => b.elo - a.elo).map(r => `<span>${esc(r.nombre)} <i style="font-style:normal;color:var(--muted)">${r.filtros}×${r.bloques}${r.padreNombre ? ' · hija de ' + esc(r.padreNombre) : ''}</i></span><span class="v">Elo ${r.elo} · peldaño ${r.peldano}${r.ultimo ? ` · acierta ${Math.round(r.ultimo.despues.acierto * 100)} %` : ''}</span><span style="color:var(--muted)">ritmo ${f(r.genes.lr)} · política ${f(r.genes.wp)} · cpuct ${f(r.genes.cpuct)} · fpu ${f(r.genes.fpu)}</span><span class="v">${(r.pasos || 0).toLocaleString('es-ES')} pasos</span>`).join('') + '</div>';
+}
+/* ═════════ Autojuego continuo en la gráfica (40, 0.41.0, lo pidió Juan: que el trabajo vaya a la 5080) ═════════
+   Mientras la sala entrena, las redes juegan contra sí mismas sin parar, como AlphaZero: «redAutoPar» partidas a la vez, cada jugada una
+   búsqueda MCTS de «redAutoSims» simulaciones con ruido de Dirichlet en la raíz y algo de azar en las 20 primeras jugadas.
+   Un agrupador junta las hojas de todas las partidas en lotes de hasta 256 para la gráfica. Cada posición se guarda con el resultado
+   de la partida (valor) y la jugada más visitada por la búsqueda (política), en los mismos datos que las de Stockfish (fuente «a»).
+   Cada 4096 posiciones nuevas, las redes entrenan con ellas. Al cerrar cada generación, el autojuego se para un momento y el ciclo
+   de siempre mide a las redes contra Stockfish y las arañas, y hace el relevo. Las arañas siguen en el procesador, a la vez. */
+const auto = { activo: false, pausa: false, enCurso: 0, entrenando: false, turno: 0, evals: 0, nuevas: 0, gen: { partidas: 0, posiciones: 0, evals: 0, t0: Date.now(), entrenos: 0 } };
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+function agrupadorAuto(r) {
+  if (r._agr) return r._agr;
+  const cola = []; let corriendo = false;
+  async function vaciar() {
+    if (corriendo) return; corriendo = true;
+    try {
+      while (cola.length) {
+        await esperar(0);   // deja que las demás partidas pongan sus hojas en la cola
+        if (!r._auto || r._auto.pasosCargados !== r.pasos) { if (r._auto) r._auto.cerrar(); r._auto = await Red.enGPU(r, { lote: 256 }); r._auto.pasosCargados = r.pasos; }
+        const lote = []; let n = 0;
+        while (cola.length && (n + cola[0].fens.length <= 256 || !lote.length)) { const q = cola.shift(); lote.push(q); n += q.fens.length; }
+        const fens = lote.flatMap(q => q.fens), tr = fens.map(f => ({ x: Red.codificar(f, new Float32Array(Red.PL * 64)), t: 0, obj: -1 }));
+        let v; try { v = await r._auto.valorar(tr); } catch (e) { lote.forEach(q => q.ko(e)); continue; }
+        let k = 0; for (const q of lote) { const out = []; for (let i = 0; i < q.fens.length; i++, k++) out.push({ v: v.valor[k], logits: v.politica.subarray(k * Red.NP, (k + 1) * Red.NP) }); q.ok(out); }
+        auto.evals += fens.length; auto.gen.evals += fens.length;
+      }
+    } finally { corriendo = false; }
+  }
+  r._agr = fens => new Promise((ok, ko) => { cola.push({ fens, ok, ko }); vaciar(); });
+  return r._agr;
+}
+async function partidaAuto(r) {
+  const ev = agrupadorAuto(r), pos = new M.Pos(M.aperturaAleatoria(rng, 2)), reg = [];
+  let f = null, seguro = 0;
+  auto.enCurso++;
+  try {
+    while (!(f = M.fin(pos))) {
+      if (!entrenando || !redes.includes(r)) return null;   // con la pausa del cierre de generación, la partida se termina (no se tira)
+      if (reg.length >= 300) { f = { res: .5, motivo: 'límite' }; break; }
+      const b = await MCTS.buscar(pos, ev, { sims: gopc('redAutoSims'), lote: 32, cpuct: r.genes.cpuct, fpu: r.genes.fpu, temperatura: reg.length < 20 ? 1 : 0, ruido: { alfa: .3, eps: .25 }, rng });
+      if (!b.uci) break;
+      reg.push([pos.fen(), b.visitas[0][0]]);
+      if (Math.abs(b.q || 0) > .97 && reg.length > 20) { if (++seguro >= 8) { const gana = b.q > 0 ? pos.side : pos.side ^ 1; f = { res: gana === 0 ? 1 : 0, motivo: 'abandono' }; break; } } else seguro = 0;
+      pos.make(M.parseUci(pos, b.uci));
+    }
+    if (!f) return null;
+    return { res: f.res, reg };
+  } catch (e) { return null; } finally { auto.enCurso--; }
+}
+async function entrenarConAuto() {
+  if (redDatos.pos.length < 512) return;
+  auto.entrenando = true;
+  try {
+    const { ent, prueba } = datosRed(), pr = prueba.slice(-2048).map(aMuestra);
+    for (const r of redes.slice()) { if (auto.pausa || !entrenando) break; await entrenarUna(r, ent, pr); }
+    auto.gen.entrenos++;
+  } finally { auto.entrenando = false; }
+}
+async function bucleAuto() {
+  if (auto.activo) return; auto.activo = true;
+  try {
+    while (entrenando && redActiva() && gopc('redAuto')) {
+      if (auto.pausa || redOcupada) { await esperar(1000); continue; }
+      asegurarRedes(); if (!redes.length) { await esperar(5000); continue; }
+      const r = redes[auto.turno++ % redes.length];
+      gradVista = `autojuego en la gráfica: ${r.nombre} · ${auto.gen.partidas} partidas y ${auto.gen.posiciones.toLocaleString('es-ES')} posiciones en esta generación`; pintarEstado();
+      const hechas = await Promise.all(Array.from({ length: Math.max(1, gopc('redAutoPar')) }, () => partidaAuto(r)));
+      for (const h of hechas) if (h) {
+        for (const [fen, uci] of h.reg) redDatos.pos.push([fen, h.res, 'a', uci]);
+        auto.gen.partidas++; auto.gen.posiciones += h.reg.length; auto.nuevas += h.reg.length;
+      }
+      if (redDatos.pos.length > gopc('redMax')) redDatos.pos = redDatos.pos.slice(-gopc('redMax'));
+      if (auto.nuevas >= 4096) { auto.nuevas = 0; await entrenarConAuto(); }
+    }
+  } catch (e) { console.warn('autojuego', e); } finally { auto.activo = false; if (gradVista.startsWith('autojuego')) gradVista = ''; }
+}
+function resumenAuto() {
+  const g = auto.gen, s = (Date.now() - g.t0) / 1000;
+  const r = { partidas: g.partidas, posiciones: g.posiciones, valoraciones: g.evals, entrenos: g.entrenos, segundos: Math.round(s), valoracionesPorSegundo: s ? Math.round(g.evals / s) : 0 };
+  auto.gen = { partidas: 0, posiciones: 0, evals: 0, t0: Date.now(), entrenos: 0 };
+  return r;
 }
 /* ═════════ Gradiente (39) ═════════
    Al cerrar cada generación: de sus partidas se sacan posiciones tranquilas y se etiquetan (Stockfish a poca profundidad o,
@@ -766,6 +852,7 @@ function entrenar(si) {
   const aa = ANDROID(); if (aa && typeof aa.pantalla === 'function') { try { aa.pantalla(!!si); } catch (e) {} }
   if (si) { pedirCandado(); if (sfFase) faseStockfish(); else { if (!juegos.length) prepararGeneracion(); repartir(); } }
   else if (candado) { candado.release().catch(() => {}); candado = null; }
+  if (si && redActiva()) bucleAuto();   // la gráfica trabaja a la vez que el torneo
   pintarEstado();
 }
 
@@ -1508,7 +1595,7 @@ const AUX = {
       <h2>Detectores encendidos de media</h2>${eje([g.map(x => x.encendidos)], ['#a99bff'])}
       ${g.some(x => x.neuronas != null) ? `<h2>Neuronas de su red de media</h2>${eje([g.map(x => x.neuronas || 0)], ['#ff4fa3'])}` : ''}
       ${g.some(x => x.gradiente && x.gradiente.hijas) ? `<h2>Gradiente: error antes y después (‰)</h2><div class="ley"><span><i style="background:#ffb340"></i>antes</span><span><i style="background:#3dff99"></i>después (discontinua)</span></div>${eje([g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.antes * 1000 : NaN), g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.despues * 1000 : NaN)], ['#ffb340', '#3dff99'])}<p class="nota">Error cuadrático entre la probabilidad de ganar que ve la araña y la de Stockfish, en posiciones que no se usaron para ajustar. Si baja generación a generación, las arañas valoran cada vez más como Stockfish.</p>` : ''}
-      ${g.some(x => x.red && x.red.despues) ? `<h2>Red en la gráfica: acierta la jugada de Stockfish (%)</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.acierto * 100 : NaN)], ['#3dff99'])}${g.some(x => x.red && x.red.juego && x.red.juego.elo) ? `<h2>Redes en la gráfica: Elo jugando</h2><div class="ley"><span><i style="background:#5ee8ff"></i>la mejor</span><span><i style="background:#a99bff"></i>la media (discontinua)</span></div>${eje([g.map(x => x.red && x.red.juego && x.red.juego.elo ? x.red.juego.elo : NaN), g.map(x => x.red && x.red.eloMedio ? x.red.eloMedio : NaN)], ['#5ee8ff', '#a99bff'])}` : ''}<h2>Red en la gráfica: error del valor</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.valor : NaN)], ['#ffb340'])}<p class="nota">Medido en posiciones que la red no usa para aprender. Si el acierto sube y el error baja, aprende de verdad.</p>` : ''}
+      ${g.some(x => x.red && x.red.despues) ? `<h2>Red en la gráfica: acierta la jugada de Stockfish (%)</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.acierto * 100 : NaN)], ['#3dff99'])}${g.some(x => x.red && x.red.juego && x.red.juego.elo) ? `<h2>Redes en la gráfica: Elo jugando</h2><div class="ley"><span><i style="background:#5ee8ff"></i>la mejor</span><span><i style="background:#a99bff"></i>la media (discontinua)</span></div>${eje([g.map(x => x.red && x.red.juego && x.red.juego.elo ? x.red.juego.elo : NaN), g.map(x => x.red && x.red.eloMedio ? x.red.eloMedio : NaN)], ['#5ee8ff', '#a99bff'])}` : ''}${g.some(x => x.auto && x.auto.partidas) ? `<h2>Autojuego en la gráfica: partidas por generación</h2>${eje([g.map(x => x.auto ? x.auto.partidas : NaN)], ['#3dff99'])}` : ''}<h2>Red en la gráfica: error del valor</h2>${eje([g.map(x => x.red && x.red.despues ? x.red.despues.valor : NaN)], ['#ffb340'])}<p class="nota">Medido en posiciones que la red no usa para aprender. Si el acierto sube y el error baja, aprende de verdad.</p>` : ''}
       <p class="nota">Si la diversidad cae mucho, entran inmigrantes. La mutación nunca baja de 0,03; si la campeona no cambia en 5 generaciones o el Elo no sube en 15, se sacude y vuelve a crecer.</p>` + CERRAR);
   },
   async arbol() {
@@ -1945,6 +2032,9 @@ function opciones() {
     <label class="op">Tamaño de las redes nuevas ${sel('redTam', [0, 1, 2], v => TAMS_RED[v].filtros + ' filtros × ' + TAMS_RED[v].bloques + ' bloques', est.opc)}</label>
     <label class="op">Pasos de entrenamiento por generación ${sel('redPasos', [100, 300, 1000, 3000], v => v, est.opc)}</label>
     <label class="op">Posiciones nuevas por generación ${sel('redPos', [500, 1000, 2000, 4000], v => v, est.opc)}</label>
+    <label class="op">Autojuego continuo en la gráfica ${sel('redAuto', [1, 0], v => v ? 'Sí: juegan contra sí mismas sin parar' : 'No', est.opc)}</label>
+    <label class="op">Autojuego: simulaciones por jugada ${sel('redAutoSims', [100, 200, 400, 800], v => v, est.opc)}</label>
+    <label class="op">Autojuego: partidas a la vez ${sel('redAutoPar', [4, 8, 16, 32], v => v, est.opc)}</label>
     <label class="op">Que juegue cada generación ${sel('redJuega', [1, 0], v => v ? 'Sí: contra Stockfish y la campeona' : 'No, solo aprende', est.opc)}</label>
     <label class="op">Simulaciones por jugada ${sel('redSims', [100, 400, 1600, 6400], v => v, est.opc)}</label>
     <p class="nota">El tamaño solo cuenta para las redes que nacen de cero; las hijas heredan el de su madre y a veces crecen o encogen un bloque. Cada paso aprende de 256 posiciones; guarda las últimas ${gopc('redMax').toLocaleString('es-ES')}. Para no memorizar, nunca da más de ${gopc('redVueltas')} vueltas por generación a lo que tiene: con pocas posiciones hace menos pasos.</p>` : ''}
@@ -2209,7 +2299,7 @@ document.addEventListener('keydown', e => {   // atajos en el ordenador
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { usaGPU: () => gpuOcupada || redOcupada, cicloRedes, ponerRedes: l => { redes = l; }, redes: () => redes, ponerDatosRed: d => { redDatos = d; }, explotarExplorar,   // ponerRedes: solo para las pruebas
+window.__sala = { usaGPU: () => gpuOcupada || redOcupada || auto.activo, auto: () => Object.assign({}, auto, { gen: Object.assign({}, auto.gen) }), bucleAuto, cicloRedes, ponerRedes: l => { redes = l; }, redes: () => redes, ponerDatosRed: d => { redDatos = d; }, explotarExplorar,   // ponerRedes: solo para las pruebas
   red: () => ({ redes: redes.map(sinGPU), datos: redDatos.pos.length, ultima: historial.slice().reverse().find(g => g.red) }), probarGPU, gpuPrueba: () => gpuPrueba, rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 // Sin internet: la sala se guarda en el aparato (sw.js de Araña) también si se abre directamente

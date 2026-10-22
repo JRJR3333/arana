@@ -27,6 +27,10 @@ const evaluar = async fens => { llamadas++; return fens.map(f => ({ v: Math.tanh
   { const pos = new M.Pos(); let f = null, n = 0;
     while (!(f = M.fin(pos)) && n < 200) { const r = await MCTS.buscar(pos, evaluar, { sims: 64, lote: 16, temperatura: n < 10 ? 1 : 0 }); const m = M.parseUci(pos, r.uci); if (!m) { mal('jugada ilegal ' + r.uci); break; } pos.make(m); n++; }
     console.log(`✓ partida contra sí misma: ${n} medias jugadas${f ? ', ' + f.motivo : ''}`); }
+  // con ruido de Dirichlet en la raíz sigue viendo el mate, y varía en la apertura
+  { const rr = M.mulberry(3); const r = await MCTS.buscar(new M.Pos('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 2 3'), evaluar, { sims: 800, lote: 32, ruido: { alfa: .3, eps: .25 }, rng: rr });
+    const v = new Set(); for (let k = 0; k < 6; k++) v.add((await MCTS.buscar(new M.Pos(), evaluar, { sims: 64, lote: 16, temperatura: 1, ruido: { alfa: .3, eps: .25 }, rng: rr })).uci);
+    const ok = r.uci === 'f3f7' && v.size > 1; console.log(`${ok ? '✓' : '✗'} con ruido: mate ${r.uci}, ${v.size} primeras jugadas distintas en 6 partidas`); if (!ok) mal('ruido'); }
   console.log(fallos ? `${fallos} fallos` : 'mcts: todo bien');
   process.exit(fallos ? 1 : 0);
 })();
