@@ -72,17 +72,9 @@ La sala puede calcular con la gráfica (WebGPU por Vulkan). Es la **fase 1** de 
 
 ## llama-server
 
-Mientras la sala usa la gráfica para entrenar, el servidor **para llama-server** y lo vuelve a abrir un minuto después de que la sala deje de usarla (lo pidió Juan). Si el servidor se para o se reinicia, también lo vuelve a abrir.
+**Juan lo para a mano** antes de entrenar con la gráfica y lo vuelve a abrir cuando quiera: el servidor no lo toca.
 
-- **Si lo abrió a mano** (en una terminal): el servidor guarda la orden, la carpeta y las variables con que se lanzó, lo cierra y luego lo vuelve a lanzar igual. Lo que escriba va a `~/.local/share/arana/llama-server.log`.
-- **Si es un servicio de usuario** de systemd: `systemctl --user stop/start`.
-- **Si es un servicio del sistema**: hace falta permitir que el usuario lo pare y lo arranque sin contraseña. Con `sudo visudo -f /etc/sudoers.d/arana-llama` y esta línea (cambie el usuario y el nombre del servicio):
-  ```
-  miguel ALL=(root) NOPASSWD: /usr/bin/systemctl stop llama.service, /usr/bin/systemctl start llama.service
-  ```
-- **Órdenes propias**: `Environment=ARANA_PARAR=…` y `Environment=ARANA_REANUDAR=…` en `systemctl --user edit arana`.
-- **No tocarlo nunca**: `Environment=ARANA_LLAMA_LIBRE=1`.
-- Si el programa se llama de otra forma: `Environment=ARANA_LLAMA=nombre`.
+Si algún día prefiere que lo haga el servidor (pararlo mientras la sala entrena con la gráfica y abrirlo un minuto después), `systemctl --user edit arana` y `Environment=ARANA_LLAMA_AUTO=1`. Cómo lo hace está en `servidor/comun.js`: servicio de usuario o del sistema de systemd (este necesita permiso en `sudoers`), lanzado a mano (lo relanza igual), u órdenes propias con `ARANA_PARAR` y `ARANA_REANUDAR`. `probar-gpu.js --parar-llama` lo hace solo durante la prueba.
 
 ## Si algo falla
 

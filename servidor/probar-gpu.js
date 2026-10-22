@@ -8,6 +8,8 @@
           node ~/arana/servidor/probar-gpu.js --variante dawn (solo esa forma)
           node ~/arana/servidor/probar-gpu.js --parar-llama   (para llama-server durante la prueba y lo reanuda al acabar)
           node ~/arana/servidor/probar-gpu.js --diagnostico   (lo que dice chrome://gpu con cada forma, para Claude)
+          node ~/arana/servidor/probar-gpu.js --red --variante nativo --F 64 --nb 6 --B 256 --pasos 300 --bench 1
+                                                               (fase 2: la red da lo mismo que el procesador, sus gradientes, que aprende y su velocidad)
           node ~/arana/servidor/probar-gpu.js --lote 1024 --filtros 128 --bloques 10
    No necesita parar el servicio arana. */
 'use strict';
@@ -16,7 +18,8 @@ const { buscarChromium, argsGPU, VARIANTES, GPU_JSON, pararLlama, reanudarLlama,
 
 const WEB = path.resolve(__dirname, '..'), arg = process.argv.slice(2);
 const val = k => { const i = arg.indexOf('--' + k); return i >= 0 ? arg[i + 1] : null; };
-const q = ['lote', 'filtros', 'bloques', 'vueltas'].filter(val).map(k => `${k}=${+val(k)}`).join('&');
+const PAGINA = process.argv.includes('--red') ? 'pruebas/red.html' : 'gpu.html';
+const q = ['lote', 'filtros', 'bloques', 'vueltas', 'F', 'nb', 'B', 'pasos', 'bench'].filter(val).map(k => `${k}=${+val(k)}`).join('&');
 let PUERTO_DIAG = 0;
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json' };
 
@@ -44,14 +47,21 @@ const srv = http.createServer((req, res) => {
     ultimo = r;
     if (r.error) { console.log('no: ' + r.error); continue; }
     if (r.gpu && r.gpu.simulada && process.env.ARANA_GPU_SIMULADA !== '1') { console.log('solo ve una gráfica simulada'); continue; }
-    console.log(r.ok ? 'sí' : 'calcula mal'); if (r.ok) { bueno = { v, r }; break; }
+    console.log(r.ok ? 'sí' : PAGINA === 'gpu.html' ? 'calcula mal' : 'responde'); if (r.ok || PAGINA !== 'gpu.html') { bueno = { v, r }; break; }
   }
   console.log('');
   if (!bueno) { console.log('✗ WebGPU no funciona con ninguna forma.' + (ultimo && ultimo.chromium ? '\nLo último que dijo Chromium:\n' + ultimo.chromium : '')); console.log('  Mire «La gráfica» en servidor/LEEME.md.'); return fin(1); }
   const { v: variante, r } = bueno, g = r.gpu;
   console.log(`Gráfica: ${[g.fabricante, g.arquitectura, g.descripcion].filter(Boolean).join(' · ') || '(sin nombre)'}${g.simulada ? '  ← SIMULADA: no usa la NVIDIA' : ''} (forma «${variante}»)`);
-  for (const p of r.pruebas) console.log(`${p.ok ? '✓' : '✗'} ${p.nombre}: diferencia con el procesador ${p.diferencia.toExponential(1)}`);
+  for (const p of r.pruebas) if (p.diferencia != null) console.log(`${p.ok ? '✓' : '✗'} ${p.nombre}: diferencia con el procesador ${p.diferencia.toExponential(1)}`);
   const vel = r.velocidad;
+  if (PAGINA !== 'gpu.html') {   // fase 2: la red
+    for (const p of r.pruebas) if (p.diferencia == null) console.log(`${p.ok ? '✓' : '✗'} ${p.nombre}`);
+    const a = r.aprende; if (a) console.log(`Red de ${a.F} filtros y ${a.nb} bloques, lote ${a.B}: acierta la jugada ${Math.round(a.antes.acierto * 100)} % → ${Math.round(a.despues.acierto * 100)} % · ${a.msPorPaso} ms por paso`);
+    if (vel) console.log(`Entrenamiento (lote ${vel.lote}, ${vel.filtros} filtros, ${vel.bloques} bloques): ${vel.msPorPaso} ms por paso · ${vel.posicionesPorSegundo.toLocaleString('es-ES')} posiciones/s aprendidas`);
+    console.log(r.ok ? '\nLa red funciona en la gráfica.' : '\nAlgo no cuadra: mándele esta salida a Claude.');
+    return fin(r.ok ? 0 : 1);
+  }
   if (vel) console.log(`Velocidad (lote ${vel.lote}, ${vel.filtros} filtros, ${vel.bloques} bloques): ${vel.msPorLote} ms por lote · ${vel.posicionesPorSegundo.toLocaleString('es-ES')} posiciones/s · ${vel.gflops} GFLOP/s`);
   fs.writeFileSync(GPU_JSON, JSON.stringify({ variante, gpu: g, velocidad: vel, fecha: new Date().toISOString() }, null, 1));
   console.log('');
@@ -61,7 +71,7 @@ const srv = http.createServer((req, res) => {
 /* Abre gpu.html en un Chromium aparte con una forma de encender la gráfica y devuelve lo que mide */
 async function probarCon(variante, puerto) {
   const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'arana-gpu-'));
-  const args = ['--headless=new', '--no-first-run', ...argsGPU(variante), `--user-data-dir=${perfil}`, '--remote-debugging-port=0', `http://127.0.0.1:${puerto}/ajedrez/gpu.html${q ? '?' + q : ''}`];
+  const args = ['--headless=new', '--no-first-run', ...argsGPU(variante), `--user-data-dir=${perfil}`, '--remote-debugging-port=0', `http://127.0.0.1:${puerto}/ajedrez/${PAGINA}${q ? '?' + q : ''}`];
   if (process.getuid && process.getuid() === 0) args.unshift('--no-sandbox');
   const ch = spawn(buscarChromium(), args, { stdio: ['ignore', 'ignore', 'pipe'] });
   let err = '';
@@ -72,14 +82,14 @@ async function probarCon(variante, puerto) {
       new Promise((ok, ko) => { ch.stderr.on('data', d => { err += d; const m = err.match(/DevTools listening on (ws:\S+)/); if (m) ok(m[1]); }); ch.on('exit', c => ko(new Error('Chromium se cerró (' + c + ')'))); }),
       new Promise((_, ko) => setTimeout(() => ko(new Error('Chromium no arranca')), 30000))]);
     const base = ws.replace(/^ws:/, 'http:').replace(/\/devtools\/.*/, '');
-    let pag = null; for (let i = 0; i < 50 && !pag; i++) { try { pag = (await (await fetch(base + '/json/list')).json()).find(x => x.type === 'page' && x.url.includes('gpu.html')); } catch (e) {} if (!pag) await new Promise(r => setTimeout(r, 200)); }
+    let pag = null; for (let i = 0; i < 50 && !pag; i++) { try { pag = (await (await fetch(base + '/json/list')).json()).find(x => x.type === 'page' && x.url.includes(PAGINA.split('/').pop())); } catch (e) {} if (!pag) await new Promise(r => setTimeout(r, 200)); }
     if (!pag) return mal('Chromium no abre la página de prueba');
     const s = new WebSocket(pag.webSocketDebuggerUrl); let id = 0; const esp = new Map();
     s.onmessage = e => { const m = JSON.parse(e.data); if (esp.has(m.id)) { esp.get(m.id)(m.result); esp.delete(m.id); } };
     await new Promise(r => { s.onopen = r; });
     const ev = expr => new Promise(r => { const i = ++id; esp.set(i, r); s.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true } })); });
     const t0 = Date.now(); let r = null;
-    while (!r) { if (Date.now() - t0 > 90000) return mal('la prueba no termina en 90 s (Chromium se ha quedado colgado con esta forma)'); await new Promise(k => setTimeout(k, 500)); const x = await ev('window.__prueba || null'); r = x && x.result && x.result.value; }
+    while (!r) { if (Date.now() - t0 > (PAGINA === 'gpu.html' ? 90000 : 1800000)) return mal('la prueba no termina (Chromium se ha quedado colgado con esta forma)'); await new Promise(k => setTimeout(k, 500)); const x = await ev('window.__prueba || null'); r = x && x.result && x.result.value; }
     s.close();
     return r.error ? mal(r.error) : cerrar(r);
   } catch (e) { return mal(e.message); }

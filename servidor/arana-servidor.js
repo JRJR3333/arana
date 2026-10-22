@@ -6,11 +6,11 @@
      la de verdad (tocar, arrastrar para moverse, pellizcar para el zoom, escribir, descargar e importar archivos).
    - Solo acepta conexiones de Tailscale (100.64.0.0/10 y fd7a:115c:a1e0::/48) y del propio aparato.
    Requisitos: node 22 o posterior y chromium (pacman -S nodejs chromium). Sin paquetes de npm.
-   - Desde la 0.37.0 Chromium usa la gráfica (WebGPU por Vulkan) y, mientras la sala la usa para entrenar, para llama-server
-     y lo vuelve a abrir después (ver comun.js).
+   - Desde la 0.37.0 Chromium usa la gráfica (WebGPU por Vulkan). llama-server lo para Juan a mano; con ARANA_LLAMA_AUTO=1
+     el servidor lo para mientras la sala entrena con la gráfica y lo vuelve a abrir después (ver comun.js).
    Variables: ARANA_PUERTO, ARANA_DATOS (~/.local/share/arana), ARANA_CHROMIUM, ARANA_ABIERTO=1 (aceptar cualquier red),
    ARANA_GPU=0 (sin gráfica), ARANA_LLAMA (nombre del programa, llama-server), ARANA_PARAR / ARANA_REANUDAR (órdenes propias),
-   ARANA_LLAMA_LIBRE=1 (no tocar llama-server). */
+   ARANA_LLAMA_AUTO=1 (parar llama-server solo). */
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), { spawn } = require('child_process');
 const { DATOS, log, buscarChromium, argsGPU, conGPU, pararLlama, reanudarLlama } = require('./comun.js');
@@ -58,7 +58,7 @@ async function arrancar() {
   if (process.getuid && process.getuid() === 0) args.unshift('--no-sandbox');
   const ch = spawn(buscarChromium(), args, { stdio: ['ignore', 'ignore', 'pipe'] });
   ch.on('exit', c => { log('Chromium terminó (' + c + '); salgo para que systemd me reinicie.'); process.exit(1); });
-  for (const s of ['SIGTERM', 'SIGINT']) process.on(s, () => { ch.kill('SIGTERM'); reanudarLlama().catch(() => {}).finally(() => setTimeout(() => process.exit(0), 3000)); });   // no dejar llama parado
+  for (const s of ['SIGTERM', 'SIGINT']) process.on(s, () => { ch.kill('SIGTERM'); (LLAMA_AUTO ? reanudarLlama().catch(() => {}) : Promise.resolve()).finally(() => setTimeout(() => process.exit(0), 3000)); });
   const wsNav = await new Promise((ok, ko) => { let b = ''; ch.stderr.on('data', d => { b += d; const m = b.match(/DevTools listening on (ws:\S+)/); if (m) ok(m[1]); }); setTimeout(() => ko(new Error('Chromium no arranca:\n' + b)), 30000); });
   const base = wsNav.replace(/^ws:/, 'http:').replace(/\/devtools\/.*/, '');
   navegador = await conectar(wsNav, eventoNavegador);
@@ -71,7 +71,7 @@ async function arrancar() {
   await metricas();
   log(`Sala abierta en el Chromium de dentro (${URL_SALA})${conGPU() ? ', con la gráfica' : ', sin gráfica (ARANA_GPU=0)'}.`);
   setInterval(vigilar, 60000);
-  setInterval(vigilarGPU, 15000); reanudarLlama().catch(() => {});   // si el servidor se cayó con llama parado, se reanuda hasta que la sala vuelva a pedir la gráfica
+  if (LLAMA_AUTO) { setInterval(vigilarGPU, 15000); reanudarLlama().catch(() => {}); }   // solo si Juan lo pide (ARANA_LLAMA_AUTO=1): él para llama-server a mano
 }
 const metricas = () => P('Emulation.setDeviceMetricsOverride', { width: ancho, height: alto, deviceScaleFactor: dpr, mobile: true });
 
@@ -98,6 +98,7 @@ async function vigilar() {   // si la página se ha ido de la sala (o se ha qued
   if (!v || !v.startsWith('/ajedrez/') || v.endsWith('false')) { log('La sala no está (' + v + '); la vuelvo a abrir.'); P('Page.navigate', { url: URL_SALA }); }
 }
 /* La gráfica: mientras la sala entrena con ella, llama-server queda parado (lo pidió Juan). Se reanuda al minuto de dejar de usarla. */
+const LLAMA_AUTO = process.env.ARANA_LLAMA_AUTO === '1';   // desde el 2026-10-22 Juan para llama-server a mano: por defecto no se toca
 let gpuDesde = 0, gpuLibreDesde = 0;
 async function vigilarGPU() {
   if (process.env.ARANA_LLAMA_LIBRE === '1' || !conGPU()) return;
