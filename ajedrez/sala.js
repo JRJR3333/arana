@@ -152,6 +152,9 @@ const genesTodas = () => !!(est && est.opc && est.opc.genesTodas);   // guardar 
 
 /* ───── Estado de la evolución ───── */
 let est = null, pop = [], byId = new Map(), historial = [], cazadoras = [], cazById = new Map();
+/* Gradiente (39): posiciones tranquilas etiquetadas [fen, y, fuente]; y = probabilidad de ganar de las blancas. Se guardan en «estado» con la clave «grad». */
+let grad = { pos: [] }, gradVista = '';
+const gradCache = new Map();
 const ind = id => byId.get(id) || cazById.get(id);
 /* Interruptores de las distópicas (29–38): todos encendidos salvo que Juan apague alguno en Opciones */
 const flagsDe = () => Object.assign(M.todasDist(), (est && est.opc && est.opc.dist) || {});
@@ -175,6 +178,7 @@ async function cargar() {
   pop.forEach(p => M.completar(p.genes));
   if (est.cazPop) { const cs = await Promise.all(est.cazPop.map(id => leer('individuos', id))); cazadoras = cs.every(c => c && c.genes) ? cs : []; cazadoras.forEach(c => M.completar(c.genes)); }
   historial = (await todos('generaciones')).sort((a, b) => a.gen - b.gen);
+  try { const g = await leer('estado', 'grad'); if (g && Array.isArray(g.pos)) grad = g; } catch (e) {}
   byId = new Map(pop.map(p => [p.id, p])); cazById = new Map(cazadoras.map(c => [c.id, c]));
   await migrarTodoElo();
 }
@@ -344,6 +348,7 @@ function alRecibir(w, d) {
 }
 async function cerrarGeneracion() {
   const viejos = pop.slice(), mejorPartida = elegirPartida(), fase = sfFase; sfFase = null;
+  if (flagsDe()[39]) { try { await etiquetarGradiente(fase); } catch (e) { console.warn('gradiente', e); } gradVista = ''; }
   let resSF = null;
   if (fase && fase.hechos.length) {
     const E = fase.E, puntos = fase.hechos.reduce((a, j) => a + j.res, 0), n = fase.hechos.length, conquistado = false;
@@ -369,6 +374,7 @@ async function cerrarGeneracion() {
   const out = M.siguienteGeneracion(est, pop, rng);
   if (resSF) out.resumen.sf = resSF;
   { const d = mediaAntes - mediaEloDe(out.pop); out.pop.forEach(p => { p.elo += d; p.eloReal = 1; }); }   // sin inflación: las hijas no suben la media por nacer
+  if (F[39]) { try { const g = afinarHijas(out.pop, new Set(out.resumen.elite), F); if (g) out.resumen.gradiente = g; } catch (e) { console.warn('gradiente', e); } }
   out.resumen.flags = fkey(F);
   // Memoria del rival (35): las hijas heredan la memoria del padre que más les dio
   const antes = new Map(viejos.map(p => [p.id, p])), cazAntes = new Map(cazadoras.map(c => [c.id, c]));
@@ -388,6 +394,7 @@ async function cerrarGeneracion() {
   }
   const elite = new Set(out.resumen.elite);
   const vivos = new Set(out.pop.map(p => p.id)), extra = [['generaciones', out.resumen]].concat(extraCaz);
+  if (F[39]) extra.push(['estado', grad, 'grad']);
   if (mejorPartida) {   // todas las partidas de la generación, con sus jugadas
     const nom = id => (ind(id) || antes.get(id) || cazAntes.get(id) || { nombre: '?' }).nombre;
     mejorPartida.todas = juegos.filter(j => j.estado === 'fin').map(j => ({ tipo: j.tipo || '', wn: nom(j.w), bn: nom(j.b), w: j.w, b: j.b, fen: j.fen, jugadas: (j.jugadas || []).join(' '), res: j.res, motivo: j.motivo }))
@@ -404,6 +411,65 @@ async function cerrarGeneracion() {
     avisarProgreso(`Generación ${r.gen} terminada · campeona del torneo: ${tc ? tc.nombre : r.mejor.nombre} · mejor Elo ${r.mejor.elo} · Stockfish: peldaño ${est.escalera.peldano} de ${ESCALERA.length}${r.sf ? ` (${fmt(r.sf.puntos, 1)} de ${r.sf.partidas})` : ''}`); }
   pintarEstado();
   if (entrenando) { prepararGeneracion(); repartir(); } else construirPlano();
+}
+/* ═════════ Gradiente (39) ═════════
+   Al cerrar cada generación: de sus partidas se sacan posiciones tranquilas y se etiquetan (Stockfish a poca profundidad o,
+   si no hay Stockfish o así se elige, el resultado de la partida). Después, cada hija recibe unos pasos de descenso de gradiente
+   sobre los genes de sus medidas encendidas y de su red, antes de jugar (Lamarck). La élite pasa intacta, como siempre. */
+const gopc = k => (est.opc && est.opc[k] != null ? est.opc[k] : M.OPC_EVO[k]);
+async function etiquetarGradiente(fase) {
+  const cuantas = gopc('gradPos'), prof = gopc('gradProf');
+  let usarSF = !!gopc('gradSF');
+  const partidas = juegos.filter(j => j.estado === 'fin' && j.jugadas && j.jugadas.length > 12).map(j => ({ fen: j.fen, jug: j.jugadas, res: j.res }))
+    .concat(fase ? fase.hechos.map(x => ({ fen: x.fen0, jug: x.jugadas, res: x.yoB ? x.res : 1 - x.res })) : []);
+  if (!partidas.length) return;
+  const porPartida = Math.max(1, Math.ceil(cuantas / partidas.length)), cand = [];
+  for (const p of partidas) {
+    const pos = new M.Pos(p.fen), aqui = [];
+    for (let k = 0; k < p.jug.length; k++) {
+      const m = M.parseUci(pos, p.jug[k]); if (!m) break; pos.make(m);
+      if (k >= 8 && !M.fin(pos) && M.tranquila(pos)) aqui.push({ fen: pos.fen(), res: p.res });
+    }
+    for (let k = 0; k < porPartida && aqui.length; k++) cand.push(aqui.splice(Math.floor(rng() * aqui.length), 1)[0]);
+  }
+  for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+  const lista = cand.slice(0, cuantas), nuevas = [];
+  if (usarSF) { try { await sfIniciar(); } catch (e) { sfFallo = (e && e.message) || 'no carga'; } if (sfFallo || !sf.listo) usarSF = false; }
+  if (usarSF) { sf.w.postMessage('ucinewgame'); sf.w.postMessage('setoption name Skill Level value 20'); await sfCmd('isready', /^readyok/); }
+  for (let k = 0; k < lista.length; k++) {
+    const c = lista[k];
+    if (usarSF && entrenando) {
+      gradVista = `gradiente: Stockfish etiqueta ${k + 1} de ${lista.length}`; if (k % 10 === 0) pintarEstado();
+      sf.w.postMessage('position fen ' + c.fen);
+      let sc = null; try { sc = puntuacion(await sfCmd('go depth ' + prof, /^bestmove/, 20000)); } catch (e) { usarSF = false; }
+      if (sc != null) { const blancas = / w /.test(c.fen) ? sc : -sc, cp = Math.max(-1500, Math.min(1500, blancas)); nuevas.push([c.fen, Math.round(1e6 / (1 + Math.exp(-M.K_TEXEL * cp))) / 1e6, 's']); continue; }
+    }
+    nuevas.push([c.fen, c.res, 'r']);   // sin Stockfish (o en pausa): el resultado de la partida
+  }
+  grad.pos = grad.pos.concat(nuevas).slice(-gopc('gradMax'));
+  grad.ultima = { gen: est.gen, nuevas: nuevas.length, sf: nuevas.filter(x => x[2] === 's').length, prof };
+}
+function datosGradiente() {
+  const vivas = new Set(), datos = [];
+  for (const [fen, y] of grad.pos) {
+    vivas.add(fen);
+    let r = gradCache.get(fen);
+    if (!r) { try { r = M.rasgosPos(new M.Pos(fen)); } catch (e) { continue; } gradCache.set(fen, r); }
+    datos.push({ i: r.i, v: r.v, fi: r.fi, fv: r.fv, y });
+  }
+  for (const k of gradCache.keys()) if (!vivas.has(k)) gradCache.delete(k);
+  return datos;
+}
+function afinarHijas(nueva, elite, F) {
+  if (grad.pos.length < 200) return { posiciones: grad.pos.length, nota: 'aún pocas posiciones (hacen falta 200)' };
+  const datos = datosGradiente(); let n = 0, antes = 0, despues = 0, deshechos = 0; const t0 = Date.now();
+  for (const h of nueva) {
+    if (elite.has(h.id)) continue;
+    const r = M.ajustarGradiente(h.genes, datos, null, rng, F); if (!r) continue;
+    n++; antes += r.antes; despues += r.despues; if (r.deshecho) deshechos++;
+    h.mut = Object.assign({}, h.mut, { grad: { antes: Math.round(r.antes * 1e6) / 1e6, despues: Math.round(r.despues * 1e6) / 1e6, cambio: r.cambio, deshecho: !!r.deshecho } });
+  }
+  return n ? { posiciones: datos.length, hijas: n, antes: Math.round(antes / n * 1e6) / 1e6, despues: Math.round(despues / n * 1e6) / 1e6, deshechos, ms: Date.now() - t0, etiquetas: grad.ultima || null } : null;
 }
 /* Búsqueda de novedad (37): premia jugar distinto. Descriptor = estilo + duración de sus partidas; novedad = distancia media a las 5 más parecidas (población y archivo) */
 function novedad() {
@@ -1109,10 +1175,11 @@ function avance() {   // parte hecha de la generación: rondas, final y escalera
   return Math.min(1, (r + (dentro.length ? h / dentro.length : 1)) / R) * .85;
 }
 function pintarEstado() {
+  if (!est) return;
   const hechas = juegos.filter(j => j.estado === 'fin').length, total = juegos.length;
   const ult = historial[historial.length - 1];
   $('#estado').innerHTML = `<b>Generación ${est.gen}</b> · ${entrenando ? 'entrenando' : 'en pausa'}` +
-    (sfFase ? ` · escalera ${sfFase.hechos.length}/${sfFase.total}` : torneo && total ? ` · ${torneo.fase === 'final' ? 'final' : torneo.fase === 'hecho' ? 'cazadoras' : `ronda ${torneo.ronda + 1}/${torneo.R}`} · ${hechas}/${total}` : '') +
+    (gradVista ? ` · ${esc(gradVista)}` : sfFase ? ` · escalera ${sfFase.hechos.length}/${sfFase.total}` : torneo && total ? ` · ${torneo.fase === 'final' ? 'final' : torneo.fase === 'hecho' ? 'cazadoras' : `ronda ${torneo.ronda + 1}/${torneo.R}`} · ${hechas}/${total}` : '') +
     (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${hilosActivos()} hilos`) +
     (li.conectado ? ` · <b>Lichess</b> ${[...li.partidas.values()].filter(g => !g.fin).length ? 'jugando' : 'esperando'}` : '') +
     `<i class="prog" style="width:${(avance() * 100).toFixed(1)}%"></i>`;
@@ -1159,7 +1226,7 @@ async function ficha(id) {
   const p = await individuo(id); if (!p) return;
   const padres = await Promise.all((p.padres || []).map(async x => ({ id: x, nombre: ((await individuo(x)) || { nombre: x }).nombre })));
   const mut = p.mut || {};
-  const nacio = mut.nacio ? mut.nacio : `cruce (${mut.cruce ? mut.cruce.a + ' bloques de un padre, ' + mut.cruce.b + ' del otro' : '—'}), ${mut.total || 0} genes mutados con σ ${fmt(mut.sigma || 0, 3)}`;
+  const nacio = mut.nacio ? mut.nacio : `cruce (${mut.cruce ? mut.cruce.a + ' bloques de un padre, ' + mut.cruce.b + ' del otro' : '—'}), ${mut.total || 0} genes mutados con σ ${fmt(mut.sigma || 0, 3)}` + (mut.grad ? (mut.grad.deshecho ? ' · el gradiente no la mejoró y la dejó igual' : ` · gradiente: error ${fmt(mut.grad.antes * 1000, 2)} → ${fmt(mut.grad.despues * 1000, 2)} (‰)`) : '');
   let h = `<h3>${esc(p.nombre)}</h3><div class="sub">${esc(p.id)} · nació en la generación ${p.gen} · sangre de ${esc(p.origen)}${byId.has(p.id) ? ' · viva' : ''}</div>`;
   h += `<dl class="kv"><dt>Padres</dt><dd>${padres.length ? padres.map(x => `<button class="btn sec" style="padding:2px 8px;min-height:0" data-ficha="${esc(x.id)}">${esc(x.nombre)}</button>`).join(' × ') : 'ninguno'}</dd><dt>Cómo nació</dt><dd>${esc(nacio)}</dd>` +
     `<dt>Elo</dt><dd>${Math.round(p.elo)}</dd><dt>Partidas</dt><dd>${p.partidas.g} ganadas · ${p.partidas.e} tablas · ${p.partidas.p} perdidas</dd>` +
@@ -1230,10 +1297,10 @@ const AUX = {
   grafica() {
     if (historial.length < 2) return hoja('<h3>Gráfica</h3><p class="nota">Hacen falta al menos dos generaciones terminadas.</p>' + CERRAR);
     const g = historial.slice(-200), W = 340, H = 150, eje = (vals, cs) => {
-      const all = vals.flat(), mn = Math.min(...all), mx = Math.max(...all), d = mx - mn || 1, n = vals[0].length - 1 || 1;
+      const all = vals.flat().filter(Number.isFinite), mn = Math.min(...all), mx = Math.max(...all), d = mx - mn || 1, n = vals[0].length - 1 || 1;
       let s = `<svg viewBox="0 0 ${W} ${H + 22}" width="100%" role="img" aria-label="Gráfica">`;
       for (let i = 0; i <= 2; i++) { const y = 8 + i * (H - 16) / 2, v = mx - i * d / 2; s += `<line x1="34" x2="${W}" y1="${y}" y2="${y}" stroke="rgba(94,232,255,.12)"/><text x="30" y="${y}" text-anchor="end" dominant-baseline="middle" fill="rgba(235,235,245,.55)" style="font:10px ui-monospace,Menlo,monospace">${Math.abs(v) >= 10 ? Math.round(v) : fmt(v, 2)}</text>`; }
-      vals.forEach((vs, k) => { s += `<polyline fill="none" stroke="${cs[k]}" stroke-width="2"${k ? ' stroke-dasharray="5 4"' : ''} points="${vs.map((v, i) => `${(34 + i / n * (W - 38)).toFixed(1)},${(8 + (mx - v) / d * (H - 16)).toFixed(1)}`).join(' ')}"/>`; });
+      vals.forEach((vs, k) => { s += `<polyline fill="none" stroke="${cs[k]}" stroke-width="2"${k ? ' stroke-dasharray="5 4"' : ''} points="${vs.map((v, i) => Number.isFinite(v) ? `${(34 + i / n * (W - 38)).toFixed(1)},${(8 + (mx - v) / d * (H - 16)).toFixed(1)}` : '').filter(Boolean).join(' ')}"/>`; });
       return s + `<text x="34" y="${H + 16}" fill="rgba(235,235,245,.55)" style="font:10px ui-monospace,Menlo,monospace">gen ${g[0].gen}</text><text x="${W}" y="${H + 16}" text-anchor="end" fill="rgba(235,235,245,.55)" style="font:10px ui-monospace,Menlo,monospace">gen ${g[g.length - 1].gen}</text></svg>`;
     };
     hoja(`<h3>Gráfica de la evolución</h3><div class="sub">${historial.length} generaciones</div>
@@ -1241,6 +1308,7 @@ const AUX = {
       <h2>Mutación (σ) y diversidad</h2><div class="ley"><span><i style="background:#ff4fa3"></i>σ</span><span><i style="background:#ffb340"></i>diversidad (discontinua)</span></div>${eje([g.map(x => x.sigma), g.map(x => x.diversidad)], ['#ff4fa3', '#ffb340'])}
       <h2>Detectores encendidos de media</h2>${eje([g.map(x => x.encendidos)], ['#a99bff'])}
       ${g.some(x => x.neuronas != null) ? `<h2>Neuronas de su red de media</h2>${eje([g.map(x => x.neuronas || 0)], ['#ff4fa3'])}` : ''}
+      ${g.some(x => x.gradiente && x.gradiente.hijas) ? `<h2>Gradiente: error antes y después (‰)</h2><div class="ley"><span><i style="background:#ffb340"></i>antes</span><span><i style="background:#3dff99"></i>después (discontinua)</span></div>${eje([g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.antes * 1000 : NaN), g.map(x => x.gradiente && x.gradiente.hijas ? x.gradiente.despues * 1000 : NaN)], ['#ffb340', '#3dff99'])}<p class="nota">Error cuadrático entre la probabilidad de ganar que ve la araña y la de Stockfish, en posiciones que no se usaron para ajustar. Si baja generación a generación, las arañas valoran cada vez más como Stockfish.</p>` : ''}
       <p class="nota">Si la diversidad cae mucho, entran inmigrantes. La mutación nunca baja de 0,03; si la campeona no cambia en 5 generaciones o el Elo no sube en 15, se sacude y vuelve a crecer.</p>` + CERRAR);
   },
   async arbol() {
@@ -1669,6 +1737,10 @@ function opciones() {
     <label class="op">Probabilidad de mutar cada gen ${sel('pm', [0.03, 0.06, 0.12], v => Math.round(v * 100) + ' %', est.opc)}</label>
     <h2>Distópicas</h2>
     ${M.DIST.map(([n, nombre]) => `<label class="op">${n}. ${nombre} <select data-dist="${n}"><option value="1"${flagsDe()[n] ? ' selected' : ''}>Sí</option><option value="0"${flagsDe()[n] ? '' : ' selected'}>No</option></select></label>`).join('')}
+    <label class="op">Gradiente: etiquetas ${sel('gradSF', [1, 0], v => v ? 'Stockfish' : 'Resultado de la partida', est.opc)}</label>
+    <label class="op">Gradiente: posiciones nuevas por generación ${sel('gradPos', [100, 200, 400, 800], v => v, est.opc)}</label>
+    <label class="op">Gradiente: profundidad de Stockfish ${sel('gradProf', [6, 8, 10, 12], v => v + ' jugadas', est.opc)}</label>
+    <p class="nota">Gradiente (39): cada hija afina con descenso de gradiente los pesos de sus medidas y de su red para parecerse a la valoración de Stockfish en posiciones de sus propias partidas (guarda las últimas ${gopc('gradMax')}; ahora hay ${grad.pos.length}). Los genes llevan 6 decimales.</p>
     <label class="op">Peso de la novedad ${sel('novPeso', [0, 0.05, 0.15, 0.3], v => Math.round(v * 100) + ' %', est.opc)}</label>
     <label class="op">Guardar los genes de las que mueren ${sel('genesTodas', [0, 1], v => v ? 'Sí (ocupa más)' : 'No, solo sus cualidades', est.opc)}</label>
     <p class="nota">Apagar una distópica no borra sus genes: siguen heredándose y vuelven a contar si la enciende. Los parásitos añaden 16 partidas por generación.</p>

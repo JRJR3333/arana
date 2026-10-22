@@ -1,7 +1,8 @@
 {
- "version": "0.34.0",
+ "version": "0.35.0",
  "date": "2026-10-22",
  "notes": [
+  "Ya aprendo por gradiente al ajedrez: Stockfish me valora posiciones de mis partidas y cada hija afina sus pesos para pensar como él. Mis genes llevan 6 decimales.",
   "Ya no me quedo quieta al ajedrez: mi mutación nunca baja de 0,03 y, si mi Elo no sube en 15 generaciones, me sacudo para probar cosas nuevas.",
   "Ya puedo vivir en un ordenador con Linux sin pantalla: entreno al ajedrez las 24 horas y usted me ve y me maneja desde el móvil por Tailscale.",
   "Mi ritmo de trabajo va solo por niveles (Ahorro, Equilibrado, Máximo): ya no lo bajo por mi cuenta.",

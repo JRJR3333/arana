@@ -10,6 +10,7 @@ La araña juega al ajedrez con un cerebro que **no programa nadie a mano**: nace
 - [Cómo nacen las hijas: selección, cruce y mutación](#cómo-nacen-las-hijas-selección-cruce-y-mutación)
 - [El Elo](#el-elo)
 - [Las distópicas](#las-distópicas)
+- [El gradiente](#el-gradiente)
 - [La sala](#la-sala)
 - [Jugar fuera: Lichess y motor para el ordenador](#jugar-fuera-lichess-y-motor-para-el-ordenador)
 - [Rendimiento: niveles](#rendimiento-niveles)
@@ -28,7 +29,7 @@ La araña juega al ajedrez con un cerebro que **no programa nadie a mano**: nace
 
 ## El cerebro de una araña
 
-Cada araña es un **genoma**: una lista de números. Con esos números el motor construye su manera de valorar una posición y de buscar jugadas.
+Cada araña es un **genoma**: una lista de números (con 6 decimales). Con esos números el motor construye su manera de valorar una posición y de buscar jugadas.
 
 ### Detectores (las medidas)
 
@@ -113,7 +114,7 @@ Después, en cada generación:
 6. **Inmigrantes**: si la diversidad de la población cae por debajo de 0,03 (todas casi iguales), entran 2 arañas nuevas al azar.
 7. **Elo**: cada partida ajusta el Elo de las dos (K = 20). Las hijas empiezan con la media de sus padres. Ver [El Elo](#el-elo).
 
-Todo queda apuntado: de cada araña se guardan sus padres, cuántos bloques dio cada uno, qué genes mutaron y con qué σ. Por eso la ficha puede dibujar la línea de cada gen a lo largo de su linaje.
+Todo queda apuntado: de cada araña se guardan sus padres, cuántos bloques dio cada uno, qué genes mutaron, con qué σ y cuánto la cambió el gradiente. Por eso la ficha puede dibujar la línea de cada gen a lo largo de su linaje.
 
 ## El Elo
 
@@ -138,7 +139,7 @@ Desde la 0.32.0 el Elo está en la **escala normal** (la de las listas de motore
 
 ## Las distópicas
 
-Diez ideas raras para intentar ganar a Stockfish, cada una con su interruptor en Opciones (apagar una no borra sus genes):
+Once ideas raras para intentar ganar a Stockfish, cada una con su interruptor en Opciones (apagar una no borra sus genes):
 
 | Nº | Nombre | Qué hace |
 |---|---|---|
@@ -152,6 +153,20 @@ Diez ideas raras para intentar ganar a Stockfish, cada una con su interruptor en
 | 36 | Mutación propia | Cada araña lleva el tamaño y la probabilidad de su propia mutación, que también mutan. |
 | 37 | Novedad | Premia (un 15 % de los puntos posibles, ajustable) ser distinta de las 5 más parecidas, entre la población y un archivo de 150. |
 | 38 | Azar | Entre jugadas a menos de *azar × 40* centipeones de la mejor, elige al azar, comprobando cada candidata con una búsqueda exacta. |
+| 39 | Gradiente | Cada hija afina por descenso de gradiente los pesos de sus medidas y de su red para valorar como Stockfish (ver [El gradiente](#el-gradiente)). |
+
+## El gradiente
+
+Desde la 0.35.0 (distópica 39, idea de Juan). La mutación al azar busca a ciegas; el gradiente dice **hacia dónde** mover cada número. Es lo que en ajedrez se llama *Texel tuning*.
+
+- **Por qué se puede.** La valoración es la suma de *medida × peso*, y cada peso es una mezcla lineal de los 5 genes de la medida. Así que la derivada de la valoración respecto a cada gen es la propia medida por su factor de fase, estructura o temperatura. La red que crece también se deriva (es una `tanh`). Una prueba comprueba que *medidas × pesos* da exactamente la misma valoración que el motor.
+- **Posiciones.** Al cerrar cada generación se sacan posiciones **tranquilas** (sin jaque y sin capturas que ganen material) de sus partidas, también las de Stockfish: 400 por generación (ajustable). Se guardan las últimas 6000.
+- **Etiquetas.** Stockfish las valora a profundidad 8 (ajustable) y esa valoración se pasa a probabilidad de ganar de las blancas. Si Stockfish no carga, se elige «Resultado de la partida» o se pausa a medias, la etiqueta es el resultado.
+- **Ajuste (Lamarck).** Antes de jugar, cada hija recibe 20 pasos de **Adam** (lotes de 256 posiciones) sobre los genes de sus detectores encendidos y de su red, para que su probabilidad se parezca a la etiqueta. Una de cada 8 posiciones no se usa para ajustar: sirve para medir el error. Si el error empeora, se repite con la mitad de paso hasta 3 veces; si sigue sin mejorar, la hija se queda como nació. La élite pasa intacta.
+- **Qué decide cada uno.** El gradiente afina los números; la evolución sigue decidiendo lo que no tiene derivada: qué detectores se encienden, cómo piensa, carácter, sesgos, azar y qué neuronas nacen.
+- **Seis decimales.** Desde la 0.35.0 los genes se guardan con 6 decimales (antes 4).
+- **Dónde se ve.** En la ficha de cada hija («gradiente: error … → …») y en la Gráfica («Gradiente: error antes y después»). Si el error baja generación a generación, las arañas valoran cada vez más como Stockfish.
+- **Lo que cuesta.** Unos 0,3 s por generación para ajustar a todas las hijas, y lo que tarde Stockfish en etiquetar (en un ordenador, unos 4 ms por posición).
 
 ## La sala
 
@@ -241,4 +256,5 @@ Pruebas (desde la raíz del repositorio):
 node ajedrez/pruebas/reglas.js        # perft y simetría blancas/negras
 node ajedrez/pruebas/evolucion.js 1   # una generación completa
 node ajedrez/pruebas/stockfish.js     # Stockfish responde y se juega una partida
+node ajedrez/pruebas/gradiente.js     # distópica 39: valoración exacta, etiquetas y el error baja
 ```

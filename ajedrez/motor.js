@@ -270,13 +270,14 @@ function Ctx() {
   this.mob = [new Float64Array(7), new Float64Array(7)];
   this.ku = [0, 0];
   this.zone = [new Uint8Array(128), new Uint8Array(128)];
-  this.acc = 0; this.G = null;
+  this.acc = 0; this.G = null; this.gx = null;
 }
 Ctx.prototype.add = function (o, v) {
   if (v === 0) return;
   const g = this.G;
   this.acc += v * (this.op * g[o] + this.mj * g[o + 1] + this.fi * g[o + 2] + this.es * g[o + 3] + this.tp * g[o + 4]);
   if (this.fmap) { const f = this.fmap[o]; if (f >= 0) this.feat[f] += v; }   // la red que crece lee la medida en bruto
+  if (this.gx) { const x = this.gx; x[o] += v * this.op; x[o + 1] += v * this.mj; x[o + 2] += v * this.fi; x[o + 3] += v * this.es; x[o + 4] += v * this.tp; }   // gradiente (39)
 };
 Ctx.prototype.base = function (pos) {
   this.pos = pos;
@@ -833,8 +834,9 @@ const PIENSA_RANGO = [[-1, 1], [0, 10], [-1, 2], [0.5, 2]];
    caracter: agresividad, gusto por sacrificar, riesgo (30). sesgo: anti-motor y caos (31, 32).
    automut: su propio ritmo de mutación, tamaño y probabilidad, en escala logarítmica (36). azar: imprevisibilidad (38).
    La 33 (un cerebro por fase) son los tres pesos de fase de cada medida; apagada, las tres fases usan el del medio juego.
-   La 34 (parásitos), la 35 (memoria del rival) y la 37 (novedad) viven en la sala. */
-const DIST = [[29, 'Red que crece sola'], [30, 'Personalidad'], [31, 'Anti-motor'], [32, 'Caos'], [33, 'Un cerebro por fase'], [34, 'Parásitos cazadores'], [35, 'Memoria del rival'], [36, 'Mutación propia'], [37, 'Búsqueda de novedad'], [38, 'Gen del azar']];
+   La 34 (parásitos), la 35 (memoria del rival) y la 37 (novedad) viven en la sala.
+   La 39 (gradiente, 0.35.0) afina los pesos de las medidas con descenso de gradiente (ver «Gradiente» más abajo). */
+const DIST = [[29, 'Red que crece sola'], [30, 'Personalidad'], [31, 'Anti-motor'], [32, 'Caos'], [33, 'Un cerebro por fase'], [34, 'Parásitos cazadores'], [35, 'Memoria del rival'], [36, 'Mutación propia'], [37, 'Búsqueda de novedad'], [38, 'Gen del azar'], [39, 'Gradiente']];
 const RED_N = 8, RED_K = 4, RED_W = 2 + RED_K * 2;
 const CARACTER = ['agresividad', 'sacrificio', 'riesgo'], SESGO = ['anti-motor', 'caos'], AUTOMUT = ['tamaño de mutación', 'probabilidad de mutación'];
 function todasDist() { const f = {}; for (const [n] of DIST) f[n] = 1; return f; }
@@ -843,8 +845,8 @@ function neutros() {
 }
 function completar(genes) { const n = neutros(); for (const k in n) if (!genes[k] || genes[k].length !== n[k].length) genes[k] = n[k]; return genes; }
 function neuronaNueva(a, i, rng) {   // enciende la neurona i con conexiones al azar
-  const o = i * RED_W; a[o] = 1; a[o + 1] = r4(gauss(rng) * 30);
-  for (let k = 0; k < RED_K; k++) { a[o + 2 + k * 2] = Math.floor(rng() * RASGOS.length); a[o + 3 + k * 2] = r4(gauss(rng) * (k < 2 ? 1 : .3)); }
+  const o = i * RED_W; a[o] = 1; a[o + 1] = r6(gauss(rng) * 30);
+  for (let k = 0; k < RED_K; k++) { a[o + 2 + k * 2] = Math.floor(rng() * RASGOS.length); a[o + 3 + k * 2] = r6(gauss(rng) * (k < 2 ? 1 : .3)); }
 }
 
 /* ───────────── Genoma ─────────────
@@ -855,13 +857,13 @@ function genomaClasico(rng, ruido) {
   for (const d of DET) {
     const a = [d.coste < 2 ? 1 : (rng() < .5 ? 1 : -1)];
     for (const v of d.init) { for (let i = 0; i < 3; i++) a.push(v[i] * (1 + gauss(rng) * ruido) + gauss(rng) * 3 * ruido * 10); a.push(gauss(rng) * ruido * 20, gauss(rng) * ruido * 20); }
-    g['d' + d.n] = a.map(r4);
+    g['d' + d.n] = a.map(r6);
   }
-  g.jugada = JUGADA_INIT.map(v => r4(v + gauss(rng) * ruido * 10));
-  g.piensa = PIENSA_INIT.map((v, i) => r4(clamp(v + gauss(rng) * ruido * 2, PIENSA_RANGO[i][0], PIENSA_RANGO[i][1])));
-  if (!ruido) { for (const d of DET) g['d' + d.n][0] = d.coste < 2 ? 1 : -1; g.d1 = g.d1.map(r4); }
+  g.jugada = JUGADA_INIT.map(v => r6(v + gauss(rng) * ruido * 10));
+  g.piensa = PIENSA_INIT.map((v, i) => r6(clamp(v + gauss(rng) * ruido * 2, PIENSA_RANGO[i][0], PIENSA_RANGO[i][1])));
+  if (!ruido) { for (const d of DET) g['d' + d.n][0] = d.coste < 2 ? 1 : -1; g.d1 = g.d1.map(r6); }
   Object.assign(g, neutros());
-  if (ruido) { g.caracter = g.caracter.map(() => r4(clamp(gauss(rng) * ruido * 2, -1, 1))); g.sesgo = g.sesgo.map(() => r4(clamp(gauss(rng) * ruido, -1, 1))); g.azar = [r4(Math.abs(gauss(rng)) * ruido)]; }
+  if (ruido) { g.caracter = g.caracter.map(() => r6(clamp(gauss(rng) * ruido * 2, -1, 1))); g.sesgo = g.sesgo.map(() => r6(clamp(gauss(rng) * ruido, -1, 1))); g.azar = [r6(Math.abs(gauss(rng)) * ruido)]; }
   return g;
 }
 function genomaAzar(rng) {
@@ -869,19 +871,20 @@ function genomaAzar(rng) {
   for (const d of DET) {
     const a = [rng() < .6 ? 1 : -1];
     for (const v of d.init) { for (let i = 0; i < 3; i++) a.push((rng() * 2) * v[i] + gauss(rng) * 20); a.push(gauss(rng) * 15, gauss(rng) * 15); }
-    g['d' + d.n] = a.map(r4);
+    g['d' + d.n] = a.map(r6);
   }
   g.d1[0] = 1;   // sin valor de las piezas no hay manera de empezar
-  g.jugada = JUGADA_INIT.map(() => r4(gauss(rng) * 15));
-  g.piensa = PIENSA_RANGO.map(([a, b]) => r4(a + rng() * (b - a)));
+  g.jugada = JUGADA_INIT.map(() => r6(gauss(rng) * 15));
+  g.piensa = PIENSA_RANGO.map(([a, b]) => r6(a + rng() * (b - a)));
   Object.assign(g, neutros());
-  g.caracter = g.caracter.map(() => r4(rng() * 2 - 1)); g.sesgo = g.sesgo.map(() => r4(rng() * 2 - 1)); g.azar = [r4(rng() * .5)];
-  g.automut = g.automut.map(() => r4(gauss(rng) * .3));
+  g.caracter = g.caracter.map(() => r6(rng() * 2 - 1)); g.sesgo = g.sesgo.map(() => r6(rng() * 2 - 1)); g.azar = [r6(rng() * .5)];
+  g.automut = g.automut.map(() => r6(gauss(rng) * .3));
   if (rng() < .5) neuronaNueva(g.red, 0, rng);
   return g;
 }
 function gauss(rng) { let u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
-function r4(v) { return Math.round(v * 10000) / 10000; }
+function r4(v) { return Math.round(v * 10000) / 10000; }   // para resúmenes y para enseñar
+function r6(v) { return Math.round(v * 1e6) / 1e6; }        // los genes se guardan con 6 decimales (0.35.0, lo pidió Juan)
 
 /* Compila los genes a un formato rápido */
 function compilar(genes, flags) {
@@ -1163,7 +1166,7 @@ function jugar(Cw, Cb, fen, opc, alMover, ajW, ajB) {
 /* ───────────── Evolución ───────────── */
 const SIL = ['te', 'ji', 'ra', 'ña', 'lo', 'mi', 'sa', 'vi', 'ta', 'no', 'ke', 'ru', 'li', 'da', 'po', 'ga', 'se', 'ba', 'ni', 'zu'];
 function nombre(rng) { const n = 2 + (rng() < .35 ? 1 : 0); let s = ''; for (let i = 0; i < n; i++) s += SIL[Math.floor(rng() * SIL.length)]; return s[0].toUpperCase() + s.slice(1); }
-const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.03, sigmaSacudida: 0.15, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5, estanco: 15, mejoraMin: 25 };
+const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.03, sigmaSacudida: 0.15, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5, estanco: 15, mejoraMin: 25, gradSF: 1, gradPos: 400, gradProf: 8, gradMax: 6000 };
 /* σ (0.34.0, lo pidió Juan): el suelo era 0,002 y desde la generación ~123 las hijas casi no cambiaban.
    Ahora el suelo es 0,03 y hay sacudidas de verdad (σ sube al menos a 0,15) en dos casos:
    - la misma campeona gana «racha» generaciones seguidas (como antes);
@@ -1221,7 +1224,7 @@ function mutar(genes, sigma, pm, rng, flags) {
         for (let j = 1; j < RED_W; j++) {
           if (rng() >= pm) continue;
           if (j >= 2 && j % 2 === 0) a[o + j] = Math.floor(rng() * RASGOS.length);
-          else a[o + j] = r4(a[o + j] + gauss(rng) * sigma * (Math.abs(a[o + j]) + (j === 1 ? 10 : .5)));
+          else a[o + j] = r6(a[o + j] + gauss(rng) * sigma * (Math.abs(a[o + j]) + (j === 1 ? 10 : .5)));
           n++;
         }
       }
@@ -1231,10 +1234,10 @@ function mutar(genes, sigma, pm, rng, flags) {
     for (let i = 0; i < a.length; i++) {
       if (rng() >= pm) continue;
       if (k[0] === 'd' && i === 0) { if (rng() < .5) { a[0] = -a[0]; n++; } continue; }
-      if (RANGO_DIST[k]) { a[i] = r4(clamp(a[i] + gauss(rng) * sigma * (RANGO_DIST[k][1] - RANGO_DIST[k][0]) * .5, RANGO_DIST[k][0], RANGO_DIST[k][1])); n++; continue; }
+      if (RANGO_DIST[k]) { a[i] = r6(clamp(a[i] + gauss(rng) * sigma * (RANGO_DIST[k][1] - RANGO_DIST[k][0]) * .5, RANGO_DIST[k][0], RANGO_DIST[k][1])); n++; continue; }
       const esc = k === 'piensa' ? Math.abs(a[i]) + 1 : k === 'jugada' ? Math.abs(a[i]) + 5 : Math.abs(a[i]) + 10;
-      a[i] = r4(a[i] + gauss(rng) * sigma * esc); n++;
-      if (k === 'piensa') a[i] = r4(clamp(a[i], PIENSA_RANGO[i][0], PIENSA_RANGO[i][1]));
+      a[i] = r6(a[i] + gauss(rng) * sigma * esc); n++;
+      if (k === 'piensa') a[i] = r6(clamp(a[i], PIENSA_RANGO[i][0], PIENSA_RANGO[i][1]));
     }
     if (n) { cambio[k] = n; total += n; }
   }
@@ -1317,11 +1320,132 @@ function siguienteGeneracion(est, pop, rng) {
   return { pop: nueva, resumen, est };
 }
 
+/* ───────────── Gradiente (39, 0.35.0, idea de Juan) ─────────────
+   «Texel tuning». La valoración de una araña es Σ medida × peso, y cada peso es una mezcla lineal de sus 5 genes
+   (apertura, medio, final, estructura, temperatura). Por eso la derivada respecto a cada gen es directa:
+   la medida por su factor de fase, estructura o temperatura. La red que crece también se deriva (tanh).
+   1) rasgosPos: de una posición saca una sola vez las medidas de TODOS los detectores (vale para cualquier araña).
+   2) ajustarGradiente: con posiciones etiquetadas (probabilidad de ganar de las blancas, de Stockfish o del resultado),
+      unos pasos de Adam sobre los genes de sus detectores encendidos y de su red, para que su valoración se parezca.
+   La evolución sigue decidiendo lo que no tiene gradiente: qué se enciende, cómo piensa, carácter, sesgos, azar. */
+const K_TEXEL = Math.LN10 / 400;
+const sigm = z => 1 / (1 + Math.exp(-z));
+let TODO = null;
+function prepararTodo() {
+  if (TODO) return TODO;
+  const g = genomaClasico(() => .5, 0); for (const d of DET) g['d' + d.n][0] = 1;
+  const C = compilar(g, todasDist()), n = C.G.length, fm = new Int16Array(n).fill(-1);
+  for (const it of C.lista) if (it.d.n !== 4 && it.d.n !== 45) for (let j = 0; j < it.d.nf; j++) fm[it.off + j * 5] = RASGO_ID[it.d.n + ':' + j];
+  C.red = null; C.fmap = fm; C.feat = new Float64Array(RASGOS.length);
+  TODO = { C, n, gx: new Float64Array(n) };
+  return TODO;
+}
+/* Posición tranquila: sin jaque y sin capturas que ganen material (si no, la valoración estática engaña) */
+function tranquila(pos) {
+  if (inCheck(pos)) return false;
+  const c = pos.side, b = pos.b;
+  for (let s = 0; s < 128; s++) { if (s & 0x88) { s += 7; continue; } const p = b[s]; if (p && (p >> 3) !== c && (p & 7) !== K && see(pos, s, c) > 50) return false; }
+  return true;
+}
+/* Medidas de una posición, desde las blancas: índices y valores (solo los que no son cero) */
+function rasgosPos(pos) {
+  const T = prepararTodo(), C = T.C, gx = T.gx; gx.fill(0);
+  C.ctx.gx = gx; try { evaluar(pos, C); } finally { C.ctx.gx = null; }
+  const ii = [], vv = [], fi = [], fv = [];
+  for (let k = 0; k < T.n; k++) if (gx[k]) { ii.push(k); vv.push(gx[k]); }
+  for (let f = 0; f < C.feat.length; f++) if (C.feat[f]) { fi.push(f); fv.push(C.feat[f]); }
+  return { i: Int32Array.from(ii), v: Float64Array.from(vv), fi: Int16Array.from(fi), fv: Float64Array.from(fv) };
+}
+const OPC_GRAD = { pasos: 20, lote: 256, lr: 0.5, lrRed: 0.02 };
+/* datos: [{ i, v, fi, fv, y }] (y = probabilidad de ganar de las blancas). Cambia los genes y devuelve el error antes y después. */
+function ajustarGradiente(genes, datos, opc, rng, flags) {
+  const O = Object.assign({}, OPC_GRAD, opc || {}), F = flags || todasDist();
+  if (!datos || datos.length < 50) return null;
+  completar(genes);
+  const T = prepararTodo(), n = T.n, W = new Float64Array(n), libre = new Uint8Array(n), bloques = [];
+  const detOn = {};
+  for (const it of T.C.lista) {
+    const a = genes['d' + it.d.n]; if (!a || !(a[0] > 0)) continue;
+    detOn[it.d.n] = 1;
+    for (let i = 1, o = it.off; i < a.length; i += 5, o += 5) {
+      W[o] = F[33] ? a[i] : a[i + 1]; W[o + 1] = a[i + 1]; W[o + 2] = F[33] ? a[i + 2] : a[i + 1]; W[o + 3] = a[i + 3]; W[o + 4] = a[i + 4];
+      libre[o + 1] = libre[o + 3] = libre[o + 4] = 1; if (F[33]) libre[o] = libre[o + 2] = 1;
+      bloques.push({ a, i, o });
+    }
+  }
+  // La red: solo lee medidas de detectores encendidos (como en evaluar)
+  const neur = [], rg = genes.red;
+  if (F[29] && rg) for (let q = 0; q < RED_N; q++) {
+    const o = q * RED_W; if (!(rg[o] > 0)) continue;
+    const cons = []; for (let k = 0; k < RED_K; k++) { const w = rg[o + 3 + k * 2]; if (w) { const f = Math.abs(Math.round(rg[o + 2 + k * 2])) % RASGOS.length; cons.push({ f, wi: o + 3 + k * 2, on: !!detOn[RASGOS[f].n] }); } }
+    if (cons.length) neur.push({ oi: o + 1, cons });
+  }
+  const R = rg ? Float64Array.from(rg) : null, nr = R ? R.length : 0;
+  const feat = new Float64Array(RASGOS.length);
+  const pred = d => {
+    let v = 0; const ii = d.i, vv = d.v; for (let k = 0; k < ii.length; k++) v += W[ii[k]] * vv[k];
+    if (neur.length) {
+      for (let k = 0; k < d.fi.length; k++) feat[d.fi[k]] = d.fv[k];
+      for (const ne of neur) { let z = 0; for (const c of ne.cons) if (c.on) z += R[c.wi] * feat[c.f]; ne.t = Math.tanh(z / 4); v += R[ne.oi] * ne.t; }
+    }
+    return v;
+  };
+  const limpiar = d => { for (let k = 0; k < d.fi.length; k++) feat[d.fi[k]] = 0; };
+  const val = [], ent = []; datos.forEach((d, k) => (k % 8 === 0 ? val : ent).push(d));
+  const error = () => { let s = 0; for (const d of val) { const e = sigm(K_TEXEL * pred(d)) - d.y; s += e * e; limpiar(d); } return val.length ? s / val.length : 0; };
+  const antes = error(), W0 = W.slice(), R0 = R ? R.slice() : null;
+  // Adam; si el error de validación empeora, se repite con la mitad de paso (hasta 3 veces)
+  const intentar = lr => {
+    W.set(W0); if (R) R.set(R0);
+    const gW = new Float64Array(n), m1 = new Float64Array(n), m2 = new Float64Array(n);
+    const gR = new Float64Array(nr), r1 = new Float64Array(nr), r2 = new Float64Array(nr);
+    const b1 = .9, b2 = .999, eps = 1e-8, lote = Math.min(O.lote, ent.length);
+    for (let t = 1; t <= O.pasos; t++) {
+      gW.fill(0); if (nr) gR.fill(0);
+      for (let s = 0; s < lote; s++) {
+        const d = ent[Math.floor(rng() * ent.length)], p = sigm(K_TEXEL * pred(d));
+        const g = 2 * (p - d.y) * p * (1 - p) * K_TEXEL / lote;
+        const ii = d.i, vv = d.v; for (let k = 0; k < ii.length; k++) gW[ii[k]] += g * vv[k];
+        for (const ne of neur) {
+          gR[ne.oi] += g * ne.t;
+          const dz = g * R[ne.oi] * (1 - ne.t * ne.t) / 4;
+          for (const c of ne.cons) if (c.on) gR[c.wi] += dz * feat[c.f];
+        }
+        limpiar(d);
+      }
+      if (!F[33]) for (const b of bloques) { gW[b.o + 1] += gW[b.o] + gW[b.o + 2]; }   // un solo cerebro: las tres fases son el mismo gen
+      const c1 = 1 - Math.pow(b1, t), c2 = 1 - Math.pow(b2, t);
+      for (let k = 0; k < n; k++) {
+        if (!libre[k]) continue; const g = gW[k];
+        m1[k] = b1 * m1[k] + (1 - b1) * g; m2[k] = b2 * m2[k] + (1 - b2) * g * g;
+        W[k] -= lr * (m1[k] / c1) / (Math.sqrt(m2[k] / c2) + eps);
+      }
+      if (!F[33]) for (const b of bloques) { W[b.o] = W[b.o + 2] = W[b.o + 1]; }
+      for (const ne of neur) for (const k of [ne.oi].concat(ne.cons.filter(c => c.on).map(c => c.wi))) {
+        const g = gR[k]; r1[k] = b1 * r1[k] + (1 - b1) * g; r2[k] = b2 * r2[k] + (1 - b2) * g * g;
+        R[k] -= (k === ne.oi ? lr : lr * O.lrRed / O.lr) * (r1[k] / c1) / (Math.sqrt(r2[k] / c2) + eps);
+      }
+    }
+    return error();
+  };
+  let lr = O.lr, despues = intentar(lr), intentos = 1;
+  while (!(despues < antes) && intentos < 3) { lr /= 2; despues = intentar(lr); intentos++; }
+  if (!(despues < antes)) return { antes, despues: antes, pasos: O.pasos, n: datos.length, cambio: 0, deshecho: true };   // si empeora, no se toca nada
+  let cambio = 0;
+  for (const b of bloques) {
+    const { a, i, o } = b, nuevo = [F[33] ? W[o] : a[i], W[o + 1], F[33] ? W[o + 2] : a[i + 2], W[o + 3], W[o + 4]];
+    for (let c = 0; c < 5; c++) { const v = r6(nuevo[c]); cambio += Math.abs(v - a[i + c]); a[i + c] = v; }
+  }
+  if (R) for (const ne of neur) for (const k of [ne.oi].concat(ne.cons.map(c => c.wi))) { const v = r6(R[k]); cambio += Math.abs(v - rg[k]); rg[k] = v; }
+  return { antes, despues, pasos: O.pasos, n: datos.length, cambio: r4(cambio), lr };
+}
+
 const API = {
   Pos, INICIO, legal, perft, uci, parseUci, san, sanLista, pgn, fin, inCheck, attacked, sqName, insuficiente, mFrom, mTo,
   DET, DET_BY, COSTE, JUGADA, PIENSA, OPC_EVO, DIST, RASGOS, RED_N, RED_W, CARACTER, SESGO, AUTOMUT, todasDist, completar, neutros,
   genomaClasico, genomaAzar, compilar, evaluar, explicar, Buscador, jugar, aperturaAleatoria,
-  huella, estilo, ESTILO, mulberry, nombre, nuevoIndividuo, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion
+  huella, estilo, ESTILO, mulberry, nombre, nuevoIndividuo, poblacionInicial, emparejar, actualizarElo, cruzar, mutar, diversidad, siguienteGeneracion,
+  tranquila, rasgosPos, ajustarGradiente, OPC_GRAD, K_TEXEL, r6
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.AjedrezMotor = API;
 })(typeof self !== 'undefined' ? self : this);
