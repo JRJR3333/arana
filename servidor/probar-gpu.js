@@ -78,7 +78,7 @@ async function probarCon(variante, puerto) {
     await new Promise(r => { s.onopen = r; });
     const ev = expr => new Promise(r => { const i = ++id; esp.set(i, r); s.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true } })); });
     const t0 = Date.now(); let r = null;
-    while (!r) { if (Date.now() - t0 > 180000) return mal('la prueba no termina en 3 minutos'); await new Promise(k => setTimeout(k, 500)); const x = await ev('window.__prueba || null'); r = x && x.result && x.result.value; }
+    while (!r) { if (Date.now() - t0 > 90000) return mal('la prueba no termina en 90 s (Chromium se ha quedado colgado con esta forma)'); await new Promise(k => setTimeout(k, 500)); const x = await ev('window.__prueba || null'); r = x && x.result && x.result.value; }
     s.close();
     return r.error ? mal(r.error) : cerrar(r);
   } catch (e) { return mal(e.message); }

@@ -76,15 +76,16 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) l: v
   const S = () => (typeof GPUBufferUsage !== 'undefined' ? GPUBufferUsage : {});
   G.disponible = () => typeof navigator !== 'undefined' && !!navigator.gpu;
 
+  const conLimite = (pr, ms, que) => Promise.race([pr, new Promise((_, ko) => setTimeout(() => ko(new Error(que + ' no responde en ' + ms / 1000 + ' s')), ms))]);
   G.iniciar = async function () {
     if (G.dev) return G.info;
     if (!G.disponible()) throw new Error('este navegador no tiene WebGPU');
-    const a = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    const a = await conLimite(navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }), 20000, 'la gráfica');
     if (!a) throw new Error('no hay gráfica disponible para WebGPU');
     const i = a.info || (a.requestAdapterInfo ? await a.requestAdapterInfo() : {}) || {};
     G.info = { fabricante: i.vendor || '', arquitectura: i.architecture || '', descripcion: i.description || '', dispositivo: i.device || '',
       simulada: /swiftshader|llvmpipe|software/i.test([i.vendor, i.architecture, i.description].join(' ')), memoriaMax: a.limits.maxBufferSize };
-    G.dev = await a.requestDevice({ requiredLimits: { maxStorageBufferBindingSize: a.limits.maxStorageBufferBindingSize, maxBufferSize: a.limits.maxBufferSize } });
+    G.dev = await conLimite(a.requestDevice({ requiredLimits: { maxStorageBufferBindingSize: a.limits.maxStorageBufferBindingSize, maxBufferSize: a.limits.maxBufferSize } }), 20000, 'el dispositivo de la gráfica');
     G.dev.lost.then(e => { G.error = 'se perdió la gráfica: ' + (e && e.message); G.dev = null; });
     G.limites = { buffer: a.limits.maxStorageBufferBindingSize };
     const mk = code => G.dev.createComputePipeline({ layout: 'auto', compute: { module: G.dev.createShaderModule({ code }), entryPoint: 'main' } });
