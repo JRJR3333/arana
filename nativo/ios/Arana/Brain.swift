@@ -136,6 +136,10 @@ enum Brain {
     static func quick(_ text: String) async -> String? {
         let t = text.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
             .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        if let r = Recuerdo.responder(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         if let r = Rapido.responder(t) {
             Memory.addTurn(user: text, reply: r)
             return r

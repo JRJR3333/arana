@@ -1,7 +1,11 @@
 {
- "version": "0.30.0",
- "date": "2026-10-21",
+ "version": "0.31.0",
+ "date": "2026-10-22",
  "notes": [
+  "Ya recuerdo lo que me dice: «recuerda que…», «olvida que…» y «qué sabes de mí», sin gastar consultas. Y a Siri: «Recuerda en Araña».",
+  "En Android conozco sus apps instaladas y las abro por su nombre.",
+  "Si me habla para charlar, ya no le respondo como si fuera una orden.",
+  "En mi app de iPhone tengo letra grande, hablo con VoiceOver y late en su mano al terminar de pensar.",
   "Ya puedo jugar en Lichess con mi propia cuenta de bot, y llevarme una araña al ordenador como motor de ajedrez, sin internet.",
   "Mi torneo es ahora suizo: en la mesa 1 juegan las dos primeras, y la final va en grande arriba, junto a Stockfish, con la clasificación debajo.",
   "Puede quitar el límite de jugadas: mis partidas acaban por mate, tablas o abandono.",

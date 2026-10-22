@@ -90,6 +90,8 @@ class MainActivity : Activity() {
             }
         }
         @JavascriptInterface fun capacidades(): String = CAPACIDADES
+        /** 0.31.0 (#36): las apps instaladas, para que la araña las conozca por su nombre. */
+        @JavascriptInterface fun apps(): String = try { Apps.lista(this@MainActivity) } catch (e: Exception) { "[]" }
         /** 0.28.0: guardar la copia de las arañas donde diga usted (Descargas, Drive…). */
         @JavascriptInterface fun guardarArchivo(nombre: String, texto: String) {
             runOnUiThread {
@@ -280,6 +282,6 @@ class MainActivity : Activity() {
         const val FONDO = 0xFF090A14.toInt()
         const val HOST = "jrjr3333.github.io"
         const val SITE = "https://jrjr3333.github.io/arana/?app=android"
-        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar"
+        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar,apps"
     }
 }

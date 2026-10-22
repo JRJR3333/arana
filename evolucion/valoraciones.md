@@ -14,3 +14,12 @@
 - Baja (★★): **Widget sin instalar nada (0.13.0)** → rehecho en la 0.15.0: h4 pasa a un solo control («Araña voz» en Centro de control, pantalla bloqueada o botón de Acción), 2 minutos y sin carpetas.
 - Comentarios: ninguno. Hitos confirmados: ninguno.
 - Decisión: seguir con lo rápido y útil al instante; guías de Atajos más cortas.
+
+## 2026-10-22 · 0.21.0 (issue #32)
+
+- Nota media: **4,8** (26 mejoras, de la 0.15.0 a la 0.21.0): 24 con ★★★★★, una con ★★★★ y una con ★★.
+- Alta en casi todo: app nativa (Centro de control, widget, Isla Dinámica, agenda, música, micrófono propio, metrónomo, azar), Android (abrir apps, flotar, saber dónde vive) y la telaraña.
+- Baja (★★): **Voz y micrófono arreglados (0.16.0, web)** → ya rehecho: micrófono y voz propios en la app de iPhone (0.17.0, ★★★★★) y en Android (0.21.0, ★★★★★). No se vuelve a tocar el micro de la web.
+- Media (★★★★): temporizadores y alarmas (0.17.0) → bien, se mantienen.
+- Comentarios: ninguno. Hitos confirmados: ninguno.
+- Decisión: seguir con funciones de asistente dentro de las apps nativas y con Android.

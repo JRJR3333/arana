@@ -1,5 +1,55 @@
 [
  {
+  "v": "0.31.0",
+  "fecha": "2026-10-22",
+  "mejoras": [
+   {
+    "id": "0.31.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "«Oye Siri, recuerda en Araña» (app nativa)",
+    "detalle": "Siri le pregunta qué quiere que recuerde y la araña lo apunta sin abrir la app. Lo verá en Ajustes → Lo que sé de usted, y el cerebro lo tendrá en cuenta.",
+    "probar": "Diga «Oye Siri, recuerda en Araña» y luego «mi perro se llama Toby».",
+    "hito": "h7"
+   },
+   {
+    "id": "0.31.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Recuerdo lo que me dice, sin gastar (#37)",
+    "detalle": "«Recuerda que…», «apunta que…», «olvida que…» y «qué sabes de mí» funcionan en local en la app de iPhone, en Android y en la web, sin clave y sin consultar a Claude. Sin cerebro, también apunto «me gusta…».",
+    "probar": "Escriba «recuerda que los martes tengo pádel» y luego «qué sabes de mí».",
+    "hito": "asistente"
+   },
+   {
+    "id": "0.31.0-3",
+    "tipo": "diseño",
+    "titulo": "Letra grande y VoiceOver (app nativa)",
+    "detalle": "Condición del dado de hoy: accesibilidad. En Ajustes → Cómo me porto, «Letra grande en el bocadillo». Con VoiceOver leo en voz alta lo que digo, y en la araña hay acciones de Bailar, Dar un paseo y Pregúnteme algo sin hacer gestos.",
+    "probar": "Ajustes → Cómo me porto → active «Letra grande» y hábleme."
+   },
+   {
+    "id": "0.31.0-4",
+    "tipo": "funcionalidad",
+    "titulo": "Android: conozco y abro sus apps (#35, #36)",
+    "detalle": "La app de Android lee las apps instaladas y las abre por su nombre, aunque no estén en mi lista. Si dice «abre» y un nombre que no conozco, lo busco en el móvil en vez de rendirme. En Ajustes ve cuántas conozco.",
+    "probar": "En Android: «abre» y una app rara que tenga instalada."
+   },
+   {
+    "id": "0.31.0-5",
+    "tipo": "arreglo",
+    "titulo": "¿Orden o charla? (#34, #33)",
+    "detalle": "Sin cerebro, si lo que me dice suena a conversación le contesto como tal en vez de ofrecerle botones de órdenes. Y «quiero verte fuera de la app» en Android me hace flotar.",
+    "probar": "Sin clave: «qué tal estás hoy»."
+   },
+   {
+    "id": "0.31.0-6",
+    "tipo": "sorpresa",
+    "titulo": "Latido en su mano (app nativa)",
+    "detalle": "Cuando termino de pensar, el iPhone da un pequeño toque, como un latido. Se apaga en Ajustes → Cómo me porto.",
+    "probar": "Pídame algo que me haga pensar y note el toque al terminar."
+   }
+  ]
+ },
+ {
   "v": "0.30.0",
   "fecha": "2026-10-21",
   "mejoras": [

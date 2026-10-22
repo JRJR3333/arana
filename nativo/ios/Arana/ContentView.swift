@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Una opción bajo la araña (como las de la web): la principal en azul.
 struct Opcion: Identifiable {
@@ -24,6 +25,9 @@ struct ContentView: View {
     // 0.23.0: la araña vuelve a moverse, a preguntar y a pedirle a Claude lo que no sabe
     @AppStorage("arana.pasear") private var pasear = true
     @AppStorage("arana.preguntar") private var preguntar = true
+    // 0.31.0: accesibilidad (letra grande, VoiceOver lee lo que digo) y la sorpresa del latido
+    @AppStorage("arana.letraGrande") private var letraGrande = false
+    @AppStorage("arana.latido") private var latido = true
     @State private var off: CGSize = .zero
     @State private var dragStart: CGSize?
     @State private var heading: Double = -Double.pi / 2
@@ -102,6 +106,12 @@ struct ContentView: View {
                         hito: { t in Memory.addThread(); hilos = UserDefaults.standard.integer(forKey: "arana.hilos"); bubble = "Hito de ajedrez: \(t)." })
         }
         .task { await vida() }
+        // Sorpresa 0.31.0: la araña late en su mano cuando termina de pensar (se apaga en Ajustes)
+        .sensoryFeedback(.success, trigger: thinking) { antes, ahora in latido && antes && !ahora }
+        // 0.31.0: con VoiceOver, leo en voz alta lo que pongo en el bocadillo
+        .onChange(of: bubble) { _, t in
+            if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: t) }
+        }
         .onChange(of: typing) { _, t in if t { idleSince = Date(); if escondida || off != .zero { off = .zero; escondida = false } } }
         .onOpenURL { u in
             // h8: el widget abre la app escuchando (arana://escuchar).
@@ -122,7 +132,7 @@ struct ContentView: View {
 
     private var bubbleView: some View {
         Text(bubble)
-            .font(.system(.callout, design: .monospaced).weight(.medium))
+            .font(.system(letraGrande ? .title2 : .callout, design: .monospaced).weight(letraGrande ? .semibold : .medium))
             .multilineTextAlignment(.center)
             .padding(typing ? 10 : 14)
             .background(Color(red: 0.04, green: 0.05, blue: 0.09).opacity(0.9), in: RoundedRectangle(cornerRadius: 10))
@@ -161,6 +171,9 @@ struct ContentView: View {
             .zIndex(2)
             .accessibilityLabel("La araña")
             .accessibilityHint("Toque para hablar. Tres toques, baila. Mantenga pulsado para su menú.")
+            .accessibilityAction(named: "Bailar") { Task { await mover(.dance) } }
+            .accessibilityAction(named: "Dar un paseo") { Task { await mover(.walk) } }
+            .accessibilityAction(named: "Pregúnteme algo") { preguntarAlgo(forzar: true) }
     }
 
     private var settings: some View {
@@ -189,11 +202,14 @@ struct ContentView: View {
                 Section("Cómo me porto") {
                     Toggle("Pasear por la pantalla cuando no hago nada", isOn: $pasear)
                     Toggle("Hacerle preguntas de vez en cuando", isOn: $preguntar)
+                    Toggle("Letra grande en el bocadillo", isOn: $letraGrande)
+                    Toggle("Latir en su mano cuando termino de pensar", isOn: $latido)
                     Text("Tóqueme para hablar. Dos toques: salto. Tres: bailo. Mantenga pulsado: mi menú. Arrástreme para cambiarme de sitio.").font(.footnote)
                 }
                 Section("Lo que sé de usted") {
                     if Memory.facts.isEmpty { Text("Aún nada. Cuénteme algo de usted y lo recordaré.").font(.footnote) }
                     ForEach(Memory.facts, id: \.self) { Text($0).font(.footnote) }
+                    Text("Dígame «recuerda que…» o, a Siri, «Recuerda en Araña». «Olvida que…» lo borra.").font(.footnote).foregroundStyle(.secondary)
                 }
             }.navigationTitle("Ajustes")
         }

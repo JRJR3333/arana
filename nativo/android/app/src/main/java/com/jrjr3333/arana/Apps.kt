@@ -38,9 +38,24 @@ object Apps {
     fun norm(s: String): String =
         Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9 ]"), "").trim()
 
+    /** #36: las apps que se ven en el cajón del móvil, como JSON [{"n":nombre,"p":paquete}], por orden alfabético. */
+    fun lista(ctx: Context): String {
+        val pm = ctx.packageManager
+        val arr = org.json.JSONArray()
+        pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+            .map { it.loadLabel(pm).toString().trim() to it.activityInfo.packageName }
+            .filter { it.first.isNotEmpty() && it.second != ctx.packageName }
+            .distinctBy { it.second }
+            .sortedBy { norm(it.first) }
+            .forEach { arr.put(org.json.JSONObject().put("n", it.first).put("p", it.second)) }
+        return arr.toString()
+    }
+
     /** El intent que abre la app, o null si no está en este móvil. */
     fun buscar(ctx: Context, id: String?, nombre: String?): Intent? {
         val pm = ctx.packageManager
+        // #36: la web manda el paquete exacto de las apps que ha leído del móvil
+        if (id != null && id.startsWith("pkg.")) pm.getLaunchIntentForPackage(id.removePrefix("pkg."))?.let { return it }
         for (p in PAQUETES[id ?: ""].orEmpty() + PAQUETES[norm(nombre ?: "")].orEmpty()) {
             pm.getLaunchIntentForPackage(p)?.let { return it }
         }

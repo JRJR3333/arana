@@ -544,11 +544,23 @@ const labelSteps=st=>st.map(label).join(' + ');
 /* ================= Apps que conozco ================= */
 const esc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 function appInfo(id){ const c=CATALOG[id]||home.custom[id]; if(!c) return null; const o=home.over[id]||{}; return {...c,name:o.name||c.name,url:'url' in o?o.url:c.url}; }
+/* 0.31.0 (#36): en la app de Android conozco las apps instaladas (AranaAndroid.apps) y,
+   con un APK antiguo, abro por el nombre que se diga (#35). No van al cerebro: gastaría más. */
+let PHONE_APPS=[]; const ADHOC={};
+function readPhoneApps(){ PHONE_APPS=[]; const b=AND(); if(!IN_APK||!b||!b.apps) return;
+  try{ PHONE_APPS=JSON.parse(b.apps()||'[]').filter(x=>x&&x.n&&x.p).slice(0,400); }catch(e){ PHONE_APPS=[]; } }
+const isPhoneApp=a=>a&&/^(pkg|m)\./.test(a.id);
+function adhocApp(name){ name=String(name||'').replace(/^(la |el )?(app|aplicacion|aplicación)( de)? /i,'').trim(); const n=norm(name);
+  if(!IN_APK||n.length<2) return null; const id='m.'+n.replace(/ /g,'-'); if(!ADHOC[id]){ ADHOC[id]={id,name:cap1(name),url:'',bg:'#3a3f55',al:[n]}; APPS.push(ADHOC[id]); }
+  return ADHOC[id]; }
 function rebuildApps(){
   const ids=[...new Set([...Object.keys(CATALOG),...Object.keys(home.custom||{})])];
   APPS=ids.map(id=>{ const c=appInfo(id); if(!c) return null;
     const al=[...new Set([norm(c.name),norm(CATALOG[id]?CATALOG[id].name:c.name),...(c.al||[]).map(norm)])].filter(Boolean);
     return {id,name:c.name,url:c.url,bg:c.bg,al}; }).filter(Boolean);
+  if(IN_APK){ const known=new Set(APPS.flatMap(a=>a.al));
+    for(const x of PHONE_APPS){ const n=norm(x.n); if(n&&!known.has(n)){ known.add(n); APPS.push({id:'pkg.'+x.p,name:x.n,url:'',bg:'#3a3f55',al:[n]}); } }
+    for(const k in ADHOC) if(!APPS.some(a=>a.id===k)) APPS.push(ADHOC[k]); }
 }
 function editLink(id){
   const a=appById(id); if(!a) return;
@@ -1110,6 +1122,7 @@ function rules(l,raw){
     return {suggestSet:s};
   }
   const a=findApp(l); if(a) return {act:{t:'open',id:a.id}};
+  const ab=l.match(/^(?:abre|abrir|abra|abreme|lanza|entra en|entra)\s+(.{2,40})$/); if(ab&&CAPS.open){ const x=adhocApp(ab[1]); if(x) return {act:{t:'open',id:x.id}}; }
   if(/^(abre|abrir|abra|lanza|entra)\b/.test(l)) return {cant:CAPS.open?'No conozco esa app. Dígame su nombre exacto o pídasela a Claude.':cantHere({t:'open'})};
   return null;
 }
@@ -1213,7 +1226,7 @@ function androidAnswer(l){
   if(/\b(has aprendido|ya sabes|sabes ya)\b/.test(l)&&SALIR.test(l)) return CAPS.exit?'Sí. Diga «sal de la app» y me cierro.':ON_IOS?'En el iPhone no puedo cerrarme yo: deslice hacia arriba desde abajo.':'Desde aquí no puedo cerrarme.';
   if(/\b(has aprendido|lo ultimo que|novedades|que hay de nuevo|que sabes hacer nuevo|cuando (voy a saber|sabre|me entero))\b/.test(l)&&!/\bde mi\b/.test(l)){
     const n=(VERSION.notes||[])[0]; return (n?'Lo último que he aprendido, en la '+VERSION.version+': '+n+' ':'')+'Cada mañana reviso sus peticiones; cuando aprendo algo se lo digo al abrir.'; }
-  if(/\b(flota|flotar|flotando|burbuja|sacarte|sacar(te)? fuera|quedate (fuera|encima|flotando)|encima de (las )?(otras|demas) apps?|sobre (las )?(otras|demas) apps?)\b/.test(l)){
+  if(/\b(flota|flotar|flotando|burbuja|sacarte|sacar(te)? fuera|quedate (fuera|encima|flotando)|(verte|estar|hablar(te)?|salir) fuera de (la )?(app|aplicacion)|encima de (las )?(otras|demas) apps?|sobre (las )?(otras|demas) apps?)\b/.test(l)){
     if(CAPS.float){ apkLaunch('arana://flotar'); return 'Salgo y me quedo flotando. Tóqueme para hablar; manténgame pulsada para guardarme.'; }
     return ON_ANDROID?'Para flotar sobre las demás apps necesito mi app de Android.':'En el iPhone ninguna app puede flotar sobre las demás. Use mi widget o el Centro de control.'; }
   if(SALIR.test(l)&&!/\b(abre|abrir)\b/.test(l)&&!findApp(l)){ if(CAPS.exit){ apkLaunch('arana://salir'); return 'Hasta luego.'; } return ON_ANDROID?'Desde el navegador no puedo cerrarme. En mi app de Android sí.':ON_IOS?'En el iPhone no puedo cerrarme yo: deslice hacia arriba desde abajo.':'Desde aquí no puedo cerrarme.'; }
@@ -1235,6 +1248,30 @@ function chatAnswer(l){
   if(brainReady()) return null;
   return pick(['Con mucho gusto, '+myName+'.','Aquí me tiene.','Hablemos.'])+' '+pick(CURIOS)+' '+pick(['¿Qué tal su día?','¿Qué le apetece hacer?','¿Le cuento otra?']);
 }
+/* 0.31.0 (#37): «recuerda que…», «olvida que…» y, sin cerebro, «me gusta…»: lo apunto en local, sin gastar consulta */
+function memoCmd(l,raw){
+  const words=String(raw).trim().split(/\s+/), rest=k=>words.slice(k).join(' ').replace(/[.!?¡¿]+$/,'').trim();
+  let m=l.match(/^(?:oye |arana )?(recuerda que|apunta que|anota que|no olvides que|acuerdate de que|quiero que recuerdes que|recuerda esto)\s+(.{3,})$/);
+  if(m){ const pre=(l.startsWith('oye ')||l.startsWith('arana ')?1:0)+m[1].split(' ').length, t0=rest(pre); if(!t0) return null;
+    const t=t0.charAt(0).toUpperCase()+t0.slice(1)+'.'; facts=facts.filter(f=>norm(f.t)!==norm(t)); facts.push({t,ts:Date.now()}); if(facts.length>60) facts=facts.slice(-60);
+    saveBrain(); logEv('fact',null,'',{name:t}); learning(); return pick(['Apuntado: ','Lo recordaré: ','Guardado con hilo fino: '])+t0+'.'; }
+  m=l.match(/^(?:olvida|olvidate de|borra) que\s+(.{3,})$/);
+  if(m){ const q=m[1], n0=facts.length; facts=facts.filter(f=>!norm(f.t).includes(q)); if(facts.length===n0) return 'No tenía apuntado eso.'; saveBrain(); return 'Olvidado.'; }
+  m=l.match(/^(?:pues )?(me gusta(?:n)?|me encanta(?:n)?|no me gusta(?:n)?|odio|mi \w+ favorit[oa] es)\s+(.{2,60})$/);
+  if(m&&!brainReady()){ const mine=m[1].startsWith('mi '), t=mine?rest(0):rest(m[1].split(' ').length), neg=/^(no|odio)/.test(m[1]); if(!t) return null;
+    const f=(mine?'Su '+t.replace(/^mi\s+/i,''):(neg?'No le gusta ':'Le gusta ')+t)+'.'; if(!facts.some(x=>x.t===f)){ facts.push({t:f,ts:Date.now()}); saveBrain(); learning(); }
+    return pick(neg?['Tomo nota. Lo evitaré.','Entendido, no se lo propondré.']:['Anotado. Me alegra saberlo.','Lo apunto. Buen gusto, '+myName+'.']); }
+  return null;
+}
+/* 0.31.0 (#34): sin cerebro, distingo si me da una orden o si quiere charlar */
+const ORDER_RE=/^(abre|abrir|pon|ponme|activa|desactiva|apaga|enciende|sube|baja|quita|llama|manda|envia|escribe|busca|reproduce|para|pausa|cierra|lanza|cambia|avisame|haz|crea|anade|borra)\b/;
+function talkAnswer(l){
+  if(ORDER_RE.test(l)||findApp(l)||findSet(l)) return null;
+  const q=/^(que|como|por que|porque|quien|cuando|donde|cual|cuanto|sabes|te gusta|eres|tienes|puedes|crees)\b/.test(l), feel=/\b(estoy|me siento|tengo (sueno|hambre|frio|calor)|que dia|cansad|aburrid|content|triste|feliz)\b/.test(l);
+  if(!q&&!feel&&l.split(' ').length<4) return null;
+  if(feel) return pick(['Le escucho, '+myName+'. ','Gracias por contármelo. '])+(/(triste|cansad|aburrid|sueno)/.test(l)?pick(['¿Le pongo música o damos un paseo por la pantalla?','Un descanso le vendrá bien.']):pick(['Me alegro.','Así me gusta.']));
+  return 'Eso me suena a conversación, no a una orden. '+(brain.key?'':'Para charlar de verdad necesito mi cerebro: una clave de Claude en Ajustes. ')+pick(CURIOS);
+}
 /* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
 let myName=store.get('name','Juan');
 const cap1=w=>w.replace(/(^|\s)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
@@ -1246,6 +1283,7 @@ function quickAnswer(l,raw){
   if(nm){ const n=cap1(nm[1].trim()); myName=n; store.set('name',n);
     const t='Prefiere que le llamen '+n+'.'; if(!facts.some(f=>f.t===t)){ facts=facts.filter(f=>!/^Prefiere que le llamen /.test(f.t)); facts.push({t,ts:Date.now()}); saveBrain(); }
     return 'Anotado. A su servicio, '+n+'.'; }
+  const mf=memoCmd(l,raw); if(mf) return mf;
   if(/\b(como me llamo|cual es mi nombre|sabes (como me llamo|mi nombre)|quien soy( yo)?|mi nombre)\b/.test(l)&&l.split(' ').length<=7)
     return roll(.6)?pick(['Se llama usted '+myName+'. No lo olvido.','Usted es '+myName+', mi jefe.',''+myName+'. Lo llevo tejido en la memoria.']):'Usted es '+myName+'.';
   if(/^(?:dame |dime |quiero )?(?:el )?(?:parte|resumen)(?: de la manana| del dia| de hoy| de hoy por la manana)?$/.test(l)) return briefText();
@@ -1329,6 +1367,7 @@ async function rulesFlow(l,raw,r){
   if(r&&r.cant){ sad(); say(r.cant,4200); logEv('cant',null,l); addWish(l,r.cant); return offerClaude(l,r.cant); }
   if(r&&r.suggestSet) return pickSetting(r.suggestSet);
   // No lo entiendo: pregunto y aprendo de su elección
+  const tk=talkAnswer(l); if(tk){ say(tk,Math.max(3600,tk.length*65)); speak(tk); logEv('answer',null,l); return; }
   const g=guesses(l);
   if(!g.length){ say('Eso aún no lo sé hacer.',3000); logEv('unknown',null,l); addWish(l,'No lo entendió.'); return offerClaude(l,'No lo entendió.'); }
   const v=await chips('¿Quería decir…?',[...g.map(a=>[label(a),a]),['Ninguna',null]],{x:S.x,y:S.y}).catch(()=>null);
@@ -1355,7 +1394,7 @@ const saveBrain=()=>{ store.set('brain',brain); store.set('facts',facts); store.
 const nowText=()=>new Date().toLocaleString('es-ES',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
 const STEP_DOCS={
   spider:()=>'- spider: lo que haces con tu cuerpo en la pantalla. action = '+Object.keys(MOVE_NAMES).join('|')+' (bailar, pasear, dar una vuelta, saltar, volver, esconderte, seguir su dedo, quedarte quieta, reverencia).',
-  open:()=>'- open: abrir una app. app = id de: '+APPS.filter(canOpen).map(a=>a.id+' ('+a.name+')').join(', ')+'.'+(IN_APK?' Si no está en la lista, usa el nombre que tenga en el móvil.':''),
+  open:()=>'- open: abrir una app. app = id de: '+APPS.filter(a=>canOpen(a)&&!isPhoneApp(a)).map(a=>a.id+' ('+a.name+')').join(', ')+'.'+(IN_APK?' Si no está en la lista, usa el nombre que tenga en el móvil.':''),
   set:()=>'- set: cambiar un ajuste del '+(IN_APK?'móvil (lo hago yo en Android; Wi-Fi, datos y Bluetooth abren su panel para que Juan toque)':'iPhone con el atajo «Araña»')+'. setting = '+SETS.map(x=>x.id+' ('+x.name+'; '+(x.kind==='level'?'valor 1-100':'on/off')+')').join(', ')+'.',
   whatsapp:()=>'- whatsapp: abrir WhatsApp con un texto escrito; Juan elige el contacto y pulsa enviar. text = mensaje.',
   pocket:()=>'- pocket: guardar un texto en tu bolsillo. text = contenido.',
@@ -1460,7 +1499,7 @@ function parseWhen(w){ const m=String(w||'').match(/^(\d{4})-(\d{2})-(\d{2})(?:[
 function toActs(steps){
   const acts=[], bad=[];
   for(const x of steps||[]){
-    if(x.type==='open'||x.type==='carry'){ const a=appById(x.app); if(a&&canOpen(a)&&CAPS[x.type]) acts.push({t:x.type,id:a.id}); else bad.push(a?a.name:x.app); }
+    if(x.type==='open'||x.type==='carry'){ const a=appById(x.app)||(x.type==='open'?adhocApp(x.app):null); if(a&&canOpen(a)&&CAPS[x.type]) acts.push({t:x.type,id:a.id}); else bad.push(a?a.name:x.app); }
     else if(x.type==='set'){ const st=setById(x.setting); if(!st||!CAPS.set){ bad.push(st?st.name:x.setting); continue; }
       let v=String(x.value||'').toLowerCase();
       if(st.kind==='level'){ const n=parseInt(v,10); if(!(n>=1&&n<=100)){ bad.push(st.name); continue; } v=String(n); }
@@ -1805,6 +1844,7 @@ function openSettings(){
     <div><span class="lbl">Lo que puedo hacer en ${where}</span><ul class="cells">
       ${CAP_LIST.map(([k,t])=>`<li class="cap${CAPS[k]?'':' no'}"><span>${t}</span></li>`).join('')}</ul>
       <p class="note">${IN_APK?(BRIDGE2?'Mi app de Android es donde más puedo hacer.':'Actualice mi app de Android para tener ajustes, música y citas.'):ON_IOS?'En mi app de iPhone hago aún más: temporizadores, citas, música y escucho sin teclado.':'En mi app de Android o de iPhone puedo hacer cosas en el móvil.'}</p>
+      ${PHONE_APPS.length?`<p class="note">Conozco ${PHONE_APPS.length} apps de su móvil: ${escapeHTML(PHONE_APPS.slice(0,40).map(x=>x.n).join(', '))}${PHONE_APPS.length>40?'…':''}. Dígame «abre» y su nombre.</p>`:''}
       ${CAPS.float?'<ul class="cells" style="margin-top:6px"><li><button type="button" class="act" id="aFloat">Flotar sobre las demás apps</button></li></ul>':''}</div>
     ${ON_IOS?`<div><span class="lbl">Conexión con Atajos</span><ul class="cells">
       <li><button type="button" class="act" id="test">Probar el atajo «Araña»</button></li>
@@ -1991,7 +2031,7 @@ fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
 }).catch(()=>{});
 
 /* ================= Arranque ================= */
-rebuildApps(); resize(); fitViewport(); drawTela(); { const h=nestPos(); S.x=S.tx=h.x; S.y=S.ty=h.y; } initLegs(); requestAnimationFrame(frame);
+readPhoneApps(); rebuildApps(); resize(); fitViewport(); drawTela(); { const h=nestPos(); S.x=S.tx=h.x; S.y=S.ty=h.y; } initLegs(); requestAnimationFrame(frame);
 const first=!store.get('seen',false); store.set('seen',true);
 // h2 · «Oye Siri, Araña»: el atajo «Araña voz» abre la web con ?q=orden y la ejecuto al cargar.
 // Se borra de la dirección enseguida para que una recarga no la repita.
