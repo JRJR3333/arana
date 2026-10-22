@@ -33,11 +33,11 @@ const ESCALERA = [
   { n: 19, nombre: 'Plena potencia', skill: 20, go: 'movetime 100' }, { n: 20, nombre: 'Plena potencia, sin prisa', skill: 20, go: 'movetime 500' },
   { n: 21, nombre: 'Un segundo por jugada', skill: 20, go: 'movetime 1000' }, { n: 22, nombre: 'Tres segundos por jugada', skill: 20, go: 'movetime 3000' },
   { n: 23, nombre: 'Stockfish al máximo', skill: 20, go: 'movetime 10000' }];
-/* Elo aproximado de cada peldaño en la escala normal (CCRL, la de UCI_Elo de Stockfish): calibrado en la 0.31.0
-   con partidas entre peldaños vecinos y contra Stockfish con «Elo limitado» de 1320 a 2900 (ver ajedrez/README.md). */
-const ELO_PELDANO = [700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2300, 2500, 2700, 2900, 3100];
+/* Elo aproximado de cada peldaño en la escala normal (CCRL, la de UCI_Elo de Stockfish): calibrado en la 0.32.0
+   con 418 partidas entre peldaños vecinos y contra Stockfish con «Elo limitado» de 1320 a 2900 a 1 s por jugada (ver ajedrez/README.md). */
+const ELO_PELDANO = [1160, 1280, 1340, 1500, 1660, 1680, 1700, 1800, 1940, 2070, 2120, 2220, 2280, 2370, 2520, 2780, 2810, 3000, 3250, 3350, 3450, 3550, 3600];   // 19 a 23: estimados por encima de las anclas
 ESCALERA.forEach((E, i) => { E.elo = ELO_PELDANO[i]; });
-const ELO_INICIAL = 800;   // una población recién nacida (genes clásicos con ruido) juega más o menos así
+const ELO_INICIAL = 1500;   // una población recién nacida (genes clásicos con ruido) juega más o menos así
 
 /* ───── Elo en la escala normal ─────
    Las partidas entre arañas solo dan un Elo relativo, y se inflaba (las hijas heredan la media de sus padres y las peores mueren).
@@ -53,7 +53,7 @@ function anclaElo(js, c0, sd) {
   return c;
 }
 const mediaEloDe = l => l.length ? l.reduce((a, p) => a + p.elo, 0) / l.length : 0;
-/* Pasa a la escala normal todo lo guardado antes de la 0.31.0: cada generación tiene su desplazamiento, sacado de sus partidas contra Stockfish
+/* Pasa a la escala normal todo lo guardado antes de la 0.32.0: cada generación tiene su desplazamiento, sacado de sus partidas contra Stockfish
    (y de las 3 generaciones de cada lado, con menos peso). Sin partidas cerca, la media de la generación se toma como una población recién nacida. */
 function migrarElo(inds, gens) {
   const eloEn = (p, g) => { const h = (p.hist || []).find(x => x.gen === g); return h ? h.elo : p.elo; };
@@ -188,7 +188,7 @@ function guardarEstado(extra) {
 /* ───── Hilos de partidas ───── */
 const NUCLEOS = navigator.hardwareConcurrency || 4, NHILOS = Math.max(1, Math.min(8, NUCLEOS - 1));
 
-/* ───── Rendimiento: cuánto trabaja el aparato (0.31.0) ─────
+/* ───── Rendimiento: cuánto trabaja el aparato (0.32.0) ─────
    Tres modos (Ahorro, Equilibrado, Máximo). Cada hilo mide su velocidad cada 4 partidas con la misma búsqueda de prueba;
    si baja mucho respecto a lo mejor que ha medido, el aparato se está calentando: usa un hilo menos y descansa entre partidas.
    Con poca batería (si el sistema lo dice) pasa a Ahorro, y con muy poca hace una pausa. El tiempo por jugada «Automático»
@@ -1379,7 +1379,7 @@ async function importarTexto(texto, nombreArchivo) {
   const inds = d && d.app === 'arana-ajedrez' && Array.isArray(d.individuos) ? d.individuos.filter(p => p && p.id && p.genes) : null;
   if (!inds || !inds.length) return 'Ese archivo no trae arañas con genes.';
   const ops = [], fecha = new Date().toISOString(); let n = 0;
-  // Copias de antes de la 0.31.0: su Elo se pasa a la escala normal con sus propias generaciones
+  // Copias de antes de la 0.32.0: su Elo se pasa a la escala normal con sus propias generaciones
   let cImp = null;
   if (!(d.estado && d.estado.eloReal)) { const m = migrarElo(new Map(inds.map(p => [p.id, p])), (d.generaciones || []).slice().sort((a, b) => a.gen - b.gen)); cImp = p => { if (p.eloReal) return; const v = p.murio != null ? m.cDe(p.murio) : m.ult; p.elo = Math.round(p.elo + (v == null ? m.fallback(inds) : v)); (p.hist || []).forEach(h => { const w = m.cDe(h.gen); h.elo = Math.round(h.elo + (w == null ? m.fallback(inds) : w)); }); p.eloReal = 1; }; }
   for (const p0 of inds) {
@@ -1928,7 +1928,7 @@ document.addEventListener('keydown', e => {   // atajos en el ordenador
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { rend, hilosActivos, msJugada, textoRend, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 // Sin internet: la sala se guarda en el aparato (sw.js de Araña) también si se abre directamente
 try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); } catch (e) {}

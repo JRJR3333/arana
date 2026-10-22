@@ -116,12 +116,23 @@ Todo queda apuntado: de cada araña se guardan sus padres, cuántos bloques dio 
 
 ## El Elo
 
-Desde la 0.31.0 el Elo está en la **escala normal** (la de las listas de motores, CCRL, que es la que usa Stockfish con «Elo limitado»; para personas es orientativo). Antes solo era relativo entre las arañas y se inflaba sin parar (las hijas heredan la media de sus padres y las peores mueren), hasta salir cifras como 6600.
+Desde la 0.32.0 el Elo está en la **escala normal** (la de las listas de motores, CCRL, que es la que usa Stockfish con «Elo limitado»; para personas es orientativo). Antes solo era relativo entre las arañas y se inflaba sin parar (las hijas heredan la media de sus padres y las peores mueren), hasta salir cifras como 6600.
 
-- **Cada peldaño tiene su Elo**, calibrado con partidas entre peldaños vecinos y contra Stockfish con «Elo limitado» (1320, 1700, 2100, 2500 y 2900, a 1 s por jugada). Se ve en la Escalera.
+- **Cada peldaño tiene su Elo**, calibrado con 418 partidas entre peldaños vecinos y contra Stockfish con «Elo limitado» (1320, 1700, 2100, 2500 y 2900, a 1 s por jugada). Se ve en la Escalera:
+
+  | Peldaño | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | Elo ≈ | 1160 | 1280 | 1340 | 1500 | 1660 | 1680 | 1700 | 1800 | 1940 | 2070 | 2120 | 2220 |
+
+  | Peldaño | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | Elo ≈ | 2280 | 2370 | 2520 | 2780 | 2810 | 3000 | 3250 | 3350 | 3450 | 3550 | 3600 |
+
+  Del 19 al 23 son estimaciones (están por encima de la ancla más alta). Como las anclas jugaron a 1 s por jugada, más deprisa que su calibración oficial, puede que todo esté algo alto (del orden de 100).
+- Una población recién nacida empieza en 1500 (los genes clásicos juegan más o menos como los peldaños 4 y 5).
 - **Las arañas se anclan a la escalera**: tras cada generación, sus partidas contra Stockfish desplazan el Elo de todas a la vez (máxima verosimilitud con el modelo de Elo, y una previa para no dar saltos con pocas partidas). Entre ellas, el Elo sigue diciendo quién es mejor que quién.
 - **Sin inflación**: al nacer una generación, la media se mantiene; si la población mejora de verdad, lo dicen las partidas contra Stockfish.
-- **Lo guardado se recalculó** al abrir la 0.31.0: cada generación con su propio desplazamiento, sacado de sus partidas contra Stockfish (y de las vecinas). Las copias importadas de antes se pasan igual, con sus propias generaciones.
+- **Lo guardado se recalculó** al abrir la 0.32.0: cada generación con su propio desplazamiento, sacado de sus partidas contra Stockfish (y de las vecinas). Las copias importadas de antes se pasan igual, con sus propias generaciones.
 - Es una estimación: con 8 partidas por generación puede moverse ±100.
 
 ## Las distópicas

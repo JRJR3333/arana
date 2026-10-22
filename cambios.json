@@ -1,5 +1,32 @@
 [
  {
+  "v": "0.32.0",
+  "fecha": "2026-10-22",
+  "mejoras": [
+   {
+    "id": "0.32.0-1",
+    "tipo": "arreglo",
+    "titulo": "Elo de ajedrez en la escala normal",
+    "detalle": "A petición de Juan (marcaba 6600). Cada peldaño tiene su Elo, calibrado con 418 partidas entre peldaños y contra Stockfish con Elo limitado (de 1160 el peldaño 1 a unos 3600 Stockfish al máximo). Tras cada generación, las partidas contra Stockfish anclan el Elo de todas, y al nacer una generación la media ya no sube sola. Todo lo guardado (población, registro, biblioteca, gráficas) se ha recalculado una vez, generación a generación.",
+    "probar": "Abra la sala y mire la clasificación y la Escalera."
+   },
+   {
+    "id": "0.32.0-2",
+    "tipo": "funcionalidad",
+    "titulo": "Ajedrez: rendimiento según el aparato",
+    "detalle": "Opciones → «Cuánto trabaja el aparato»: Ahorro, Equilibrado o Máximo. Cada hilo mide la velocidad cada 4 partidas; si baja mucho (se calienta), usa un hilo menos y descansa más, y lo recupera al enfriarse. Con poca batería pasa a Ahorro y con muy poca para (donde el sistema da la batería, como Android). El tiempo por jugada «Automático» sale de la velocidad del aparato.",
+    "probar": "Ponga Equilibrado, entrene y mire la barra de arriba."
+   },
+   {
+    "id": "0.32.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Más profundidad y Stockfish al máximo",
+    "detalle": "Profundidad de 2 a 20 jugadas o sin tope, tiempo por jugada de 10 ms a 5 s. La escalera sube a 23 peldaños: Stockfish a 1 s, 3 s y 10 s por jugada.",
+    "probar": "Opciones → Profundidad máxima; Escalera."
+   }
+  ]
+ },
+ {
   "v": "0.31.0",
   "fecha": "2026-10-22",
   "mejoras": [
