@@ -23,11 +23,13 @@ function buscarChromium() {
 const conGPU = () => process.env.ARANA_GPU !== '0';
 /* Formas de encender la gráfica en Chromium sin ventana. probar-gpu.js prueba en orden y guarda la que funciona en DATOS/gpu.json:
    «vulkan»: todo por Vulkan (la receta de Chrome para NVIDIA en Linux); «dawn»: WebGPU por Vulkan y la composición por software
-   (por si ANGLE no arranca sin pantalla); «gl»: ANGLE por OpenGL/EGL. */
+   (por si ANGLE no arranca sin pantalla); «nativo»: Vulkan sin la caja de arena de la gráfica (con la NVIDIA, a veces la caja
+   no deja abrir /dev/nvidia*); «gl»: ANGLE por OpenGL/EGL. */
 const VARIANTES = {
   vulkan: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=vulkan', '--disable-vulkan-surface', '--ignore-gpu-blocklist'],
+  nativo: ['--enable-unsafe-webgpu', '--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan', '--use-angle=vulkan', '--use-vulkan=native', '--disable-vulkan-surface', '--ignore-gpu-blocklist', '--disable-gpu-sandbox'],
   dawn: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=swiftshader', '--disable-vulkan-surface', '--ignore-gpu-blocklist'],
-  gl: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-gl=angle', '--use-angle=gl-egl', '--ignore-gpu-blocklist']
+  gl: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-gl=angle', '--use-angle=gl-egl', '--ignore-gpu-blocklist', '--disable-gpu-sandbox']
 };
 const GPU_JSON = path.join(DATOS, 'gpu.json');
 const varianteGuardada = () => { try { const v = JSON.parse(fs.readFileSync(GPU_JSON, 'utf8')).variante; return VARIANTES[v] ? v : null; } catch (e) { return null; } };

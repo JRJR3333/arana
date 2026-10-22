@@ -7,6 +7,7 @@
    Uso:   node ~/arana/servidor/probar-gpu.js                 (prueba normal)
           node ~/arana/servidor/probar-gpu.js --variante dawn (solo esa forma)
           node ~/arana/servidor/probar-gpu.js --parar-llama   (para llama-server durante la prueba y lo reanuda al acabar)
+          node ~/arana/servidor/probar-gpu.js --diagnostico   (lo que dice chrome://gpu con cada forma, para Claude)
           node ~/arana/servidor/probar-gpu.js --lote 1024 --filtros 128 --bloques 10
    No necesita parar el servicio arana. */
 'use strict';
@@ -28,6 +29,10 @@ const srv = http.createServer((req, res) => {
   const ll = procesosLlama();
   console.log(ll.length ? `llama-server está abierto (pid ${ll[0].pid}${ll[0].unidad ? ', servicio ' + ll[0].unidad : ', lanzado a mano'}).` : 'llama-server no está abierto.');
   if (conLlama && ll.length) { const r = await pararLlama(); if (r.error) console.log('· No he podido pararlo:', r.error); }
+  if (arg.includes('--diagnostico')) {
+    for (const v of (val('variante') ? [val('variante')] : Object.keys(VARIANTES))) { console.log(`\n══ Forma «${v}» ══`); console.log(await diagnostico(v)); }
+    if (conLlama) await reanudarLlama(); srv.close(); process.exit(0);
+  }
   const soloUna = val('variante'), lista = soloUna ? [soloUna] : Object.keys(VARIANTES);
   const fin = async codigo => { if (conLlama) await reanudarLlama(); srv.close(); process.exit(codigo); };
   let bueno = null, ultimo = null;
@@ -77,4 +82,30 @@ async function probarCon(variante, puerto) {
     s.close();
     return r.error ? mal(r.error) : cerrar(r);
   } catch (e) { return mal(e.message); }
+}
+/* chrome://gpu con una forma: estado de WebGPU y Vulkan, la gráfica que ve y sus problemas */
+async function diagnostico(variante) {
+  const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'arana-gpu-'));
+  const args = ['--headless=new', '--no-first-run', ...argsGPU(variante), `--user-data-dir=${perfil}`, '--remote-debugging-port=0', 'chrome://gpu'];
+  if (process.getuid && process.getuid() === 0) args.unshift('--no-sandbox');
+  const ch = spawn(buscarChromium(), args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  let err = '';
+  const salir = t => { try { ch.kill('SIGTERM'); } catch (e) {} setTimeout(() => { try { fs.rmSync(perfil, { recursive: true, force: true }); } catch (e) {} }, 1000); return t; };
+  const errores = () => err.split('\n').filter(l => /ERROR|vulkan|gpu|dawn|webgpu/i.test(l)).slice(-12).map(l => '  ' + l.slice(0, 220)).join('\n');
+  try {
+    const ws = await Promise.race([
+      new Promise((ok, ko) => { ch.stderr.on('data', d => { err += d; const m = err.match(/DevTools listening on (ws:\S+)/); if (m) ok(m[1]); }); ch.on('exit', c => ko(new Error('Chromium se cerró (' + c + ')'))); }),
+      new Promise((_, ko) => setTimeout(() => ko(new Error('Chromium no arranca')), 30000))]);
+    const base = ws.replace(/^ws:/, 'http:').replace(/\/devtools\/.*/, '');
+    let pag = null; for (let i = 0; i < 50 && !pag; i++) { try { pag = (await (await fetch(base + '/json/list')).json()).find(x => x.type === 'page'); } catch (e) {} if (!pag) await new Promise(r => setTimeout(r, 200)); }
+    if (!pag) return salir('No abre chrome://gpu.\n' + errores());
+    await new Promise(r => setTimeout(r, 5000));
+    const s = new WebSocket(pag.webSocketDebuggerUrl); await new Promise(r => { s.onopen = r; });
+    const texto = await new Promise(r => { s.onmessage = e => { const m = JSON.parse(e.data); if (m.id === 1) r(m.result && m.result.result && m.result.result.value); };
+      s.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { returnByValue: true, expression: `(() => { const t = []; const ver = n => { if (n.shadowRoot) ver(n.shadowRoot); for (const c of n.children || []) ver(c); if (!n.children || !n.children.length) { const x = (n.textContent || '').trim(); if (x) t.push(x); } }; ver(document.documentElement); return t.join('\\n'); })()` } })); });
+    s.close();
+    const L = String(texto || '').split('\n'), out = [];
+    for (let i = 0; i < L.length; i++) if (/webgpu|vulkan|gpu0|gpu1|driver_vendor|driver_version|gl_renderer|angle|problems|disabled|blocklist|software only|unavailable|error/i.test(L[i])) out.push('  ' + L[i].slice(0, 160) + (L[i + 1] && L[i + 1].length < 120 && !/:$/.test(L[i]) ? '' : ' ' + (L[i + 1] || '').slice(0, 120)));
+    return salir((out.slice(0, 40).join('\n') || '  (chrome://gpu vacío)') + '\n  — Chromium dijo:\n' + errores());
+  } catch (e) { return salir('No he podido: ' + e.message + '\n' + errores()); }
 }
