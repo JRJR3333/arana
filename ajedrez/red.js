@@ -65,6 +65,20 @@
     for (const t of d.tensores) if (t.fan) { const sd = Math.sqrt(2 / t.fan) * t.esc; for (let i = 0; i < t.n; i++) pesos[t.off + i] = g() * sd; }
     return { v: 1, filtros: op.filtros, bloques: op.bloques, cabeza: op.cabeza, pesos, pasos: 0, total: d.total };
   }
+  /* Otra red con más o menos bloques (fase 4): copia los tensores que coinciden por nombre y tamaño; en los bloques nuevos, la segunda
+     convolución nace a cero, así el bloque casi solo deja pasar lo que entra y la red juega casi igual que antes de crecer. */
+  function rehacer(red, op) {
+    const nueva = crear(Object.assign({ filtros: red.filtros, bloques: red.bloques, cabeza: red.cabeza, semilla: 7 }, op || {}));
+    const Dv = disposicion(red.filtros, red.bloques, red.cabeza), Dn = disposicion(nueva.filtros, nueva.bloques, nueva.cabeza);
+    let copiados = 0;
+    for (const t of Dn.tensores) {
+      const v = Dv.por[t.nombre];
+      if (v && v.n === t.n) { nueva.pesos.set(red.pesos.subarray(v.off, v.off + v.n), t.off); copiados++; }
+      else if (/^b\d+\.w2$/.test(t.nombre)) nueva.pesos.fill(0, t.off, t.off + t.n);
+    }
+    nueva.pasos = red.pasos || 0; nueva.copiados = copiados;
+    return nueva;
+  }
   const vistaCPU = (red, nombre) => { const t = disposicion(red.filtros, red.bloques, red.cabeza).por[nombre]; return red.pesos.subarray(t.off, t.off + t.n); };
 
   /* ───── La red en el procesador (referencia) ───── */
@@ -225,6 +239,6 @@
     return { x, t: negras ? -v : v, obj: indiceJugada(mejor, negras) };
   }
 
-  const Red = { PL, NP, VC, codificar, indiceJugada, forma, disposicion, crear, vistaCPU, adelanteCPU, perdidaCPU, convCPU, enGPU, muestra };
+  const Red = { PL, NP, VC, rehacer, codificar, indiceJugada, forma, disposicion, crear, vistaCPU, adelanteCPU, perdidaCPU, convCPU, enGPU, muestra };
   if (typeof module !== 'undefined' && module.exports) module.exports = Red; else raiz.Red = Red;
 })(typeof self !== 'undefined' ? self : this);

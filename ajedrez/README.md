@@ -15,7 +15,7 @@ La araña juega al ajedrez con un cerebro que **no programa nadie a mano**: nace
 - [Jugar fuera: Lichess y motor para el ordenador](#jugar-fuera-lichess-y-motor-para-el-ordenador)
 - [Rendimiento: niveles](#rendimiento-niveles)
 - [Linux sin pantalla (servidor)](#linux-sin-pantalla-servidor)
-- [La red en la gráfica (en construcción)](#la-red-en-la-gráfica-en-construcción)
+- [La red en la gráfica](#la-red-en-la-gráfica)
 - [Sin internet y en segundo plano](#sin-internet-y-en-segundo-plano)
 - [Dónde se guarda todo](#dónde-se-guarda-todo)
 - [Archivos y pruebas](#archivos-y-pruebas)
@@ -223,7 +223,7 @@ En Opciones, **Cuánto trabaja el aparato**. El nivel lo elige usted y **no camb
 
 El servidor (`servidor/`) deja a la araña entrenando las 24 horas en un ordenador con Linux sin entorno gráfico (Arch, con systemd). Desde el móvil, por Tailscale, se ve y se maneja la sala en directo. Cómo instalarlo y usarlo: [`servidor/LEEME.md`](../servidor/LEEME.md).
 
-## La red en la gráfica (en construcción)
+## La red en la gráfica
 
 Juan quiere que en el Arch entrene la **RTX 5080**. La búsqueda alfa-beta y los 45 detectores no ganan nada en una gráfica, así que será una distópica nueva (la 40): una red neuronal que lee el tablero entero (12 planos de 8×8, bloques residuales, valoración y política, como Leela), valora por lotes en la gráfica con una búsqueda MCTS, aprende por gradiente de lo que etiqueta Stockfish y deja a la evolución el tamaño de la red, cómo busca y cómo aprende.
 
@@ -232,7 +232,7 @@ Juan quiere que en el Arch entrene la **RTX 5080**. La búsqueda alfa-beta y los
 | 1 | WebGPU en el Chromium del servidor, convolución 3×3 y capa densa en la gráfica, comparadas con el procesador, y medida de velocidad (`gpu.js`, `gpu.html`, `servidor/probar-gpu.js`). llama-server lo para Juan a mano. En la RTX 5080 de Juan funciona con la forma «nativo» (Vulkan sin caja de arena y sin la lista de bloqueo de Dawn): mismos resultados que el procesador (diferencia 1,6·10⁻⁶) y **53.002 posiciones/s** con la red de prueba (4,8 ms por lote de 256, unos 3 TFLOP/s, sin optimizar). | hecha (0.37.0) |
 | 2 | La red y su entrenamiento en la gráfica, con las posiciones que etiqueta Stockfish (`red.js`; la sala la entrena al cerrar cada generación). En la 5080: 36 ms por paso de 256 posiciones; con 20.000 posiciones de prueba acierta la jugada objetivo el 53 % y el error del valor baja de 0,117 a 0,096 (solo el valor: 0,071). Elegido con un barrido: cabeza «plano», ritmo 0,001, política con peso 0,1, ReLU con fuga y entropía cruzada para el valor. | hecha (0.38.0) |
 | 3 | Búsqueda MCTS por lotes (`mcts.js`, PUCT con pérdida virtual, lotes de 64 en la gráfica, finales exactos). Tras entrenar, la red juega ida y vuelta contra su propio peldaño de Stockfish (sube con 1,5 de 2, baja con 0) y contra la primera del torneo; su Elo sale de sus últimas 40 partidas. Se ven en *Partidas → La red en la gráfica* y en la Gráfica («Elo jugando»). Opciones: simulaciones por jugada (400) y si juega. Aún no entra en la evolución. | hecha (0.39.0) |
-| 4 | Evolución del tamaño de la red, la búsqueda y el aprendizaje | pendiente |
+| 4 | **Población de redes** (entrenamiento por población, PBT): 4 redes (ajustable) aprenden de las mismas posiciones y juegan cada generación contra su peldaño de Stockfish y contra una de las dos primeras del torneo, que suma puntos y Elo por esas partidas. Cada 3 generaciones (ajustable), la de peor Elo deja su sitio a una hija de la mejor: hereda sus pesos y su Elo, y cambia un poco su ritmo de aprendizaje, el peso de la política, cómo busca (cpuct, fpu) y, una de cada cuatro veces, su número de bloques (crece con un bloque nuevo que no cambia lo que sabe, o encoge). Se ve en *Opciones → Red en la gráfica (40)* (cada red con sus genes y su Elo, y el último relevo) y en la Gráfica (Elo de la mejor y la media). | hecha (0.40.0) |
 
 ## Sin internet y en segundo plano
 

@@ -1,7 +1,8 @@
 {
- "version": "0.39.0",
+ "version": "0.40.0",
  "date": "2026-10-22",
  "notes": [
+  "Ya no tengo una red sino una población: aprenden a la vez, juegan contra Stockfish y contra mis mejores arañas, y cada pocas generaciones la peor deja su sitio a una hija de la mejor.",
   "Mi red neuronal ya juega: piensa con una búsqueda como la de Leela, valorando en la gráfica, y cada generación se mide contra Stockfish y contra la campeona.",
   "En el ordenador de Linux ya tengo una red neuronal propia que aprende en la gráfica de lo que me enseña Stockfish: su valoración y su mejor jugada. Todavía no juega con ella.",
   "Ya sé calcular con la gráfica del ordenador de Linux (WebGPU): compruebo que cuenta igual que el procesador y mido su velocidad. Mientras la use, aparto a llama-server.",
