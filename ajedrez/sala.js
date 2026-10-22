@@ -19,7 +19,7 @@ function avisarApp(msg) {
   return false;
 }
 
-/* Los 12 peldaños de la escalera de Stockfish (nivel de Stockfish y cuánto piensa) */
+/* Los 23 peldaños de la escalera de Stockfish (nivel de Stockfish y cuánto piensa) */
 const ESCALERA = [
   { n: 1, nombre: 'Stockfish a ciegas', skill: 0, go: 'depth 1' }, { n: 2, nombre: 'Mira dos jugadas', skill: 0, go: 'depth 2' },
   { n: 3, nombre: 'Mira tres jugadas', skill: 0, go: 'depth 3' }, { n: 4, nombre: 'Aprendiz', skill: 1, go: 'depth 3' },
@@ -30,7 +30,66 @@ const ESCALERA = [
   { n: 13, nombre: 'Experto', skill: 8, go: 'depth 6' }, { n: 14, nombre: 'Candidato a maestro', skill: 9, go: 'depth 7' },
   { n: 15, nombre: 'Maestro', skill: 10, go: 'depth 8' }, { n: 16, nombre: 'Maestro internacional', skill: 12, go: 'depth 10' },
   { n: 17, nombre: 'Gran maestro', skill: 15, go: 'movetime 50' }, { n: 18, nombre: 'Gran maestro de élite', skill: 18, go: 'movetime 100' },
-  { n: 19, nombre: 'Plena potencia', skill: 20, go: 'movetime 100' }, { n: 20, nombre: 'Plena potencia, sin prisa', skill: 20, go: 'movetime 500' }];
+  { n: 19, nombre: 'Plena potencia', skill: 20, go: 'movetime 100' }, { n: 20, nombre: 'Plena potencia, sin prisa', skill: 20, go: 'movetime 500' },
+  { n: 21, nombre: 'Un segundo por jugada', skill: 20, go: 'movetime 1000' }, { n: 22, nombre: 'Tres segundos por jugada', skill: 20, go: 'movetime 3000' },
+  { n: 23, nombre: 'Stockfish al máximo', skill: 20, go: 'movetime 10000' }];
+/* Elo aproximado de cada peldaño en la escala normal (CCRL, la de UCI_Elo de Stockfish): calibrado en la 0.31.0
+   con partidas entre peldaños vecinos y contra Stockfish con «Elo limitado» de 1320 a 2900 (ver ajedrez/README.md). */
+const ELO_PELDANO = [700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2300, 2500, 2700, 2900, 3100];
+ESCALERA.forEach((E, i) => { E.elo = ELO_PELDANO[i]; });
+const ELO_INICIAL = 800;   // una población recién nacida (genes clásicos con ruido) juega más o menos así
+
+/* ───── Elo en la escala normal ─────
+   Las partidas entre arañas solo dan un Elo relativo, y se inflaba (las hijas heredan la media de sus padres y las peores mueren).
+   Ahora la escala se ancla a la escalera: tras cada generación, las partidas contra Stockfish desplazan el Elo de todas
+   (máxima verosimilitud, con una distribución previa para no dar saltos), y la población no infla su media. */
+function anclaElo(js, c0, sd) {
+  let c = c0; const k = Math.LN10 / 400;
+  for (let it = 0; it < 40; it++) {
+    let g = -(c - c0) / (sd * sd), h = -1 / (sd * sd);
+    for (const j of js) { const w = j.w || 1, p = 1 / (1 + Math.pow(10, (j.R - (j.e + c)) / 400)); g += w * k * (j.s - p); h -= w * k * k * p * (1 - p); }
+    const d = Math.max(-400, Math.min(400, -g / h)); c += d; if (Math.abs(d) < .01) break;
+  }
+  return c;
+}
+const mediaEloDe = l => l.length ? l.reduce((a, p) => a + p.elo, 0) / l.length : 0;
+/* Pasa a la escala normal todo lo guardado antes de la 0.31.0: cada generación tiene su desplazamiento, sacado de sus partidas contra Stockfish
+   (y de las 3 generaciones de cada lado, con menos peso). Sin partidas cerca, la media de la generación se toma como una población recién nacida. */
+function migrarElo(inds, gens) {
+  const eloEn = (p, g) => { const h = (p.hist || []).find(x => x.gen === g); return h ? h.elo : p.elo; };
+  const porGen = new Map();
+  for (const r of gens) if (r.sf && r.sf.juegos && ESCALERA[r.sf.peldano - 1]) {
+    const R = ESCALERA[r.sf.peldano - 1].elo;
+    porGen.set(r.gen, r.sf.juegos.map(j => { const p = inds.get(j.id); return p ? { e: eloEn(p, r.gen), R, s: j.res } : null; }).filter(Boolean));
+  }
+  const c = new Map(), medias = new Map(gens.map(r => [r.gen, r.mediaElo || 0])); let prev = null;
+  for (const r of gens) {
+    const base = ELO_INICIAL - (r.mediaElo || 1200), js = [];
+    for (const [g, l] of porGen) { const dg = Math.abs(g - r.gen), dm = (medias.get(g) || 0) - (medias.get(r.gen) || 0); if (dg <= 3) l.forEach(j => js.push({ w: 1 / (1 + dg), e: j.e - dm, R: j.R, s: j.s })); }   // a la escala de esta generación
+    const c0 = prev ? base + prev.rel : base, v = js.length ? anclaElo(js, c0, 300) : c0;
+    c.set(r.gen, v); prev = { rel: v - base };
+  }
+  const gs = [...c.keys()], ult = gs.length ? c.get(gs[gs.length - 1]) : null;
+  const cDe = g => { if (c.has(g)) return c.get(g); let mejor = null, d = 1e9; for (const x of gs) if (Math.abs(x - g) < d) { d = Math.abs(x - g); mejor = x; } return mejor == null ? null : c.get(mejor); };
+  const fallback = l => ELO_INICIAL - mediaEloDe(l);
+  return { cDe, ult, fallback };
+}
+async function migrarTodoElo() {
+  if (est.eloReal) return;
+  const todas = db ? await todos('individuos') : [], inds = new Map(todas.map(p => [p.id, p]));
+  for (const p of pop.concat(cazadoras)) inds.set(p.id, p);
+  const { cDe, ult } = migrarElo(inds, historial), sin = ELO_INICIAL - mediaEloDe(pop), cUlt = ult == null ? sin : ult;
+  const vivas = new Set(pop.concat(cazadoras).map(p => p.id)), ops = [];
+  for (const p of inds.values()) {
+    const caz = p.origen === 'cazadora', fin = vivas.has(p.id) || caz ? null : p.murio;
+    (p.hist || []).forEach(h => { const v = caz ? cUlt : cDe(h.gen); h.elo = Math.round(h.elo + (v == null ? cUlt : v)); });
+    const v = fin != null ? cDe(fin) : cUlt; p.elo = Math.round(p.elo + (v == null ? cUlt : v)); p.eloReal = 1;
+    if (!vivas.has(p.id)) ops.push(['individuos', p]);
+  }
+  for (const r of historial) { const v = cDe(r.gen); const d = v == null ? cUlt : v; if (r.mejor) r.mejor.elo = Math.round(r.mejor.elo + d); if (r.mediaElo != null) r.mediaElo += d; ops.push(['generaciones', r]); }
+  est.eloReal = 1; est.eloAncla = { desde: est.gen, migrado: new Date().toISOString() };
+  await guardarEstado(ops).catch(e => console.warn('migrar Elo', e));
+}
 /* Antes había 12 peldaños: cada uno es ahora este (los nuevos quedan en medio) */
 const DE_12_A_20 = { 1: 1, 2: 2, 3: 4, 4: 5, 5: 7, 6: 8, 7: 10, 8: 11, 9: 13, 10: 15, 11: 17, 12: 19 };
 function migrarEscalera(e) {
@@ -42,7 +101,7 @@ function migrarEscalera(e) {
 }
 
 /* ───── Opciones (se guardan en el aparato) ───── */
-const OPC_DEF = { ms: 30, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4, ana: 1, final: 1 };
+const OPC_DEF = { ms: 0, rend: 1, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4, ana: 1, final: 1 };
 const limite = () => opc.maxPlies || 300;   // para estimar tiempos cuando no hay límite
 let opc = OPC_DEF;
 try { opc = Object.assign({}, OPC_DEF, JSON.parse(localStorage.getItem('arana.ajedrez.opc') || '{}')); } catch (e) { opc = Object.assign({}, OPC_DEF); }
@@ -108,13 +167,16 @@ async function cargar() {
   if (!est || !pop.length) {
     est = { gen: 1, origen: ORIGEN, opc: {}, creada: new Date().toISOString(), hitos: {}, escalera: { v: 2, peldano: 1, conquistas: {} } };
     pop = M.poblacionInicial(rng, ORIGEN, M.OPC_EVO.poblacion); nombresUnicos(pop);
+    pop.forEach(p => { p.elo = ELO_INICIAL; p.eloReal = 1; }); est.eloReal = 1;
     await guardarEstado();
   }
   est.hitos = est.hitos || {}; est.escalera = migrarEscalera(est.escalera || { peldano: 1, conquistas: {} });
+  while (est.escalera.conquistas[est.escalera.peldano] && est.escalera.peldano < ESCALERA.length) est.escalera.peldano++;   // peldaños nuevos encima de lo conquistado
   pop.forEach(p => M.completar(p.genes));
   if (est.cazPop) { const cs = await Promise.all(est.cazPop.map(id => leer('individuos', id))); cazadoras = cs.every(c => c && c.genes) ? cs : []; cazadoras.forEach(c => M.completar(c.genes)); }
   historial = (await todos('generaciones')).sort((a, b) => a.gen - b.gen);
   byId = new Map(pop.map(p => [p.id, p])); cazById = new Map(cazadoras.map(c => [c.id, c]));
+  await migrarTodoElo();
 }
 function guardarEstado(extra) {
   est.pop = pop.map(p => p.id); est.cazPop = cazadoras.map(c => c.id);
@@ -124,7 +186,41 @@ function guardarEstado(extra) {
 }
 
 /* ───── Hilos de partidas ───── */
-const NHILOS = Math.max(1, Math.min(6, (navigator.hardwareConcurrency || 4) - 1));
+const NUCLEOS = navigator.hardwareConcurrency || 4, NHILOS = Math.max(1, Math.min(8, NUCLEOS - 1));
+
+/* ───── Rendimiento: cuánto trabaja el aparato (0.31.0) ─────
+   Tres modos (Ahorro, Equilibrado, Máximo). Cada hilo mide su velocidad cada 4 partidas con la misma búsqueda de prueba;
+   si baja mucho respecto a lo mejor que ha medido, el aparato se está calentando: usa un hilo menos y descansa entre partidas.
+   Con poca batería (si el sistema lo dice) pasa a Ahorro, y con muy poca hace una pausa. El tiempo por jugada «Automático»
+   sale de esa velocidad: la araña piensa más o menos los mismos nodos en un móvil lento y en uno rápido. */
+const MODOS = [
+  { n: 'Ahorro', hilos: () => 1, descanso: 1, nodos: 2500 },
+  { n: 'Equilibrado', hilos: () => Math.max(1, Math.min(NHILOS, Math.floor(NUCLEOS / 2))), descanso: .2, nodos: 4000 },
+  { n: 'Máximo', hilos: () => NHILOS, descanso: 0, nodos: 6000 }];
+const rend = { nps: 0, max: 0, calor: 0, frio: 0, bateria: null, pausaBat: false, partidas: 0 };
+const modo = () => MODOS[rend.bateria && !rend.bateria.charging && rend.bateria.level < .2 ? 0 : Math.max(0, Math.min(2, opc.rend == null ? 1 : opc.rend))];
+const hilosActivos = () => Math.max(1, modo().hilos() - rend.calor);
+const descanso = () => modo().descanso + rend.calor * .35;
+function msJugada() { return opc.ms || (rend.nps ? Math.max(10, Math.min(400, Math.round(modo().nodos / rend.nps))) : 40); }
+function medida(nps) {
+  if (!nps) return;
+  rend.nps = rend.nps ? rend.nps * .7 + nps * .3 : nps; rend.max = Math.max(rend.max * .995, nps);
+  const r = rend.nps / rend.max;
+  if (r < .7 && rend.calor < NHILOS) { rend.calor++; rend.frio = 0; rend.max *= .97; pintarEstado(); }
+  else if (r > .9 && rend.calor > 0 && ++rend.frio >= 3) { rend.calor--; rend.frio = 0; pintarEstado(); }
+}
+try { if (navigator.getBattery) navigator.getBattery().then(b => {
+  const ver = () => { rend.bateria = { level: b.level, charging: b.charging };
+    const muy = !b.charging && b.level < .08;
+    if (muy && entrenando && !rend.pausaBat) { rend.pausaBat = true; entrenar(false); avisar('Me queda muy poca batería: paro de entrenar. Póngame a cargar y sigo.'); avisarProgreso('Pausa: queda muy poca batería.'); }
+    else if (!muy && rend.pausaBat && b.charging) { rend.pausaBat = false; entrenar(true); }
+    pintarEstado(); };
+  ver(); b.addEventListener('levelchange', ver); b.addEventListener('chargingchange', ver);
+}).catch(() => {}); } catch (e) {}
+function textoRend() {
+  const b = rend.bateria, m = modo();
+  return `${m.n} · ${hilosActivos()} de ${NHILOS} hilos${rend.nps ? ` · ${Math.round(rend.nps)} nodos/ms` : ''}${rend.calor ? ' · bajando el ritmo para no calentar' : ''}${b ? ` · batería ${Math.round(b.level * 100)} %${b.charging ? ' cargando' : ''}` : ''}`;
+}
 const hilos = [];
 function crearHilos() {
   for (let i = 0; i < NHILOS; i++) {
@@ -225,13 +321,17 @@ function prepararGeneracion() {
 }
 function repartir() {
   if (!entrenando) return;
+  const ahora = Date.now(), activos = hilosActivos();
+  let usados = hilos.filter(w => !w.libre).length;
   for (const w of hilos) {
     if (!w.libre) continue;
+    if (usados >= activos) break;
+    if (w.descansa > ahora) { clearTimeout(w.tDesc); w.tDesc = setTimeout(repartir, w.descansa - ahora + 5); continue; }   // descanso entre partidas
     const j = juegos.find(x => x.estado === 'cola'); if (!j) break;
-    j.estado = 'juega'; w.libre = false; enCurso.set(j.id, j);
+    j.estado = 'juega'; w.libre = false; enCurso.set(j.id, j); usados++; j.t0 = Date.now(); w.n = (w.n || 0) + 1;
     const pw = ind(j.w), pb = ind(j.b), F = flagsDe();
     const ajW = j.tipo === 'caza' && byId.has(j.w) ? ajusteContra(pw, 'cazadoras') : null, ajB = j.tipo === 'caza' && byId.has(j.b) ? ajusteContra(pb, 'cazadoras') : null;
-    w.postMessage({ t: 'partida', id: j.id, w: { id: j.w, genes: pw.genes }, b: { id: j.b, genes: pb.genes }, fen: j.fen, opc: { ms: opc.ms, prof: opc.prof, maxPlies: opc.maxPlies }, directo: opc.directo, flags: F, ajW, ajB });
+    w.postMessage({ t: 'partida', id: j.id, w: { id: j.w, genes: pw.genes }, b: { id: j.b, genes: pb.genes }, fen: j.fen, opc: { ms: msJugada(), prof: opc.prof, maxPlies: opc.maxPlies }, directo: opc.directo, flags: F, ajW, ajB, banco: w.n % 4 === 1 });
   }
   marcar();
 }
@@ -240,7 +340,8 @@ function alRecibir(w, d) {
   const j = enCurso.get(d.id); if (!j) return;
   if (d.t === 'jugada') { j.fenAhora = d.fen; j.ultima = d.uci; j.eval = d.eval; (j.lista = j.lista || []).push(d.uci); marcar(j); actualizarVisor(); return; }
   if (d.t === 'fin') {
-    w.libre = true; enCurso.delete(d.id);
+    w.libre = true; enCurso.delete(d.id); medida(d.nps); rend.partidas++;
+    const dur = Date.now() - (j.t0 || Date.now()); w.descansa = descanso() ? Date.now() + Math.min(60000, dur * descanso()) : 0;
     j.estado = 'fin'; j.res = d.res; j.motivo = d.motivo; j.jugadas = d.jugadas; j.lista = d.jugadas.slice(); j.fenAhora = d.fen; j.plies = d.plies; actualizarVisor();
     const a = ind(j.w), b = ind(j.b);
     if (j.tipo === 'caza') {   // la araña suma o pierde puntos de su generación; la cazadora suma los suyos
@@ -275,10 +376,17 @@ async function cerrarGeneracion() {
     resSF.conquistado = ven.length >= 8 && media >= 0.5 && !est.escalera.conquistas[E.n];
     if (resSF.conquistado) { est.escalera.conquistas[E.n] = { gen: est.gen, fecha: new Date().toISOString(), por: mejor.nombre, puntos: resSF.ventana.puntos, partidas: ven.length }; est.escalera.peldano = Math.min(ESCALERA.length, E.n + 1); est.escalera.ventana = []; }
   }
+  // Elo en la escala normal: las partidas contra Stockfish desplazan la escala de todas
+  if (fase && fase.hechos.length && fase.E.elo) {
+    const js = fase.hechos.map(j => { const p = byId.get(j.id); return p ? { e: p.elo, R: fase.E.elo, s: j.res } : null; }).filter(Boolean);
+    const d = anclaElo(js, 0, 120); pop.concat(cazadoras).forEach(p => { p.elo += d; }); if (resSF) resSF.ajusteElo = Math.round(d);
+  }
+  const mediaAntes = mediaEloDe(pop), mediaCaz = mediaEloDe(cazadoras);
   const F = flagsDe(); est.flags = F; const clasifAntes = torneo ? clasif() : [];
   if (F[37]) novedad();
   const out = M.siguienteGeneracion(est, pop, rng);
   if (resSF) out.resumen.sf = resSF;
+  { const d = mediaAntes - mediaEloDe(out.pop); out.pop.forEach(p => { p.elo += d; p.eloReal = 1; }); }   // sin inflación: las hijas no suben la media por nacer
   out.resumen.flags = fkey(F);
   // Memoria del rival (35): las hijas heredan la memoria del padre que más les dio
   const antes = new Map(viejos.map(p => [p.id, p])), cazAntes = new Map(cazadoras.map(c => [c.id, c]));
@@ -293,6 +401,7 @@ async function cerrarGeneracion() {
     out.resumen.caza = { mejor: oc.resumen.mejor, puntos: cazadoras.reduce((a, c) => a + c.pts, 0), partidas: cazadoras.length * 2 };
     for (const c of cazadoras) if (!vivasC.has(c.id)) { conHuella(c); c.murio = est.gen; extraCaz.push(['individuos', Object.assign({}, c, { genes: eliteC.has(c.id) || genesTodas() ? c.genes : null })]); }
     oc.pop.forEach(c => { if (!c.mut || !c.mut.nacio) { c.mut = c.mut || {}; } c.pts = 0; });
+    { const d = mediaCaz - mediaEloDe(oc.pop); oc.pop.forEach(c => { c.elo += d; c.eloReal = 1; }); }
     cazadoras = oc.pop; cazById = new Map(cazadoras.map(c => [c.id, c]));
   }
   const elite = new Set(out.resumen.elite);
@@ -440,7 +549,7 @@ function puntuacion(ls) {   // la última valoración de Stockfish, desde Stockf
 }
 let sigPens = 0; const pens = new Map();
 function pensarArana(p, fen0, jugadas, aj) {
-  return new Promise(ok => { const id = 'p' + (++sigPens); pens.set(id, ok); hilos[0].postMessage({ t: 'pensar', id, ind: { id: p.id, genes: p.genes }, fen0, jugadas, ms: opc.ms, prof: opc.prof, flags: flagsDe(), aj }); });
+  return new Promise(ok => { const id = 'p' + (++sigPens); pens.set(id, ok); hilos[0].postMessage({ t: 'pensar', id, ind: { id: p.id, genes: p.genes }, fen0, jugadas, ms: msJugada(), prof: opc.prof, flags: flagsDe(), aj }); });
 }
 async function partidaSF(ind, yoB, fen0, E) {
   sf.w.postMessage('ucinewgame'); sf.w.postMessage('setoption name Skill Level value ' + E.skill); await sfCmd('isready', /^readyok/);
@@ -1021,7 +1130,7 @@ function pintarEstado() {
   const ult = historial[historial.length - 1];
   $('#estado').innerHTML = `<b>Generación ${est.gen}</b> · ${entrenando ? 'entrenando' : 'en pausa'}` +
     (sfFase ? ` · escalera ${sfFase.hechos.length}/${sfFase.total}` : torneo && total ? ` · ${torneo.fase === 'final' ? 'final' : torneo.fase === 'hecho' ? 'cazadoras' : `ronda ${torneo.ronda + 1}/${torneo.R}`} · ${hechas}/${total}` : '') +
-    (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${NHILOS} hilos`) +
+    (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${hilosActivos()} hilos`) + (rend.calor ? ' · <b>bajando el ritmo</b> para no calentar' : '') + (rend.pausaBat ? ' · <b>pausa por batería</b>' : '') +
     (li.conectado ? ` · <b>Lichess</b> ${[...li.partidas.values()].filter(g => !g.fin).length ? 'jugando' : 'esperando'}` : '') +
     `<i class="prog" style="width:${(avance() * 100).toFixed(1)}%"></i>`;
   const nh = Object.keys(est.hitos || {}).length, bh = document.querySelector('[data-aux=hitos]');
@@ -1219,7 +1328,7 @@ const AUX = {
   escalera() {
     const con = est.escalera.conquistas, act = est.escalera.peldano, gs = historial.filter(g => g.sf);
     let h = `<h3>Escalera de Stockfish</h3><div class="sub">${Object.keys(con).length} de ${ESCALERA.length} peldaños conquistados</div>${escaleraSVG(340, 110).replace('width="340"', 'width="100%"')}`;
-    h += ESCALERA.slice().reverse().map(E => { const c = con[E.n]; return `<div class="hito${c ? ' si' : ''}"><span class="m"${E.n === act && !c ? ' style="border-color:#5ee8ff"' : ''}></span><span>${E.n}. ${esc(E.nombre)}<small>${c ? `Conquistado en la generación ${c.gen} · ${fmt(c.puntos, 1)} de ${c.partidas} puntos · la mejor, ${esc(c.por)}` : E.n === act ? 'Peldaño actual' : 'Por llegar'} · nivel ${E.skill}, ${E.go.replace('depth', 'profundidad').replace('movetime', 'tiempo')}${E.go.startsWith('movetime') ? ' ms' : ''}</small></span></div>`; }).join('');
+    h += ESCALERA.slice().reverse().map(E => { const c = con[E.n]; return `<div class="hito${c ? ' si' : ''}"><span class="m"${E.n === act && !c ? ' style="border-color:#5ee8ff"' : ''}></span><span>${E.n}. ${esc(E.nombre)}<small>${c ? `Conquistado en la generación ${c.gen} · ${fmt(c.puntos, 1)} de ${c.partidas} puntos · la mejor, ${esc(c.por)}` : E.n === act ? 'Peldaño actual' : 'Por llegar'} · Elo ≈ ${E.elo} · nivel ${E.skill}, ${E.go.replace('depth', 'profundidad').replace('movetime', 'tiempo')}${E.go.startsWith('movetime') ? ' ms' : ''}</small></span></div>`; }).join('');
     if (gs.length > 1) h += '<h2>Puntos contra Stockfish por generación (%)</h2>' + chispa(gs.map(g => g.sf.puntos / g.sf.partidas * 100), 'Porcentaje de puntos contra Stockfish', '#3dff99') + '<h2>Calidad según Stockfish (%)</h2>' + chispa(gs.map(g => g.sf.calidad * 100), 'Calidad media según Stockfish', '#ffb340');
     const ult = gs[gs.length - 1];
     if (ult) h += `<h2>Última generación (${ult.gen}) · peldaño ${ult.sf.peldano}</h2><div class="det">${ult.sf.juegos.map(j => `<span data-ficha="${esc(j.id)}" style="cursor:pointer">${esc(j.nombre)} con ${j.color}</span><span class="v">${j.res === 1 ? 'gana' : j.res === .5 ? 'tablas' : 'pierde'} · ${Math.ceil(j.plies / 2)} jug.</span>`).join('')}</div>`;
@@ -1270,12 +1379,15 @@ async function importarTexto(texto, nombreArchivo) {
   const inds = d && d.app === 'arana-ajedrez' && Array.isArray(d.individuos) ? d.individuos.filter(p => p && p.id && p.genes) : null;
   if (!inds || !inds.length) return 'Ese archivo no trae arañas con genes.';
   const ops = [], fecha = new Date().toISOString(); let n = 0;
+  // Copias de antes de la 0.31.0: su Elo se pasa a la escala normal con sus propias generaciones
+  let cImp = null;
+  if (!(d.estado && d.estado.eloReal)) { const m = migrarElo(new Map(inds.map(p => [p.id, p])), (d.generaciones || []).slice().sort((a, b) => a.gen - b.gen)); cImp = p => { if (p.eloReal) return; const v = p.murio != null ? m.cDe(p.murio) : m.ult; p.elo = Math.round(p.elo + (v == null ? m.fallback(inds) : v)); (p.hist || []).forEach(h => { const w = m.cDe(h.gen); h.elo = Math.round(h.elo + (w == null ? m.fallback(inds) : w)); }); p.eloReal = 1; }; }
   for (const p0 of inds) {
     const p = JSON.parse(JSON.stringify(p0)); M.completar(p.genes);
     if (byId.has(p.id) || cazById.has(p.id)) continue;          // ya está viva aquí
     const ya = await leer('individuos', p.id);
     if (ya) continue;                                            // ya la tengo (de este aparato o importada antes)
-    p.importada = { archivo: nombreArchivo, fecha, de: d.origen || p.origen };
+    p.importada = { archivo: nombreArchivo, fecha, de: d.origen || p.origen }; if (cImp) cImp(p);
     delete p.pts; delete p.sfb; delete p.nov;
     ops.push(['individuos', conHuella(p)]); n++;
   }
@@ -1321,7 +1433,7 @@ function encolar(tipo, p) {
 }
 function copiaDe(src, nacio) {
   const c = M.nuevoIndividuo(rng, est.gen, src.origen === 'cazadora' ? 'cazadora' : src.origen, M.completar(JSON.parse(JSON.stringify(src.genes))), [src.id], { nacio });
-  c.nombre = src.nombre; c.elo = src.elo || 1200; if (src.rivales) c.rivales = JSON.parse(JSON.stringify(src.rivales));
+  c.nombre = src.nombre; c.elo = src.elo || ELO_INICIAL; c.eloReal = 1; if (src.rivales) c.rivales = JSON.parse(JSON.stringify(src.rivales));
   return c;
 }
 function aplicarPendientes() {
@@ -1404,7 +1516,7 @@ function turnoArana() {
   ph.piensa = true; pintarHumana();
   const id = 'h' + (++sigAparte), yo = ph;
   aparte.set(id, { fin: d => { if (ph !== yo || ph.fin) return; ph.piensa = false; const m = d.uci && M.parseUci(ph.pos, d.uci); if (!m) return acabarHumana({ res: .5, motivo: 'la araña no encuentra jugada' }); jugarEn(m); } });
-  hiloAparte().postMessage({ t: 'pensar', id, ind: { id: yo.p.id, genes: yo.p.genes }, fen0: M.INICIO, jugadas: yo.jug.slice(), ms: Math.max(400, opc.ms * 10), prof: 8, flags: flagsDe(), aj: ajusteContra(yo.p, 'juan') });
+  hiloAparte().postMessage({ t: 'pensar', id, ind: { id: yo.p.id, genes: yo.p.genes }, fen0: M.INICIO, jugadas: yo.jug.slice(), ms: Math.max(400, msJugada() * 10), prof: Math.max(8, opc.prof), flags: flagsDe(), aj: ajusteContra(yo.p, 'juan') });
 }
 async function acabarHumana(f) {
   const yoB = ph.color === 'w', mio = yoB ? f.res : 1 - f.res;
@@ -1427,7 +1539,7 @@ async function duelo(a, b) {
     const r = await new Promise(ok => {
       const id = 'd' + (++sigAparte);
       aparte.set(id, { jugada: d => { const cv = $('#duCv'); if (cv) { const e0 = esc0; esc0 = 1.4; tablero(cv, d.fen, d.uci, true); esc0 = e0; } }, fin: ok });
-      hiloAparte().postMessage({ t: 'partida', id, w: { id: w.id, genes: w.genes }, b: { id: n.id, genes: n.genes }, fen, opc: { ms: opc.ms, prof: opc.prof, maxPlies: opc.maxPlies }, directo: true, flags: flagsDe() });
+      hiloAparte().postMessage({ t: 'partida', id, w: { id: w.id, genes: w.genes }, b: { id: n.id, genes: n.genes }, fen, opc: { ms: msJugada(), prof: opc.prof, maxPlies: opc.maxPlies }, directo: true, flags: flagsDe() });
     });
     const ra = w === a ? r.res : 1 - r.res; pa += ra; pb += 1 - ra; jugadasDu.push({ w, n, fen, r });
     filas.push(`<span data-du="${i}" style="cursor:pointer">${i + 1}. ${esc(w.nombre)} – ${esc(n.nombre)}</span><span class="v">${resTxt(r.res)} · ${esc(r.motivo)}</span>`);
@@ -1559,8 +1671,12 @@ function opciones() {
   const sel = (k, vals, fmtv, obj) => { const o = obj || opc, cur = o[k] != null ? o[k] : k === 'novPeso' ? 0.15 : M.OPC_EVO[k]; return `<select data-k="${k}"${obj ? ' data-evo' : ''}>${vals.map(v => `<option value="${v}"${cur === v ? ' selected' : ''}>${fmtv(v)}</option>`).join('')}</select>`; };
   est.opc = est.opc || {};
   hoja(`<h3>Opciones de entrenamiento</h3><div class="sub">Se aplican a la próxima generación</div>
-    <label class="op">Tiempo por jugada ${sel('ms', [10, 30, 60, 120, 250], v => v + ' ms')}</label>
-    <label class="op">Profundidad máxima ${sel('prof', [2, 3, 4, 5, 6], v => v + ' jugadas')}</label>
+    <h2>Rendimiento</h2>
+    <label class="op">Cuánto trabaja el aparato ${sel('rend', [0, 1, 2], v => MODOS[v].n)}</label>
+    <p class="nota" id="opRend">${esc(textoRend())}. Ahorro: un hilo y descansa tanto como juega. Equilibrado: la mitad de los núcleos y descansos cortos. Máximo: todos los hilos sin descanso. En cualquier modo, si nota que el aparato se calienta (va más lento), baja el ritmo solo; con menos del 20 % de batería pasa a Ahorro y con menos del 8 % para.</p>
+    <label class="op">Tiempo por jugada ${sel('ms', [0, 10, 30, 60, 120, 250, 500, 1000, 2000, 5000], v => v ? (v < 1000 ? v + ' ms' : v / 1000 + ' s') : `Automático (${msJugada()} ms)`)}</label>
+    <label class="op">Profundidad máxima ${sel('prof', [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 64], v => v === 64 ? 'Sin tope (manda el tiempo)' : v + ' jugadas')}</label>
+    <h2>Torneo</h2>
     <label class="op">Partidas por araña ${sel('rondas', [2, 4, 6, 8], v => v * 2)}</label>
     <label class="op">Límite de jugadas ${sel('maxPlies', [120, 160, 240, 0], v => v ? v / 2 : 'Sin límite')}</label>
     <label class="op">Final entre las dos primeras ${sel('final', [1, 0], v => v ? 'Sí' : 'No')}</label>
@@ -1573,11 +1689,11 @@ function opciones() {
     <label class="op">Peso de la novedad ${sel('novPeso', [0, 0.05, 0.15, 0.3], v => Math.round(v * 100) + ' %', est.opc)}</label>
     <label class="op">Guardar los genes de las que mueren ${sel('genesTodas', [0, 1], v => v ? 'Sí (ocupa más)' : 'No, solo sus cualidades', est.opc)}</label>
     <p class="nota">Apagar una distópica no borra sus genes: siguen heredándose y vuelven a contar si la enciende. Los parásitos añaden 16 partidas por generación.</p>
-    <p class="nota">Sin límite, las partidas acaban por mate, ahogado, triple repetición, la regla de las 50 jugadas, material insuficiente o porque una se rinde (cuando las dos la ven perdida 8 jugadas seguidas). Más tiempo por jugada juega mejor pero evoluciona más despacio. Con ${NHILOS} hilos, una generación de ${pop.length} arañas tarda unos ${Math.max(1, Math.round(pop.length * opc.rondas * (limite() * .45) * opc.ms / 1000 / NHILOS / 60))} min.</p>
+    <p class="nota">Sin límite, las partidas acaban por mate, ahogado, triple repetición, la regla de las 50 jugadas, material insuficiente o porque una se rinde (cuando las dos la ven perdida 8 jugadas seguidas). Más tiempo por jugada juega mejor pero evoluciona más despacio. Con ${NHILOS} hilos, una generación de ${pop.length} arañas tarda unos ${Math.max(1, Math.round(pop.length * opc.rondas * (limite() * .45) * msJugada() * (1 + descanso()) / 1000 / hilosActivos() / 60))} min (contra Stockfish la araña piensa lo mismo que en el torneo).</p>
     <div class="ctrl"><button class="btn sec" id="exp">Exportar copia</button><button class="btn sec" id="reset">Nueva evolución desde cero</button><button class="btn" data-cerrar>Hecho</button></div>`);
   $('#hojac').querySelectorAll('select').forEach(s => s.onchange = () => {
     if (s.dataset.dist) { est.opc.dist = Object.assign({}, est.opc.dist || {}, { [s.dataset.dist]: +s.value }); compilados.clear(); guardarEstado().catch(() => {}); marcar(); return; }
-    if (s.hasAttribute('data-evo')) { est.opc[s.dataset.k] = +s.value; guardarEstado().catch(() => {}); } else { opc[s.dataset.k] = +s.value; guardarOpc(); marcarSF(); }
+    if (s.hasAttribute('data-evo')) { est.opc[s.dataset.k] = +s.value; guardarEstado().catch(() => {}); } else { opc[s.dataset.k] = +s.value; guardarOpc(); marcarSF(); repartir(); pintarEstado(); const r = $('#opRend'); if (r && s.dataset.k === 'rend') r.firstChild.textContent = textoRend(); }
   });
   $('#exp').onclick = exportar;
   $('#reset').onclick = async () => {
@@ -1812,7 +1928,7 @@ document.addEventListener('keydown', e => {   // atajos en el ordenador
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { rend, hilosActivos, msJugada, textoRend, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 // Sin internet: la sala se guarda en el aparato (sw.js de Araña) también si se abre directamente
 try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); } catch (e) {}
