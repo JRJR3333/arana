@@ -86,7 +86,7 @@ async function probarCon(variante, puerto) {
 /* chrome://gpu con una forma: estado de WebGPU y Vulkan, la gráfica que ve y sus problemas */
 async function diagnostico(variante) {
   const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'arana-gpu-'));
-  const args = ['--headless=new', '--no-first-run', ...argsGPU(variante), `--user-data-dir=${perfil}`, '--remote-debugging-port=0', 'chrome://gpu'];
+  const args = ['--headless=new', '--no-first-run', ...argsGPU(variante), '--enable-logging=stderr', `--user-data-dir=${perfil}`, '--remote-debugging-port=0', 'chrome://gpu'];
   if (process.getuid && process.getuid() === 0) args.unshift('--no-sandbox');
   const ch = spawn(buscarChromium(), args, { stdio: ['ignore', 'ignore', 'pipe'] });
   let err = '';
@@ -99,13 +99,18 @@ async function diagnostico(variante) {
     const base = ws.replace(/^ws:/, 'http:').replace(/\/devtools\/.*/, '');
     let pag = null; for (let i = 0; i < 50 && !pag; i++) { try { pag = (await (await fetch(base + '/json/list')).json()).find(x => x.type === 'page'); } catch (e) {} if (!pag) await new Promise(r => setTimeout(r, 200)); }
     if (!pag) return salir('No abre chrome://gpu.\n' + errores());
-    await new Promise(r => setTimeout(r, 5000));
     const s = new WebSocket(pag.webSocketDebuggerUrl); await new Promise(r => { s.onopen = r; });
+    s.send(JSON.stringify({ id: 9, method: 'Page.navigate', params: { url: 'chrome://gpu' } }));   // desde la línea de órdenes abre una pestaña nueva
+    await new Promise(r => setTimeout(r, 6000));
     const texto = await new Promise(r => { s.onmessage = e => { const m = JSON.parse(e.data); if (m.id === 1) r(m.result && m.result.result && m.result.result.value); };
       s.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { returnByValue: true, expression: `(() => { const t = []; const ver = n => { if (n.shadowRoot) ver(n.shadowRoot); for (const c of n.children || []) ver(c); if (!n.children || !n.children.length) { const x = (n.textContent || '').trim(); if (x) t.push(x); } }; ver(document.documentElement); return t.join('\\n'); })()` } })); });
     s.close();
     const L = String(texto || '').split('\n'), out = [];
-    for (let i = 0; i < L.length; i++) if (/webgpu|vulkan|gpu0|gpu1|driver_vendor|driver_version|gl_renderer|angle|problems|disabled|blocklist|software only|unavailable|error/i.test(L[i])) out.push('  ' + L[i].slice(0, 160) + (L[i + 1] && L[i + 1].length < 120 && !/:$/.test(L[i]) ? '' : ' ' + (L[i + 1] || '').slice(0, 120)));
-    return salir((out.slice(0, 40).join('\n') || '  (chrome://gpu vacío)') + '\n  — Chromium dijo:\n' + errores());
+    for (let i = 0; i < L.length; i++) {
+      const l = L[i]; if (/[{}]/.test(l) || l.length > 300) continue;   // estilos y listas de extensiones
+      if (!/webgpu|vulkan|gpu0|gpu1|nvidia|adapter|dawn|driver|gl_renderer|problems|disabled|blocklist|software|unavailable|error|fail|ozone|display type/i.test(l)) continue;
+      out.push('  ' + l.slice(0, 200) + (/:$/.test(l) && L[i + 1] && L[i + 1].length < 200 ? ' ' + L[i + 1] : ''));
+    }
+    return salir((out.slice(0, 60).join('\n') || '  (chrome://gpu vacío)') + '\n  — Chromium dijo:\n' + errores());
   } catch (e) { return salir('No he podido: ' + e.message + '\n' + errores()); }
 }
