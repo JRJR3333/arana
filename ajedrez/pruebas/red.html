@@ -21,7 +21,7 @@
    2) Sus gradientes coinciden con los del procesador por diferencias finitas.
    3) Aprende: con un objetivo sintético (material y una jugada fija) el error baja y la política acierta más.
    4) (bench=1) Velocidad de un paso de entrenamiento con la red de verdad.
-   Parámetros: ?F=8&nb=1&B=32&pasos=60&bench=0 */
+   Parámetros: ?F=8&nb=1&B=32&pasos=60&N=600&bench=0 (N: posiciones de la prueba; una red grande necesita muchas o las memoriza) */
 (async () => {
   const q = new URLSearchParams(location.search), num = (k, d) => (q.get(k) ? +q.get(k) : d);
   const M = window.AjedrezMotor, out = { ok: false, pruebas: [], error: '' }, log = t => { document.getElementById('salida').textContent += '\n' + t; };
@@ -29,7 +29,7 @@
     out.gpu = await GPU.iniciar();
     // Posiciones de partidas al azar
     const rng = M.mulberry(7), fens = [];
-    while (fens.length < 600) { const p = new M.Pos(); for (let k = 0; k < 10 + Math.floor(rng() * 50); k++) { const ms = M.legal(p); if (!ms.length || M.fin(p)) break; p.make(ms[Math.floor(rng() * ms.length)]); } if (M.legal(p).length && !M.fin(p)) fens.push(p.fen()); }
+    const NPOS = num('N', 600); while (fens.length < NPOS) { const p = new M.Pos(); for (let k = 0; k < 10 + Math.floor(rng() * 50); k++) { const ms = M.legal(p); if (!ms.length || M.fin(p)) break; p.make(ms[Math.floor(rng() * ms.length)]); } if (M.legal(p).length && !M.fin(p)) fens.push(p.fen()); }
     const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
     const objetivo = fen => {   // sintético: valor = tanh(material del que mueve / 5); jugada = la primera legal en orden alfabético
       const pl = fen.split(' ')[0], negras = / b /.test(fen); let m = 0;

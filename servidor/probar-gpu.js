@@ -8,7 +8,7 @@
           node ~/arana/servidor/probar-gpu.js --variante dawn (solo esa forma)
           node ~/arana/servidor/probar-gpu.js --parar-llama   (para llama-server durante la prueba y lo reanuda al acabar)
           node ~/arana/servidor/probar-gpu.js --diagnostico   (lo que dice chrome://gpu con cada forma, para Claude)
-          node ~/arana/servidor/probar-gpu.js --red --variante nativo --F 64 --nb 6 --B 256 --pasos 300 --bench 1
+          node ~/arana/servidor/probar-gpu.js --red --variante nativo --F 64 --nb 6 --B 256 --pasos 300 --N 20000 --bench 1
                                                                (fase 2: la red da lo mismo que el procesador, sus gradientes, que aprende y su velocidad)
           node ~/arana/servidor/probar-gpu.js --lote 1024 --filtros 128 --bloques 10
    No necesita parar el servicio arana. */
@@ -19,7 +19,7 @@ const { buscarChromium, argsGPU, VARIANTES, GPU_JSON, pararLlama, reanudarLlama,
 const WEB = path.resolve(__dirname, '..'), arg = process.argv.slice(2);
 const val = k => { const i = arg.indexOf('--' + k); return i >= 0 ? arg[i + 1] : null; };
 const PAGINA = process.argv.includes('--red') ? 'pruebas/red.html' : 'gpu.html';
-const q = ['lote', 'filtros', 'bloques', 'vueltas', 'F', 'nb', 'B', 'pasos', 'bench'].filter(val).map(k => `${k}=${+val(k)}`).join('&');
+const q = ['lote', 'filtros', 'bloques', 'vueltas', 'F', 'nb', 'B', 'pasos', 'bench', 'N'].filter(val).map(k => `${k}=${+val(k)}`).join('&');
 let PUERTO_DIAG = 0;
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json' };
 
