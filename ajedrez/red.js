@@ -108,7 +108,7 @@
     const G = raiz.GPU || (typeof require !== 'undefined' ? null : null);
     if (!G) throw new Error('falta gpu.js');
     await G.iniciar(); G.preparar2();
-    op = Object.assign({ lote: 256, wv: 1, wp: .1, lr: 2e-3, l2: 1e-4 }, op || {});   // política con peso 0,1: con 1 se lleva el tronco y el valor no aprende (medido)   // valor con entropía cruzada (0.38.0): con tanh y error cuadrático no aprendía en la red grande (medido en la 5080)
+    op = Object.assign({ lote: 256, wv: 1, wp: .1, lr: 1e-3, l2: 1e-4 }, op || {});   // elegido con el barrido en la 5080 (2026-10-22): cabeza «plano», ritmo 0,001, política 0,1   // política con peso 0,1: con 1 se lleva el tronco y el valor no aprende (medido)   // valor con entropía cruzada (0.38.0): con tanh y error cuadrático no aprendía en la red grande (medido en la 5080)
     const B = op.lote, F = red.filtros, nb = red.bloques, media = red.cabeza === 'media', KV = media ? VC : VC * 64, D = disposicion(F, nb, red.cabeza), tam = D.tensores.map(t => t.n);
     const P = G.bloque(tam), Gd = G.bloque(tam), Mm = G.bloque(tam), Vv = G.bloque(tam);
     G.escribir({ buf: P.buf, off: 0, n: D.total }, red.pesos.length === D.total ? red.pesos : Float32Array.from(red.pesos));
