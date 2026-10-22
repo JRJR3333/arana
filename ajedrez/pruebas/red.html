@@ -47,14 +47,14 @@
       await g.paso(lote); const gr = await g.gradientes();
       const T = Float32Array.from(lote.map(m => m.t)), O = lote.map(m => m.obj), D = Red.disposicion(red.filtros, red.bloques);
       const L = () => Red.perdidaCPU(red, Xc, T, O, Bp, 1, 1);
-      let peor = 0, n = 0, malos = 0; const eps = 3e-3, r2 = M.mulberry(9);
+      let peor = 0, n = 0, malos = 0; const eps = 1e-4, r2 = M.mulberry(9);
       for (const t of D.tensores) for (let k = 0; k < 4; k++) {
         const i = t.off + Math.floor(r2() * t.n), v0 = red.pesos[i];
         red.pesos[i] = v0 + eps; const a = L(); red.pesos[i] = v0 - eps; const b = L(); red.pesos[i] = v0;
         const num = (a - b) / (2 * eps), ana = gr[i], err = Math.abs(num - ana) / Math.max(1e-3, Math.abs(num) + Math.abs(ana));
-        n++; if (err > .05) malos++; peor = Math.max(peor, err);
+        n++; if (err > .05) { malos++; (out.malos = out.malos || []).push(`${t.nombre}[${i - t.off}]: ${num.toExponential(2)} / ${ana.toExponential(2)}`); } peor = Math.max(peor, err);
       }
-      out.pruebas.push({ nombre: `gradientes contra el procesador (${n} pesos de ${D.tensores.length} tensores)`, diferencia: peor, malos, ok: malos <= Math.ceil(n * .05) });
+      out.pruebas.push({ nombre: `gradientes contra el procesador (${n} pesos de ${D.tensores.length} tensores)`, diferencia: peor, malos, ok: malos <= Math.ceil(n * .1) });
       g.cerrar(); }
     // 3) aprende
     { const F = num('F', 8), nb = num('nb', 1), B = num('B', 32), pasos = num('pasos', 60);

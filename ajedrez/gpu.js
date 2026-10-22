@@ -128,7 +128,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) l: v
      Tableros siempre en orden [lote][plano][casilla 0–63]. */
   const CAB = `struct P { i0: vec4<u32>, i1: vec4<u32>, f0: vec4<f32>, f1: vec4<f32> }\n`;
   const K2 = {
-    // Convolución k×k (k = 1 o 3). flags: 1 ReLU, 2 suma residual R. Un grupo = un plano (co, b).
+    // Convolución k×k (k = 1 o 3). flags: 1 ReLU con fuga (0,01), 2 suma residual R. Un grupo = un plano (co, b).
     conv: CAB + `
 @group(0) @binding(0) var<storage, read> X: array<f32>;
 @group(0) @binding(1) var<storage, read> W: array<f32>;
@@ -157,7 +157,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) s
   }
   let o = (b * Co + co) * 64u + s;
   if ((fl & 2u) != 0u) { acc = acc + R[o]; }
-  if ((fl & 1u) != 0u) { acc = max(acc, 0.0); }
+  if ((fl & 1u) != 0u) { acc = max(acc, 0.01 * acc); }
   Y[o] = acc;
 }`,
     // Gradiente respecto a la entrada: dX[b,ci,t] = Σ_co Σ_d dY[b,co,t−d] · W[co,ci,d]. flags: 1 acumular.
@@ -237,13 +237,13 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) s
   for (var st = 32u; st > 0u; st = st >> 1u) { if (s < st) { red[s] = red[s] + red[s + st]; } workgroupBarrier(); }
   if (s == 0u) { db[co] = red[0]; }
 }`,
-    // dY *= (Y > 0): el ReLU hacia atrás
+    // ReLU con fuga hacia atrás: dY *= (Y > 0 ? 1 : 0,01). Con fuga, una neurona apagada puede volver (0.38.0: sin ella se apagaba la cabeza del valor)
     reluAtras: CAB + `
 @group(0) @binding(0) var<storage, read> Y: array<f32>;
 @group(0) @binding(1) var<storage, read_write> dY: array<f32>;
 @group(0) @binding(2) var<uniform> p: P;
 @compute @workgroup_size(256)
-fn main(@builtin(global_invocation_id) g: vec3<u32>) { let i = g.x + g.y * 65535u * 256u; if (i < p.i0.x && Y[i] <= 0.0) { dY[i] = 0.0; } }`,
+fn main(@builtin(global_invocation_id) g: vec3<u32>) { let i = g.x + g.y * 65535u * 256u; if (i < p.i0.x && Y[i] <= 0.0) { dY[i] = 0.01 * dY[i]; } }`,
     // A += B
     sumar: CAB + `
 @group(0) @binding(0) var<storage, read> Bs: array<f32>;
@@ -280,7 +280,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) l: v
   if (row < M && col < N) {
     var v = acc;
     if ((fl & 8u) == 0u) { v = v + Bv[col]; }
-    if ((fl & 1u) != 0u) { v = max(v, 0.0); }
+    if ((fl & 1u) != 0u) { v = max(v, 0.01 * v); }
     C[row * N + col] = v;
   }
 }`,
@@ -294,7 +294,8 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let M = p.i0.x; let N = p.i0.y; let j = g.x; if (j >= N) { return; }
   var a = 0.0; for (var i = 0u; i < M; i = i + 1u) { a = a + dC[i * N + j]; } db[j] = a;
 }`,
-    // Pérdida de cada posición: valor tanh + error cuadrático (peso wv) y política softmax + entropía cruzada (peso wp).
+    // Pérdida de cada posición: valor (entropía cruzada de la probabilidad de ganar, peso wv) y política (softmax + entropía cruzada, peso wp).
+    // Lo que se apunta del valor es el error cuadrático de tanh(z) contra el objetivo, para poder compararlo.
     // Escribe los gradientes y, por posición, [error del valor, pérdida de la política, acierto, tiene jugada].
     perdida: CAB + `
 @group(0) @binding(0) var<storage, read> ZV: array<f32>;
@@ -327,7 +328,9 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
   }
   if (l == 0u) {
     let v = tanh(ZV[b]); let t = T[b];
-    dZV[b] = 2.0 * (v - t) * (1.0 - v * v) * wv / f32(Bn);
+    // Entropía cruzada sobre la probabilidad de ganar p = σ(2z) = (v + 1) / 2 contra y = (t + 1) / 2: gradiente 2 (p − y)
+    let pz = 1.0 / (1.0 + exp(-2.0 * ZV[b])); let yy = (t + 1.0) * 0.5;
+    dZV[b] = 2.0 * (pz - yy) * wv / f32(Bn);
     Lo[b * 4u] = (v - t) * (v - t);
     if (tg >= 0) { Lo[b * 4u + 1u] = log(S) + M - Lg[base + u32(tg)]; Lo[b * 4u + 2u] = select(0.0, 1.0, AM == u32(tg)); Lo[b * 4u + 3u] = 1.0; }
     else { Lo[b * 4u + 1u] = 0.0; Lo[b * 4u + 2u] = 0.0; Lo[b * 4u + 3u] = 0.0; }
