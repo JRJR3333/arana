@@ -1163,7 +1163,12 @@ function jugar(Cw, Cb, fen, opc, alMover, ajW, ajB) {
 /* ───────────── Evolución ───────────── */
 const SIL = ['te', 'ji', 'ra', 'ña', 'lo', 'mi', 'sa', 'vi', 'ta', 'no', 'ke', 'ru', 'li', 'da', 'po', 'ga', 'se', 'ba', 'ni', 'zu'];
 function nombre(rng) { const n = 2 + (rng() < .35 ? 1 : 0); let s = ''; for (let i = 0; i < n; i++) s += SIL[Math.floor(rng() * SIL.length)]; return s[0].toUpperCase() + s.slice(1); }
-const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.002, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5 };
+const OPC_EVO = { poblacion: 32, elite: 4, torneo: 3, pm: 0.06, sigma0: 0.3, sigmaMin: 0.03, sigmaSacudida: 0.15, enfriar: 0.96, rondas: 4, inmigrantes: 2, umbralDiv: 0.03, racha: 5, estanco: 15, mejoraMin: 25 };
+/* σ (0.34.0, lo pidió Juan): el suelo era 0,002 y desde la generación ~123 las hijas casi no cambiaban.
+   Ahora el suelo es 0,03 y hay sacudidas de verdad (σ sube al menos a 0,15) en dos casos:
+   - la misma campeona gana «racha» generaciones seguidas (como antes);
+   - el Elo medio (suavizado) no mejora «mejoraMin» puntos en «estanco» generaciones.
+   Después de cada sacudida σ vuelve a enfriarse hasta el suelo, así que va por ciclos. */
 function nuevoIndividuo(rng, gen, origen, genes, padres, mut) {
   return { id: origen[0] + gen + '-' + Math.floor(rng() * 1e6).toString(36), nombre: nombre(rng), gen, origen, padres: padres || [], mut: mut || null, genes, elo: 1200, hist: [], partidas: { g: 0, e: 0, p: 0 } };
 }
@@ -1277,12 +1282,23 @@ function siguienteGeneracion(est, pop, rng) {
   const mejor = orden[0];
   est.racha = mejor.id === est.campeon ? (est.racha || 0) + 1 : 0; est.campeon = mejor.id;
   est.sigma = Math.max(O.sigmaMin, (est.sigma || O.sigma0) * O.enfriar);
-  if (est.racha >= O.racha) { est.sigma = Math.min(O.sigma0, est.sigma * 2); est.racha = 0; est.sacudidas = (est.sacudidas || 0) + 1; }
+  // Estancamiento por Elo: media suavizada (las partidas contra Stockfish la mueven ±100 por generación)
+  const mElo = pop.reduce((s, p) => s + p.elo, 0) / pop.length;
+  est.eloSuave = est.eloSuave == null ? mElo : est.eloSuave * .8 + mElo * .2;
+  if (est.eloTope == null || est.eloSuave > est.eloTope + O.mejoraMin) { est.eloTope = est.eloSuave; est.sinMejora = 0; }
+  else est.sinMejora = (est.sinMejora || 0) + 1;
+  let sacudida = null;
+  if (est.racha >= O.racha) sacudida = 'campeona';
+  else if (est.sinMejora >= O.estanco) sacudida = 'elo';
+  if (sacudida) {
+    est.sigma = Math.min(O.sigma0, Math.max(est.sigma * 2, O.sigmaSacudida));
+    est.racha = 0; est.sinMejora = 0; est.eloTope = est.eloSuave; est.sacudidas = (est.sacudidas || 0) + 1;
+  }
   const div = diversidad(pop, rng);
   const resumen = {
     gen, fecha: new Date().toISOString(), mejor: { id: mejor.id, nombre: mejor.nombre, pts: mejor.pts, elo: Math.round(mejor.elo) },
     mediaPts: pop.reduce((s, p) => s + (p.pts || 0), 0) / pop.length, mediaElo: pop.reduce((s, p) => s + p.elo, 0) / pop.length,
-    sigma: est.sigma, diversidad: div, encendidos: pop.reduce((s, p) => s + DET.filter(d => p.genes['d' + d.n][0] > 0).length, 0) / pop.length,
+    sigma: est.sigma, sacudida, diversidad: div, encendidos: pop.reduce((s, p) => s + DET.filter(d => p.genes['d' + d.n][0] > 0).length, 0) / pop.length,
     elite: orden.slice(0, O.elite).map(p => p.id), inmigrantes: 0,
     neuronas: pop.reduce((s, p) => s + huella(p.genes).r, 0) / pop.length,
     adn: DET.map(d => { let on = 0, w = 0; for (const p of pop) { const a = p.genes['d' + d.n]; if (a[0] > 0) { on++; w += a[2]; } } return [d.n, r4(on / pop.length), r4(on ? w / on : 0)]; })
