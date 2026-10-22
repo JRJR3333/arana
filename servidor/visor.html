@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Araña · servidor</title>
+<style>
+:root { --bg: #0b0d1a; --ink: #e8ecff; --muted: #8b93b8; --line: #262b4a; --acc: #5ee8ff; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.35 ui-monospace, Menlo, Consolas, monospace; overflow: hidden; overscroll-behavior: none; }
+#barra { position: fixed; left: 0; right: 0; top: 0; height: calc(34px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 8px 0; display: flex; align-items: center; gap: 6px; background: #0b0d1aee; border-bottom: 1px solid var(--line); z-index: 3; }
+#txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
+#txt b { color: var(--ink); }
+#barra button { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 8px; height: 26px; min-width: 30px; font: inherit; padding: 0 6px; }
+#pant { position: fixed; left: 0; right: 0; bottom: 0; top: calc(34px + env(safe-area-inset-top)); touch-action: none; display: flex; justify-content: center; align-items: flex-start; }
+#img { width: 100%; height: 100%; object-fit: contain; object-position: top center; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; pointer-events: none; }
+#aviso { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); text-align: center; }
+.caja { position: fixed; left: 8px; right: 8px; top: calc(42px + env(safe-area-inset-top)); background: #141832; border: 1px solid var(--line); border-radius: 12px; padding: 12px; z-index: 4; display: none; }
+.caja.on { display: block; }
+.caja input[type=text] { width: 100%; font: inherit; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px; }
+.caja .fila { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.caja button, .caja label.btn { background: var(--acc); color: #001; border: 0; border-radius: 8px; padding: 8px 12px; font: inherit; font-weight: 600; }
+.caja button.sec { background: none; color: var(--ink); border: 1px solid var(--line); }
+.caja a { color: var(--acc); display: block; padding: 6px 0; word-break: break-all; }
+</style>
+</head>
+<body>
+<div id="barra">
+  <span id="txt">Conectando con el servidor…</span>
+  <button id="bTec" aria-label="Escribir">⌨</button>
+  <button id="bDes" aria-label="Descargas">⬇</button>
+  <button id="bRec" aria-label="Volver a abrir la sala">⟳</button>
+</div>
+<div id="pant"><img id="img" alt="La sala de ajedrez del servidor"></div>
+<div id="aviso">Conectando…</div>
+<div class="caja" id="cTec">
+  <input type="text" id="tTec" placeholder="Toque antes el campo de la sala y escriba aquí" autocomplete="off" autocapitalize="off">
+  <div class="fila"><button id="tEnv">Escribir</button><button class="sec" data-k="Enter">Intro</button><button class="sec" data-k="Backspace">Borrar</button><button class="sec" data-k="Escape">Esc</button><button class="sec" id="tCer">Cerrar</button></div>
+</div>
+<div class="caja" id="cDes"><b>Archivos que ha guardado la sala</b><div id="lDes">…</div><div class="fila"><button class="sec" id="dCer">Cerrar</button></div></div>
+<div class="caja" id="cSub"><b>La sala pide un archivo</b><p style="color:var(--muted)">Elija la copia de arañas que quiere importar.</p><div class="fila"><label class="btn">Elegir archivo<input type="file" id="fSub" hidden></label><button class="sec" id="sCer">Cancelar</button></div></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s), img = $('#img'), pant = $('#pant');
+let meta = { w: 412, h: 860 };
+const post = e => fetch('entrada', { method: 'POST', body: JSON.stringify(e) }).catch(() => {});
+function tamano() { const r = pant.getBoundingClientRect(); post({ tipo: 'tamano', w: r.width, h: r.height, dpr: Math.min(2, devicePixelRatio || 1) }); }
+/* Coordenadas de la pantalla del móvil → píxeles de la página del servidor */
+function aPagina(cx, cy) {
+  const r = img.getBoundingClientRect(), esc = Math.min(r.width / meta.w, r.height / meta.h), ox = r.left + (r.width - meta.w * esc) / 2, oy = r.top;
+  return { x: (cx - ox) / esc, y: (cy - oy) / esc, esc };
+}
+/* Gestos: tocar = clic; arrastrar = moverse (rueda); dos dedos = zoom (Ctrl + rueda) */
+const dedos = new Map(); let ini = null, movido = false, pinza = null, pend = { dx: 0, dy: 0 }, tMov = null;
+pant.addEventListener('pointerdown', e => { pant.setPointerCapture(e.pointerId); dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (dedos.size === 1) { ini = { x: e.clientX, y: e.clientY, t: Date.now() }; movido = false; }
+  if (dedos.size === 2) { const [a, b] = [...dedos.values()]; pinza = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 }; movido = true; } });
+pant.addEventListener('pointermove', e => {
+  const ant = dedos.get(e.pointerId); if (!ant) return;
+  const ahora = { x: e.clientX, y: e.clientY }; dedos.set(e.pointerId, ahora);
+  if (dedos.size >= 2 && pinza) {
+    const [a, b] = [...dedos.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (Math.abs(d - pinza.d) > 6) { const p = aPagina(pinza.cx, pinza.cy); post({ tipo: 'zoom', x: p.x, y: p.y, dy: -300 * Math.log(d / pinza.d) }); pinza.d = d; }
+    return;
+  }
+  if (!movido && Math.hypot(ahora.x - ini.x, ahora.y - ini.y) > 8) movido = true;
+  if (movido) { const p = aPagina(ahora.x, ahora.y); pend.dx += (ant.x - ahora.x) / p.esc; pend.dy += (ant.y - ahora.y) / p.esc;
+    if (!tMov) tMov = setTimeout(() => { const q = aPagina(ahora.x, ahora.y); post({ tipo: 'mover', x: q.x, y: q.y, dx: pend.dx, dy: pend.dy }); pend = { dx: 0, dy: 0 }; tMov = null; }, 40); }
+});
+const soltar = e => { if (!dedos.has(e.pointerId)) return; dedos.delete(e.pointerId);
+  if (dedos.size < 2) pinza = null;
+  if (!dedos.size && !movido && ini) { const p = aPagina(e.clientX, e.clientY); if (p.x >= 0 && p.y >= 0 && p.x <= meta.w && p.y <= meta.h) post({ tipo: 'toque', x: p.x, y: p.y }); } };
+pant.addEventListener('pointerup', soltar); pant.addEventListener('pointercancel', e => { dedos.delete(e.pointerId); pinza = null; });
+pant.addEventListener('wheel', e => { e.preventDefault(); const p = aPagina(e.clientX, e.clientY); post(e.ctrlKey ? { tipo: 'zoom', x: p.x, y: p.y, dy: e.deltaY } : { tipo: 'mover', x: p.x, y: p.y, dx: e.deltaX, dy: e.deltaY }); }, { passive: false });
+/* Teclado del ordenador: se pasa tal cual */
+document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (e.key.length === 1) post({ tipo: 'texto', t: e.key }); else if (['Enter', 'Backspace', 'Escape', 'Tab', 'ArrowLeft', 'ArrowRight'].includes(e.key)) post({ tipo: 'tecla', key: e.key }); else return; e.preventDefault(); });
+/* Escribir, descargas, recargar */
+$('#bTec').onclick = () => { $('#cTec').classList.toggle('on'); $('#tTec').focus(); };
+$('#tEnv').onclick = () => { const t = $('#tTec').value; if (t) post({ tipo: 'texto', t }); $('#tTec').value = ''; };
+$('#tTec').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#tEnv').click(); } });
+document.querySelectorAll('#cTec [data-k]').forEach(b => b.onclick = () => post({ tipo: 'tecla', key: b.dataset.k }));
+$('#tCer').onclick = () => $('#cTec').classList.remove('on');
+async function descargas() { const l = await (await fetch('descargas')).json(); $('#lDes').innerHTML = l.length ? l.map(f => `<a href="descargas/${encodeURIComponent(f)}" download>${f.replace(/^\d+-/, '').replace(/</g, '&lt;')}</a>`).join('') : '<p style="color:var(--muted)">Aún no hay ninguno. Use «Exportar» en la sala.</p>'; }
+$('#bDes').onclick = () => { $('#cDes').classList.toggle('on'); descargas(); };
+$('#dCer').onclick = () => $('#cDes').classList.remove('on');
+$('#bRec').onclick = () => { if (confirm('¿Vuelvo a abrir la sala en el servidor? Si está entrenando, se pierde la generación en curso.')) post({ tipo: 'recargar' }); };
+$('#fSub').onchange = async e => { const f = e.target.files[0]; if (!f) return; await fetch('subir?nombre=' + encodeURIComponent(f.name), { method: 'POST', body: f }); $('#cSub').classList.remove('on'); };
+$('#sCer').onclick = () => $('#cSub').classList.remove('on');
+/* La pantalla del servidor en directo */
+let ultimaUrl = null;
+function conectar() {
+  const es = new EventSource('eventos');
+  es.addEventListener('imagen', e => { const d = JSON.parse(e.data); meta = { w: d.w, h: d.h }; img.src = 'data:image/jpeg;base64,' + d.data; $('#aviso').hidden = true; });
+  es.addEventListener('estado', e => { const s = JSON.parse(e.data); if (!s) return; $('#txt').innerHTML = `<b>Gen ${s.gen}</b> · ${s.entrena ? 'entrenando' : 'en pausa'} · peldaño ${s.peldano}${s.campeona ? ' · ' + s.campeona.replace(/</g, '&lt;') : ''} · ${s.rend || ''}`; });
+  es.addEventListener('descarga', e => { $('#cDes').classList.add('on'); descargas(); });
+  es.addEventListener('elegir', () => $('#cSub').classList.add('on'));
+  es.onopen = () => { tamano(); $('#txt').textContent = 'Conectado.'; };
+  es.onerror = () => { $('#txt').textContent = 'Sin conexión con el servidor; reintento…'; };
+}
+addEventListener('resize', () => { clearTimeout(tamano.t); tamano.t = setTimeout(tamano, 300); });
+conectar();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Araña · servidor de ajedrez (servicio de usuario de systemd)
+# Lo instala instalar.sh en ~/.config/systemd/user/. Ver servidor/LEEME.md.
+[Unit]
+Description=Araña: entrena el ajedrez 24 h y lo enseña por Tailscale
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/arana/servidor
+ExecStart=/usr/bin/env node %h/arana/servidor/arana-servidor.js
+Environment=ARANA_PUERTO=8733
+# El ajedrez usa todos los hilos que se le den: con Nice el resto del aparato sigue respondiendo
+Nice=10
+Restart=always
+RestartSec=10
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target

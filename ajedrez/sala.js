@@ -7,7 +7,7 @@ const qs = new URLSearchParams(location.search);
 const ORIGEN = qs.get('plat') || (/android/i.test(navigator.userAgent) || qs.get('app') === 'android' ? 'android' : /iphone|ipad|ipod/i.test(navigator.userAgent) ? 'iphone' : 'web');
 const rng = M.mulberry((Math.random() * 4294967296) >>> 0);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const COLOR_ORIGEN = { iphone: '#5ee8ff', android: '#ffb340', web: '#a99bff', inmigrante: '#9a9aa8', cazadora: '#ff5c5c' };
+const COLOR_ORIGEN = { iphone: '#5ee8ff', android: '#ffb340', web: '#a99bff', linux: '#ff8ad8', inmigrante: '#9a9aa8', cazadora: '#ff5c5c' };
 const colorDe = p => p.mut && p.mut.nacio === 'inmigrante' ? COLOR_ORIGEN.inmigrante : COLOR_ORIGEN[p.origen] || '#9a9aa8';
 const fmt = (v, d) => (+v).toFixed(d == null ? 1 : d).replace('.', ',');
 /* Las apps nativas: el iPhone habla por window.webkit.messageHandlers.arana; Android, por AranaAndroid (también desde el iframe) */
@@ -101,7 +101,7 @@ function migrarEscalera(e) {
 }
 
 /* ───── Opciones (se guardan en el aparato) ───── */
-const OPC_DEF = { ms: 0, rend: 1, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4, ana: 1, final: 1 };
+const OPC_DEF = { ms: 0, rend: ORIGEN === 'linux' ? 2 : 1, prof: 4, rondas: 4, maxPlies: 160, directo: true, sf: 1, sfTop: 4, ana: 1, final: 1 };
 const limite = () => opc.maxPlies || 300;   // para estimar tiempos cuando no hay límite
 let opc = OPC_DEF;
 try { opc = Object.assign({}, OPC_DEF, JSON.parse(localStorage.getItem('arana.ajedrez.opc') || '{}')); } catch (e) { opc = Object.assign({}, OPC_DEF); }
@@ -186,41 +186,23 @@ function guardarEstado(extra) {
 }
 
 /* ───── Hilos de partidas ───── */
-const NUCLEOS = navigator.hardwareConcurrency || 4, NHILOS = Math.max(1, Math.min(8, NUCLEOS - 1));
+const NUCLEOS = navigator.hardwareConcurrency || 4, NHILOS = Math.max(1, Math.min(ORIGEN === 'linux' ? 64 : 8, NUCLEOS - 1));   // en el servidor de Linux, todos los núcleos menos uno
 
-/* ───── Rendimiento: cuánto trabaja el aparato (0.32.0) ─────
-   Tres modos (Ahorro, Equilibrado, Máximo). Cada hilo mide su velocidad cada 4 partidas con la misma búsqueda de prueba;
-   si baja mucho respecto a lo mejor que ha medido, el aparato se está calentando: usa un hilo menos y descansa entre partidas.
-   Con poca batería (si el sistema lo dice) pasa a Ahorro, y con muy poca hace una pausa. El tiempo por jugada «Automático»
-   sale de esa velocidad: la araña piensa más o menos los mismos nodos en un móvil lento y en uno rápido. */
+/* ───── Rendimiento: cuánto trabaja el aparato ─────
+   Tres niveles (Ahorro, Equilibrado, Máximo) que elige Juan; no se cambian solos (lo pidió Juan en la 0.33.0).
+   Cada hilo mide su velocidad cada 4 partidas con la misma búsqueda de prueba: solo sirve para el tiempo por jugada
+   «Automático» (que la araña piense más o menos los mismos nodos en un aparato lento y en uno rápido) y para enseñarla. */
 const MODOS = [
   { n: 'Ahorro', hilos: () => 1, descanso: 1, nodos: 2500 },
   { n: 'Equilibrado', hilos: () => Math.max(1, Math.min(NHILOS, Math.floor(NUCLEOS / 2))), descanso: .2, nodos: 4000 },
   { n: 'Máximo', hilos: () => NHILOS, descanso: 0, nodos: 6000 }];
-const rend = { nps: 0, max: 0, calor: 0, frio: 0, bateria: null, pausaBat: false, partidas: 0 };
-const modo = () => MODOS[rend.bateria && !rend.bateria.charging && rend.bateria.level < .2 ? 0 : Math.max(0, Math.min(2, opc.rend == null ? 1 : opc.rend))];
-const hilosActivos = () => Math.max(1, modo().hilos() - rend.calor);
-const descanso = () => modo().descanso + rend.calor * .35;
+const rend = { nps: 0, partidas: 0 };
+const modo = () => MODOS[Math.max(0, Math.min(2, opc.rend == null ? 1 : opc.rend))];
+const hilosActivos = () => Math.max(1, modo().hilos());
+const descanso = () => modo().descanso;
 function msJugada() { return opc.ms || (rend.nps ? Math.max(10, Math.min(400, Math.round(modo().nodos / rend.nps))) : 40); }
-function medida(nps) {
-  if (!nps) return;
-  rend.nps = rend.nps ? rend.nps * .7 + nps * .3 : nps; rend.max = Math.max(rend.max * .995, nps);
-  const r = rend.nps / rend.max;
-  if (r < .7 && rend.calor < NHILOS) { rend.calor++; rend.frio = 0; rend.max *= .97; pintarEstado(); }
-  else if (r > .9 && rend.calor > 0 && ++rend.frio >= 3) { rend.calor--; rend.frio = 0; pintarEstado(); }
-}
-try { if (navigator.getBattery) navigator.getBattery().then(b => {
-  const ver = () => { rend.bateria = { level: b.level, charging: b.charging };
-    const muy = !b.charging && b.level < .08;
-    if (muy && entrenando && !rend.pausaBat) { rend.pausaBat = true; entrenar(false); avisar('Me queda muy poca batería: paro de entrenar. Póngame a cargar y sigo.'); avisarProgreso('Pausa: queda muy poca batería.'); }
-    else if (!muy && rend.pausaBat && b.charging) { rend.pausaBat = false; entrenar(true); }
-    pintarEstado(); };
-  ver(); b.addEventListener('levelchange', ver); b.addEventListener('chargingchange', ver);
-}).catch(() => {}); } catch (e) {}
-function textoRend() {
-  const b = rend.bateria, m = modo();
-  return `${m.n} · ${hilosActivos()} de ${NHILOS} hilos${rend.nps ? ` · ${Math.round(rend.nps)} nodos/ms` : ''}${rend.calor ? ' · bajando el ritmo para no calentar' : ''}${b ? ` · batería ${Math.round(b.level * 100)} %${b.charging ? ' cargando' : ''}` : ''}`;
-}
+function medida(nps) { if (nps) rend.nps = rend.nps ? rend.nps * .7 + nps * .3 : nps; }
+function textoRend() { return `${modo().n} · ${hilosActivos()} de ${NHILOS} hilos${rend.nps ? ` · ${Math.round(rend.nps)} nodos/ms` : ''}`; }
 const hilos = [];
 function crearHilos() {
   for (let i = 0; i < NHILOS; i++) {
@@ -515,6 +497,7 @@ function segundoPlano(on) {
 }
 function entrenar(si) {
   entrenando = si; segundoPlano(si);
+  if (ORIGEN === 'linux') try { localStorage.setItem('arana.ajedrez.servidor.entrena', si ? '1' : '0'); } catch (e) {}   // el servidor recuerda si estaba entrenando al reiniciar
   $('#go').textContent = si ? '⏸ Pausar' : '▶ Entrenar';
   const aa = ANDROID(); if (aa && typeof aa.pantalla === 'function') { try { aa.pantalla(!!si); } catch (e) {} }
   if (si) { pedirCandado(); if (sfFase) faseStockfish(); else { if (!juegos.length) prepararGeneracion(); repartir(); } }
@@ -704,9 +687,9 @@ function pintarCla() {
   const cl = clasif(), fin = torneo.final ? [torneo.final.a, torneo.final.b] : [];
   z.querySelector('h3').textContent = `Clasificación · ${torneo.fase === 'suizo' ? `ronda ${torneo.ronda + 1} de ${torneo.R}` : torneo.fase === 'final' ? 'final en juego' : 'torneo terminado'}`;
   const fila = (x, k) => `<button class="cf${fin.includes(x.p.id) ? ' fi' : ''}${x.p.id === torneo.campeona ? ' ca' : ''}" data-id="${esc(x.p.id)}"><i>${k + 1}</i><span>${esc(x.p.nombre)}</span><b>${pts(x.tor)}</b><em>${fmt(x.bh, 1)}</em><em>${Math.round(x.elo)}</em></button>`;
-  const cab = '<div class="cf ca0"><i>#</i><span>Araña</span><b>Pts</b><em>Bh</em><em>Elo</em></div>', mitad = Math.ceil(cl.length / 2);
+  const cab = '<div class="cf ca0"><i>#</i><span>Araña</span><b>Pts</b><em title="Buchholz: suma de los puntos de sus rivales; desempata">Bh</em><em>Elo</em></div>', mitad = Math.ceil(cl.length / 2);
   z.querySelector('.cla').innerHTML = `<div>${cab}${cl.slice(0, mitad).map(fila).join('')}</div><div>${cab}${cl.slice(mitad).map((x, k) => fila(x, k + mitad)).join('')}</div>`;
-  const r = document.getElementById('rot'); if (r) r.textContent = `Ronda ${Math.min(torneo.ronda, torneo.R - 1) + 1} de ${torneo.R} · mesa 1 = las dos primeras de la clasificación`;
+  const r = document.getElementById('rot'); if (r) r.textContent = `Ronda ${Math.min(torneo.ronda, torneo.R - 1) + 1} de ${torneo.R} · mesa 1 = las dos primeras de la clasificación · Bh (Buchholz) = puntos de sus rivales, desempata`;
 }
 const escMin = () => Math.min(1, (plano.clientWidth || 380) / (W0 || 1));
 const ESC_MAX = 2.4;
@@ -1130,7 +1113,7 @@ function pintarEstado() {
   const ult = historial[historial.length - 1];
   $('#estado').innerHTML = `<b>Generación ${est.gen}</b> · ${entrenando ? 'entrenando' : 'en pausa'}` +
     (sfFase ? ` · escalera ${sfFase.hechos.length}/${sfFase.total}` : torneo && total ? ` · ${torneo.fase === 'final' ? 'final' : torneo.fase === 'hecho' ? 'cazadoras' : `ronda ${torneo.ronda + 1}/${torneo.R}`} · ${hechas}/${total}` : '') +
-    (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${hilosActivos()} hilos`) + (rend.calor ? ' · <b>bajando el ritmo</b> para no calentar' : '') + (rend.pausaBat ? ' · <b>pausa por batería</b>' : '') +
+    (ult ? ` · campeona <b>${esc(ult.mejor.nombre)}</b> (Elo ${ult.mejor.elo})` : ` · ${hilosActivos()} hilos`) +
     (li.conectado ? ` · <b>Lichess</b> ${[...li.partidas.values()].filter(g => !g.fin).length ? 'jugando' : 'esperando'}` : '') +
     `<i class="prog" style="width:${(avance() * 100).toFixed(1)}%"></i>`;
   const nh = Object.keys(est.hitos || {}).length, bh = document.querySelector('[data-aux=hitos]');
@@ -1138,7 +1121,7 @@ function pintarEstado() {
 }
 
 /* ═════════ La hoja ═════════ */
-function hoja(html) { visor = null; anaParar(); $('#hojac').innerHTML = html; $('#hoja').classList.add('on'); $('#hojac').scrollTop = 0; const b = $('#hojac button'); if (b) b.focus(); }
+function hoja(html) { visor = null; anaParar(); $('#hojac').innerHTML = html; $('#hoja').classList.add('on'); $('#hojac').scrollTop = 0; const b = $('#hojac button'); if (b) b.focus({ preventScroll: true }); }
 function cerrarHoja() { $('#hoja').classList.remove('on'); clearInterval(repTimer); visor = null; anaParar(); }
 const CERRAR = '<div class="ctrl" style="margin-top:14px"><button class="btn sec" data-cerrar>Cerrar</button></div>';
 $('#hoja').addEventListener('click', e => {
@@ -1673,7 +1656,7 @@ function opciones() {
   hoja(`<h3>Opciones de entrenamiento</h3><div class="sub">Se aplican a la próxima generación</div>
     <h2>Rendimiento</h2>
     <label class="op">Cuánto trabaja el aparato ${sel('rend', [0, 1, 2], v => MODOS[v].n)}</label>
-    <p class="nota" id="opRend">${esc(textoRend())}. Ahorro: un hilo y descansa tanto como juega. Equilibrado: la mitad de los núcleos y descansos cortos. Máximo: todos los hilos sin descanso. En cualquier modo, si nota que el aparato se calienta (va más lento), baja el ritmo solo; con menos del 20 % de batería pasa a Ahorro y con menos del 8 % para.</p>
+    <p class="nota" id="opRend">${esc(textoRend())}. Ahorro: un hilo y descansa tanto como juega. Equilibrado: la mitad de los núcleos y descansos cortos. Máximo: todos los hilos sin descanso. El nivel no cambia solo: lo elige usted.</p>
     <label class="op">Tiempo por jugada ${sel('ms', [0, 10, 30, 60, 120, 250, 500, 1000, 2000, 5000], v => v ? (v < 1000 ? v + ' ms' : v / 1000 + ' s') : `Automático (${msJugada()} ms)`)}</label>
     <label class="op">Profundidad máxima ${sel('prof', [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 64], v => v === 64 ? 'Sin tope (manda el tiempo)' : v + ' jugadas')}</label>
     <h2>Torneo</h2>
@@ -1770,7 +1753,7 @@ ${motor}
 }
 
 /* ───── Lichess: la araña juega con una cuenta BOT (API oficial: https://lichess.org/api#tag/bot) ───── */
-const liGuardar = () => { try { localStorage.setItem(LI_K, JSON.stringify({ token: li.token, arana: li.arana, aceptar: li.aceptar })); } catch (e) {} };
+const liGuardar = () => { try { localStorage.setItem(LI_K, JSON.stringify({ token: li.token, arana: li.arana, aceptar: li.aceptar, auto: li.conectado })); } catch (e) {} };
 const liLog = t => { li.log.push(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + ' · ' + t); li.log = li.log.slice(-30); liPintar(); };
 function liElegir(p) { li.arana = { id: p.id, nombre: p.nombre, gen: p.gen, genes: JSON.parse(JSON.stringify(p.genes)) }; liGuardar(); }
 async function liFetch(ruta, o) {
@@ -1793,7 +1776,7 @@ async function liConectar() {
   if (!li.arana) { const c = campeona(); if (c) liElegir(c); }
   try { li.cuenta = await (await liFetch('/api/account')).json(); } catch (e) { li.error = 'Lichess no acepta el token (' + e.message + ').'; return liPintar(); }
   if (li.cuenta.title !== 'BOT') { li.error = 'Esta cuenta aún no es BOT. Conviértala abajo (solo si es una cuenta nueva, sin partidas).'; return liPintar(); }
-  li.conectado = true; li.ctrl = new AbortController(); segundoPlano(true);
+  li.conectado = true; li.ctrl = new AbortController(); segundoPlano(true); liGuardar();
   liLog(`Conectada como ${li.cuenta.username}. Juega ${li.arana ? li.arana.nombre : '—'}.`);
   (async () => {
     while (li.conectado) {
@@ -1803,7 +1786,7 @@ async function liConectar() {
   })();
   liPintar();
 }
-function liDesconectar() { li.conectado = false; if (li.ctrl) li.ctrl.abort(); if (!entrenando) segundoPlano(false); liLog('Desconectada.'); }
+function liDesconectar() { li.conectado = false; liGuardar(); if (li.ctrl) li.ctrl.abort(); if (!entrenando) segundoPlano(false); liLog('Desconectada.'); }
 async function liEvento(ev) {
   if (ev.type === 'challenge') {
     const c = ev.challenge; if (!c || (li.cuenta && c.challenger && c.challenger.id === li.cuenta.id)) return;
@@ -1915,6 +1898,18 @@ $('#go').onclick = () => entrenar(!entrenando);
 $('#vista').onclick = () => { opc.directo = !opc.directo; guardarOpc(); ponerVista(); pintarEstado(); };
 $('#opc').onclick = opciones;
 $('#evo').onclick = evoluciones;
+if (ORIGEN === 'linux') $('#salir').hidden = true;
+/* En el servidor de Linux la sala se ve por el visor, que no enseña las listas desplegables del sistema:
+   se sustituyen por una lista dentro de la página. */
+if (ORIGEN === 'linux') document.addEventListener('mousedown', e => {
+  const s = e.target.closest && e.target.closest('select'); if (!s || s.disabled) return;
+  e.preventDefault(); const vieja = document.querySelector('.selec'); if (vieja) vieja.remove();
+  const caja = document.createElement('div'), et = s.closest('label');
+  caja.className = 'selec'; caja.setAttribute('role', 'listbox');
+  caja.innerHTML = `<p>${esc(et ? (et.firstChild.textContent || '').trim() : 'Elija')}</p>` + [...s.options].map((o, i) => `<button data-i="${i}"${o.selected ? ' class="si"' : ''}>${esc(o.textContent)}</button>`).join('');
+  caja.onclick = ev => { const b = ev.target.closest('[data-i]'); caja.remove(); if (!b) return; s.selectedIndex = +b.dataset.i; s.dispatchEvent(new Event('change', { bubbles: true })); };
+  document.body.appendChild(caja);
+}, true);   // el servidor de Linux no sale de la sala: sigue entrenando
 $('#salir').onclick = () => { entrenar(false); if (!avisarApp({ tipo: 'salir' })) location.href = '../'; };
 document.addEventListener('keydown', e => {   // atajos en el ordenador
   if (e.key === 'Escape') return cerrarHoja();
@@ -1934,6 +1929,8 @@ window.__sala = { rend, hilosActivos, msJugada, textoRend, li, liConectar, liDes
 try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); } catch (e) {}
 cargar().then(() => {
   ponerTitulo(); crearHilos(); construirPlano(); ponerVista(); pintarEstado();
-  if (qs.get('entrenar') === '1') entrenar(true);
+  let sigue = false; if (ORIGEN === 'linux') try { sigue = localStorage.getItem('arana.ajedrez.servidor.entrena') !== '0'; } catch (e) {}
+  if (qs.get('entrenar') === '1' || sigue) entrenar(true);
+  if (ORIGEN === 'linux') try { if (JSON.parse(localStorage.getItem(LI_K) || '{}').auto && li.token) liConectar(); } catch (e) {}   // el servidor vuelve a Lichess tras reiniciar
 }).catch(e => { $('#estado').textContent = 'No he podido abrir la sala: ' + e.message; });
 })();

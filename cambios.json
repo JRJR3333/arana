@@ -1,5 +1,25 @@
 [
  {
+  "v": "0.33.0",
+  "fecha": "2026-10-22",
+  "mejoras": [
+   {
+    "id": "0.33.0-1",
+    "tipo": "funcionalidad",
+    "titulo": "Servidor de ajedrez para Linux (Arch, sin pantalla)",
+    "detalle": "A petición de Juan. servidor/: la misma sala en un Chromium sin ventana, entrenando 24 h con su memoria en disco, como servicio de usuario de systemd (instalar.sh), con actualización diaria desde GitHub. En el puerto 8733, solo por Tailscale, un visor para ver y tocar la sala desde el móvil (tocar, arrastrar, pellizcar, escribir, descargar e importar archivos). Evolución propia (origen linux), nivel Máximo por defecto, recuerda si entrenaba y vuelve a Lichess sola.",
+    "probar": "En el Arch: git clone … ~/arana && ~/arana/servidor/instalar.sh; en el móvil, http://<aparato>:8733"
+   },
+   {
+    "id": "0.33.0-2",
+    "tipo": "arreglo",
+    "titulo": "Rendimiento solo por niveles",
+    "detalle": "A petición de Juan: se quita la bajada automática de ritmo por calor y por batería. Ahorro, Equilibrado y Máximo hacen siempre lo mismo; la medida de velocidad solo calcula el tiempo automático. Además: las Opciones se abren arriba (antes bajaban al final) y la clasificación explica qué es Bh (Buchholz).",
+    "probar": "Opciones → Cuánto trabaja el aparato."
+   }
+  ]
+ },
+ {
   "v": "0.32.0",
   "fecha": "2026-10-22",
   "mejoras": [

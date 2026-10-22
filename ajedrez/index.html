@@ -103,6 +103,10 @@ header h1{flex:1; margin:0; font:600 16px/1.2 var(--mono); letter-spacing:.02em;
 .corona p{grid-column:1/-1; margin:0 0 4px; font:600 14px var(--mono); text-align:center}
 .corona button{border:1px solid var(--line); background:#eeeed2; border-radius:10px; padding:6px; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:64px}
 .corona img{width:48px; height:48px} .corona span{font:12px var(--mono); color:#333}
+.selec{position:fixed; left:12px; right:12px; top:50%; transform:translateY(-50%); z-index:30; background:var(--sheet); border:1px solid var(--cyan); border-radius:14px; padding:10px; max-height:80vh; overflow:auto; box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.selec p{margin:2px 4px 8px; font:600 14px var(--mono)}
+.selec button{display:block; width:100%; text-align:left; border:1px solid var(--line); background:none; color:var(--ink); border-radius:10px; padding:11px 12px; margin-top:6px; font:14px var(--mono)}
+.selec button.si{border-color:var(--cyan); color:var(--cyan)}
 .evbar{position:relative; height:28px; border-radius:4px; background:#403e3b; overflow:hidden; margin-bottom:6px}
 .evbar b{position:absolute; left:0; top:0; bottom:0; background:#fff; transition:width .3s}
 .evbar span{position:absolute; left:6px; top:4px; font:700 13px/20px var(--sys); color:#111; background:rgba(255,255,255,.9); padding:0 7px; border-radius:3px}

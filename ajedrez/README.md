@@ -12,7 +12,8 @@ La araña juega al ajedrez con un cerebro que **no programa nadie a mano**: nace
 - [Las distópicas](#las-distópicas)
 - [La sala](#la-sala)
 - [Jugar fuera: Lichess y motor para el ordenador](#jugar-fuera-lichess-y-motor-para-el-ordenador)
-- [Rendimiento: que no se caliente el móvil](#rendimiento-que-no-se-caliente-el-móvil)
+- [Rendimiento: niveles](#rendimiento-niveles)
+- [Linux sin pantalla (servidor)](#linux-sin-pantalla-servidor)
 - [Sin internet y en segundo plano](#sin-internet-y-en-segundo-plano)
 - [Dónde se guarda todo](#dónde-se-guarda-todo)
 - [Archivos y pruebas](#archivos-y-pruebas)
@@ -188,21 +189,23 @@ node arana-nombre.js
 
 Habla el protocolo **UCI**, así que sirve en cualquier programa de ajedrez (Cute Chess, Arena, BanksiaGUI…: añadir un motor con el comando `node` y el archivo como argumento) y en `lichess-bot`. Entiende `uci`, `isready`, `ucinewgame`, `position startpos|fen … moves …`, `go wtime/btime/winc/binc/movetime/depth` y `quit`.
 
-## Rendimiento: que no se caliente el móvil
+## Rendimiento: niveles
 
-En Opciones, **Cuánto trabaja el aparato**:
+En Opciones, **Cuánto trabaja el aparato**. El nivel lo elige usted y **no cambia solo** (desde la 0.33.0, a petición de Juan):
 
-| Modo | Hilos | Descanso entre partidas | Nodos por jugada (tiempo automático) |
+| Nivel | Hilos | Descanso entre partidas | Nodos por jugada (tiempo automático) |
 |---|---|---|---|
 | Ahorro | 1 | tanto como dura la partida | 2500 |
-| Equilibrado (por defecto) | la mitad de los núcleos | un 20 % | 4000 |
-| Máximo | todos menos uno (hasta 8) | ninguno | 6000 |
+| Equilibrado (por defecto en móvil) | la mitad de los núcleos | un 20 % | 4000 |
+| Máximo (por defecto en Linux) | todos menos uno (hasta 8; en Linux, sin tope) | ninguno | 6000 |
 
-- **Mide el aparato**: cada hilo, cada 4 partidas, repite la misma búsqueda de prueba y mide los nodos por milisegundo.
-- **Si se calienta**: cuando la velocidad cae por debajo del 70 % de lo mejor medido, usa un hilo menos y descansa más; cuando vuelve por encima del 90 % varias veces seguidas, recupera el ritmo poco a poco. La barra de estado lo dice («bajando el ritmo para no calentar»).
-- **Batería** (donde el sistema la da, como en Android): por debajo del 20 % sin cargar pasa a Ahorro; por debajo del 8 % para y avisa, y sigue sola al ponerla a cargar.
-- **Tiempo por jugada «Automático»** (por defecto): sale de la velocidad medida, para que la araña piense más o menos los mismos nodos en un móvil lento que en uno rápido. También se puede fijar a mano, de 10 ms a 5 s.
+- **Mide el aparato**: cada hilo, cada 4 partidas, repite la misma búsqueda de prueba y mide los nodos por milisegundo. Solo sirve para el tiempo automático y para enseñar la velocidad; no baja el ritmo.
+- **Tiempo por jugada «Automático»** (por defecto): sale de esa velocidad, para que la araña piense más o menos los mismos nodos en un aparato lento que en uno rápido. También se puede fijar a mano, de 10 ms a 5 s.
 - **Profundidad máxima**: de 2 a 20 jugadas, o «sin tope» (manda el tiempo). Contra Stockfish la araña piensa lo mismo que en el torneo.
+
+## Linux sin pantalla (servidor)
+
+El servidor (`servidor/`) deja a la araña entrenando las 24 horas en un ordenador con Linux sin entorno gráfico (Arch, con systemd). Desde el móvil, por Tailscale, se ve y se maneja la sala en directo. Cómo instalarlo y usarlo: [`servidor/LEEME.md`](../servidor/LEEME.md).
 
 ## Sin internet y en segundo plano
 

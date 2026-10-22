@@ -1,0 +1,7 @@
+# Trae la última versión de Araña de GitHub y, si ha cambiado, reinicia el servidor.
+[Unit]
+Description=Araña: actualizar desde GitHub
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'cd %h/arana && antes=$(git rev-parse HEAD) && git pull --ff-only -q && [ "$(git rev-parse HEAD)" != "$antes" ] && systemctl --user restart arana.service || true'

@@ -2,13 +2,14 @@
 
 Asistente personal en forma de araña. Tiene **la misma pantalla en todas partes**: el fondo de rejilla, la telaraña que crece con cada orden cumplida, el bocadillo, la araña de puntos y líneas, y abajo el micro, el campo «Dígame qué hacer» e «Ir». Lo demás está en **Ajustes** (la rueda de arriba a la derecha).
 
-Hay tres versiones. Se ven igual; cambia lo que el móvil le deja hacer:
+Hay tres versiones del asistente (y un servidor de Linux solo para el ajedrez). Se ven igual; cambia lo que el móvil le deja hacer:
 
 | Versión | Dónde está | Qué puede hacer |
 |---|---|---|
 | **Android** (la que más hace) | `nativo/android/` | Abrir sus apps, ajustes del móvil (linterna, brillo, No molestar; Wi-Fi, datos y Bluetooth abren su panel), temporizadores, alarmas, música (poner, pausar, siguiente), citas en el calendario, llamar, mensajes, WhatsApp, bolsillo, flotar sobre las demás apps y cerrarse |
 | **App de iPhone** | `nativo/ios/` | Abrir apps, recordatorios, temporizadores, citas y agenda, música de su biblioteca, llamar, mensajes, metrónomo, widget, Centro de control e Isla Dinámica |
 | **Web** (iPhone, Android o PC) | `index.html` | En el iPhone: abrir apps por su enlace, ajustes con el atajo «Araña», WhatsApp, llamar y bolsillo. En un ordenador: contestar, pensar y guardar en el bolsillo |
+| **Servidor Linux** (Arch, sin pantalla) | `servidor/` | Entrenar al ajedrez las 24 horas y verlo y manejarlo desde el móvil por Tailscale ([cómo instalarlo](servidor/LEEME.md)) |
 
 En *Ajustes → Lo que puedo hacer en…* cada versión enseña su propia lista. El cerebro (Claude) recibe solo los pasos que ese aparato permite.
 
