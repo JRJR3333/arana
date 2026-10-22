@@ -26,8 +26,8 @@ const conGPU = () => process.env.ARANA_GPU !== '0';
    (por si ANGLE no arranca sin pantalla); «nativo»: Vulkan sin la caja de arena de la gráfica (con la NVIDIA, a veces la caja
    no deja abrir /dev/nvidia*); «gl»: ANGLE por OpenGL/EGL. */
 const VARIANTES = {
-  vulkan: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=vulkan', '--disable-vulkan-surface', '--ignore-gpu-blocklist'],
-  nativo: ['--enable-unsafe-webgpu', '--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan', '--use-angle=vulkan', '--use-vulkan=native', '--disable-vulkan-surface', '--ignore-gpu-blocklist', '--disable-gpu-sandbox'],
+  vulkan: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=vulkan', '--disable-vulkan-surface', '--ignore-gpu-blocklist', '--disable-dawn-features=adapter_blocklist'],
+  nativo: ['--enable-unsafe-webgpu', '--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan', '--use-angle=vulkan', '--use-vulkan=native', '--disable-vulkan-surface', '--ignore-gpu-blocklist', '--disable-gpu-sandbox', '--disable-dawn-features=adapter_blocklist', '--enable-dawn-features=allow_unsafe_apis'],
   dawn: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=swiftshader', '--disable-vulkan-surface', '--ignore-gpu-blocklist'],
   gl: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-gl=angle', '--use-angle=gl-egl', '--ignore-gpu-blocklist', '--disable-gpu-sandbox']
 };

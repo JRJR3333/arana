@@ -17,6 +17,7 @@ const { buscarChromium, argsGPU, VARIANTES, GPU_JSON, pararLlama, reanudarLlama,
 const WEB = path.resolve(__dirname, '..'), arg = process.argv.slice(2);
 const val = k => { const i = arg.indexOf('--' + k); return i >= 0 ? arg[i + 1] : null; };
 const q = ['lote', 'filtros', 'bloques', 'vueltas'].filter(val).map(k => `${k}=${+val(k)}`).join('&');
+let PUERTO_DIAG = 0;
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json' };
 
 const srv = http.createServer((req, res) => {
@@ -24,7 +25,7 @@ const srv = http.createServer((req, res) => {
   if (!f.startsWith(WEB)) { res.writeHead(403); return res.end(); }
   fs.readFile(f, (e, b) => { if (e) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': TIPOS[path.extname(f)] || 'application/octet-stream' }); res.end(b); });
 }).listen(0, '127.0.0.1', async () => {
-  const puerto = srv.address().port, perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'arana-gpu-'));
+  const puerto = PUERTO_DIAG = srv.address().port, perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'arana-gpu-'));
   const conLlama = arg.includes('--parar-llama');
   const ll = procesosLlama();
   console.log(ll.length ? `llama-server está abierto (pid ${ll[0].pid}${ll[0].unidad ? ', servicio ' + ll[0].unidad : ', lanzado a mano'}).` : 'llama-server no está abierto.');
@@ -86,7 +87,7 @@ async function probarCon(variante, puerto) {
 /* chrome://gpu con una forma: estado de WebGPU y Vulkan, la gráfica que ve y sus problemas */
 async function diagnostico(variante) {
   const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'arana-gpu-'));
-  const args = ['--headless=new', '--no-first-run', ...argsGPU(variante), '--enable-logging=stderr', `--user-data-dir=${perfil}`, '--remote-debugging-port=0', 'chrome://gpu'];
+  const args = ['--headless=new', '--no-first-run', ...argsGPU(variante), '--enable-logging=stderr', '--allow-chrome-scheme-url', `--user-data-dir=${perfil}`, '--remote-debugging-port=0', 'about:blank'];
   if (process.getuid && process.getuid() === 0) args.unshift('--no-sandbox');
   const ch = spawn(buscarChromium(), args, { stdio: ['ignore', 'ignore', 'pipe'] });
   let err = '';
@@ -104,13 +105,19 @@ async function diagnostico(variante) {
     await new Promise(r => setTimeout(r, 6000));
     const texto = await new Promise(r => { s.onmessage = e => { const m = JSON.parse(e.data); if (m.id === 1) r(m.result && m.result.result && m.result.result.value); };
       s.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { returnByValue: true, expression: `(() => { const t = []; const ver = n => { if (n.shadowRoot) ver(n.shadowRoot); for (const c of n.children || []) ver(c); if (!n.children || !n.children.length) { const x = (n.textContent || '').trim(); if (x) t.push(x); } }; ver(document.documentElement); return t.join('\\n'); })()` } })); });
+    // Y pedir la gráfica a WebGPU de varias formas, en una página normal
+    s.send(JSON.stringify({ id: 10, method: 'Page.navigate', params: { url: `http://127.0.0.1:${PUERTO_DIAG}/version.json` } }));
+    await new Promise(r => setTimeout(r, 2000));
+    const pide = await new Promise(r => { s.onmessage = e => { const m = JSON.parse(e.data); if (m.id === 2) r(m.result && m.result.result && m.result.result.value); };
+      s.send(JSON.stringify({ id: 2, method: 'Runtime.evaluate', params: { awaitPromise: true, returnByValue: true, expression: `(async () => { if (!navigator.gpu) return 'navigator.gpu no existe'; const out = []; for (const [n, o] of [['alto rendimiento', { powerPreference: 'high-performance' }], ['sin opciones', {}], ['bajo consumo', { powerPreference: 'low-power' }], ['compatibilidad', { featureLevel: 'compatibility' }]]) { try { const a = await Promise.race([navigator.gpu.requestAdapter(o), new Promise(k => setTimeout(() => k('tarda'), 15000))]); if (a === 'tarda') { out.push(n + ': no responde'); continue; } if (!a) { out.push(n + ': ninguna'); continue; } const i = a.info || {}; out.push(n + ': ' + [i.vendor, i.architecture, i.device, i.description].filter(Boolean).join(' · ') + (a.isFallbackAdapter ? ' (de reserva)' : '')); } catch (e) { out.push(n + ': error ' + e.message); } } return out.join('\\n'); })()` } })); });
     s.close();
     const L = String(texto || '').split('\n'), out = [];
     for (let i = 0; i < L.length; i++) {
       const l = L[i]; if (/[{}]/.test(l) || l.length > 300) continue;   // estilos y listas de extensiones
-      if (!/webgpu|vulkan|gpu0|gpu1|nvidia|adapter|dawn|driver|gl_renderer|problems|disabled|blocklist|software|unavailable|error|fail|ozone|display type/i.test(l)) continue;
+      if (/^Disabled$/.test(l)) continue;
+      if (!/webgpu|vulkan|gpu0|gpu1|nvidia|adapter|dawn|backend|driver|gl_renderer|problems|blocklist|unsafe|software|unavailable|error|fail|ozone|display type/i.test(l)) continue;
       out.push('  ' + l.slice(0, 200) + (/:$/.test(l) && L[i + 1] && L[i + 1].length < 200 ? ' ' + L[i + 1] : ''));
     }
-    return salir((out.slice(0, 60).join('\n') || '  (chrome://gpu vacío)') + '\n  — Chromium dijo:\n' + errores());
+    return salir((out.slice(0, 60).join('\n') || '  (chrome://gpu vacío)') + '\n  — WebGPU, al pedirle la gráfica:\n' + String(pide || '(sin respuesta)').split('\n').map(x => '  ' + x).join('\n') + '\n  — Chromium dijo:\n' + errores());
   } catch (e) { return salir('No he podido: ' + e.message + '\n' + errores()); }
 }

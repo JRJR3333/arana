@@ -80,7 +80,8 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) l: v
   G.iniciar = async function () {
     if (G.dev) return G.info;
     if (!G.disponible()) throw new Error('este navegador no tiene WebGPU');
-    const a = await conLimite(navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }), 20000, 'la gráfica');
+    let a = null;
+    for (const o of [{ powerPreference: 'high-performance' }, {}, { featureLevel: 'compatibility' }]) { a = await conLimite(navigator.gpu.requestAdapter(o), 20000, 'la gráfica'); if (a) break; }   // con dos gráficas, a veces solo responde a una de las formas
     if (!a) throw new Error('no hay gráfica disponible para WebGPU');
     const i = a.info || (a.requestAdapterInfo ? await a.requestAdapterInfo() : {}) || {};
     G.info = { fabricante: i.vendor || '', arquitectura: i.architecture || '', descripcion: i.description || '', dispositivo: i.device || '',
