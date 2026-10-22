@@ -244,6 +244,26 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) s
 @group(0) @binding(2) var<uniform> p: P;
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) g: vec3<u32>) { let i = g.x + g.y * 65535u * 256u; if (i < p.i0.x && Y[i] <= 0.0) { dY[i] = 0.01 * dY[i]; } }`,
+    // Suma de cada plano dividida por f0.x: Y[b·C + c] = Σ_s X[(b·C + c)·64 + s] / f0.x. Un grupo = (c, b).
+    media: CAB + `
+@group(0) @binding(0) var<storage, read> X: array<f32>;
+@group(0) @binding(1) var<storage, read_write> Y: array<f32>;
+@group(0) @binding(2) var<uniform> p: P;
+var<workgroup> red: array<f32, 64>;
+@compute @workgroup_size(64)
+fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) s: u32) {
+  let C = p.i0.y; let o = wg.y * C + wg.x;
+  red[s] = X[o * 64u + s]; workgroupBarrier();
+  for (var st = 32u; st > 0u; st = st >> 1u) { if (s < st) { red[s] = red[s] + red[s + st]; } workgroupBarrier(); }
+  if (s == 0u) { Y[o] = red[0] / p.f0.x; }
+}`,
+    // Hacia atrás: dX[i] = dY[i / 64] / f0.x
+    mediaAtras: CAB + `
+@group(0) @binding(0) var<storage, read> dY: array<f32>;
+@group(0) @binding(1) var<storage, read_write> dX: array<f32>;
+@group(0) @binding(2) var<uniform> p: P;
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) g: vec3<u32>) { let i = g.x + g.y * 65535u * 256u; if (i < p.i0.x) { dX[i] = dY[i / 64u] / p.f0.x; } }`,
     // A += B
     sumar: CAB + `
 @group(0) @binding(0) var<storage, read> Bs: array<f32>;

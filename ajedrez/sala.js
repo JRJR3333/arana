@@ -444,6 +444,7 @@ const hashTexto = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) 
 async function entrenarRed() {
   const n = redDatos.pos.length; if (n < 512) return { posiciones: n, nota: 'aún pocas posiciones (hacen falta 512)' };
   const tam = TAMS_RED[Math.max(0, Math.min(2, gopc('redTam')))];
+  if (red && (!red.pesos || red.pesos.length !== Red.disposicion(red.filtros, red.bloques, red.cabeza).total)) { if (redGPU) redGPU.cerrar(); redGPU = null; red = null; }   // una red de antes con otra forma: se empieza otra
   if (!red || red.filtros !== tam.filtros || red.bloques !== tam.bloques) { if (redGPU) redGPU.cerrar(); redGPU = null; red = Object.assign(Red.crear({ filtros: tam.filtros, bloques: tam.bloques, semilla: (Date.now() % 1e9) + 1 }), { creada: new Date().toISOString(), gen: est.gen }); }
   redOcupada = true;
   try {

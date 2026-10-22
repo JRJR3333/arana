@@ -21,7 +21,7 @@
    2) Sus gradientes coinciden con los del procesador por diferencias finitas.
    3) Aprende: con un objetivo sintético (material y una jugada fija) el error baja y la política acierta más.
    4) (bench=1) Velocidad de un paso de entrenamiento con la red de verdad.
-   Parámetros: ?F=8&nb=1&B=32&pasos=60&N=600&bench=0 (N: posiciones de la prueba; una red grande necesita muchas o las memoriza) */
+   Parámetros: ?F=8&nb=1&B=32&pasos=60&N=600&bench=0&barrido=0 (N: posiciones de la prueba; una red grande necesita muchas o las memoriza) */
 (async () => {
   const q = new URLSearchParams(location.search), num = (k, d) => (q.get(k) ? +q.get(k) : d);
   const M = window.AjedrezMotor, out = { ok: false, pruebas: [], error: '' }, log = t => { document.getElementById('salida').textContent += '\n' + t; };
@@ -45,7 +45,7 @@
       let dv = 0, dp = 0; for (let i = 0; i < Bp; i++) { dv = Math.max(dv, Math.abs(gv.valor[i] - Math.tanh(cpu.zv[i]))); for (let j = 0; j < Red.NP; j++) dp = Math.max(dp, Math.abs(gv.politica[i * Red.NP + j] - cpu.lg[i * Red.NP + j])); }
       out.pruebas.push({ nombre: 'la gráfica valora igual que el procesador', diferencia: Math.max(dv, dp), ok: Math.max(dv, dp) < 1e-3 });
       await g.paso(lote); const gr = await g.gradientes();
-      const T = Float32Array.from(lote.map(m => m.t)), O = lote.map(m => m.obj), D = Red.disposicion(red.filtros, red.bloques);
+      const T = Float32Array.from(lote.map(m => m.t)), O = lote.map(m => m.obj), D = Red.disposicion(red.filtros, red.bloques, red.cabeza);
       const L = () => Red.perdidaCPU(red, Xc, T, O, Bp, 1, 1);
       let peor = 0, n = 0, malos = 0; const eps = 1e-4, r2 = M.mulberry(9);
       for (const t of D.tensores) for (let k = 0; k < 4; k++) {
@@ -70,6 +70,21 @@
       out.aprende = { F, nb, B, pasos, antes, mejor, despues, curva, sobreajuste: sobre, vueltas: Math.round(pasos * B / ent.length), msPorPaso: Math.round(msEnt / pasos * 10) / 10 };
       out.pruebas.push({ nombre: `aprende: en su mejor momento (paso ${mejor.paso}) error del valor ${antes.valor.toFixed(3)} → ${mejor.valor.toFixed(3)}, pérdida de la política ${antes.politica.toFixed(2)} → ${mejor.politica.toFixed(2)}, acierta ${Math.round(mejor.acierto * 100)} %` + (sobre ? ` (después memoriza: ${out.aprende.vueltas} vueltas a ${ent.length} posiciones)` : ''), ok: mejor.valor < antes.valor && mejor.politica < antes.politica && mejor.acierto > antes.acierto });
       g.cerrar(); }
+    // 3b) barrido: varias combinaciones sobre las mismas posiciones (?barrido=1)
+    if (num('barrido', 0)) {
+      const F = num('F', 64), nb = num('nb', 6), B = num('B', 256), pasos = num('pasos', 600), r4 = M.mulberry(13);
+      const prueba = datos.filter((_, i) => i % 5 === 0).slice(0, 2048), ent = datos.filter((_, i) => i % 5 !== 0);
+      const CFG = [['plano', 2e-3, .1], ['plano', 1e-3, .1], ['plano', 5e-4, .1], ['plano', 2e-4, .1], ['plano', 1e-3, 1], ['media', 2e-3, .1], ['media', 1e-3, .1], ['media', 5e-4, .1], ['plano', 1e-3, 0], ['media', 1e-3, 0]];
+      out.barrido = [];
+      for (const [cabeza, lr, wp] of CFG) {
+        const red = Red.crear({ filtros: F, bloques: nb, semilla: 5, cabeza }), g = await Red.enGPU(red, { lote: B, lr, wp });
+        const a = await g.medir(prueba); let mejor = a;
+        for (let s = 0; s < pasos; s++) { const lote = []; for (let i = 0; i < B; i++) lote.push(ent[Math.floor(r4() * ent.length)]); await g.paso(lote); if ((s + 1) % Math.round(pasos / 5) === 0) { const m = await g.medir(prueba); if (m.valor < mejor.valor) mejor = m; } }
+        const d = await g.medir(prueba); g.cerrar();
+        out.barrido.push({ cabeza, lr, wp, valorAntes: +a.valor.toFixed(3), valorFin: +d.valor.toFixed(3), valorMejor: +mejor.valor.toFixed(3), acierto: Math.round(d.acierto * 100) });
+        log(JSON.stringify(out.barrido[out.barrido.length - 1]));
+      }
+    }
     // 4) velocidad con la red de verdad
     if (num('bench', 0)) { const B = num('benchB', 256), red = Red.crear({ filtros: num('benchF', 64), bloques: num('benchNb', 6) }), g = await Red.enGPU(red, { lote: B }), lote = datos.slice(0, B);
       await g.paso(lote); await g.esperar(); const t0 = performance.now(), n = 20; for (let s = 0; s < n; s++) await g.paso(lote); await g.esperar();

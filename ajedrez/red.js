@@ -5,7 +5,8 @@
    - Activación: ReLU con fuga (0,01) en todas las capas.
    - Tronco: una convolución 3×3 de 17 a F filtros y «bloques» bloques residuales (dos 3×3 y la suma de la entrada).
    - Política: 3×3 de F a F y 1×1 de F a 64 → 64 × 64 = 4096 jugadas (casilla de destino × casilla de origen).
-   - Valor: 1×1 de F a 32, capa densa de 2048 a 128 y de 128 a 1, y tanh: de −1 (pierde) a +1 (gana), desde el que mueve.
+   - Valor: 1×1 de F a 32 y, según «cabeza»: «plano» (las 32 × 64 = 2048 entradas a una capa densa de 128) o «media» (la suma
+     de cada canal sobre las casillas, ÷ 8, a una densa de 32 a 128); luego de 128 a 1 y tanh: de −1 (pierde) a +1 (gana), desde el que mueve.
    Aprende con Adam, todo en la gráfica: entropía cruzada del valor (probabilidad de ganar) contra Stockfish y de la política
    contra la mejor jugada de Stockfish. Aquí también va la misma red en el procesador, para comprobar la gráfica. */
 (function (raiz) {
@@ -39,15 +40,17 @@
   }
 
   /* ───── Los pesos ───── */
-  function forma(F, nb) {
+  const ESC_MEDIA = 8;
+  function forma(F, nb, cabeza) {
+    const K = cabeza === 'media' ? VC : VC * 64;
     const L = [['in.w', F * PL * 9, PL * 9], ['in.b', F, 0]];
     for (let k = 0; k < nb; k++) L.push([`b${k}.w1`, F * F * 9, F * 9], [`b${k}.b1`, F, 0], [`b${k}.w2`, F * F * 9, F * 9, .1], [`b${k}.b2`, F, 0]);
     L.push(['pol.w1', F * F * 9, F * 9], ['pol.b1', F, 0], ['pol.w2', 64 * F, F, .1], ['pol.b2', 64, 0],
-      ['val.w', VC * F, F], ['val.b', VC, 0], ['val.d1', VC * 64 * 128, VC * 64], ['val.c1', 128, 0], ['val.d2', 128, 128, .1], ['val.c2', 1, 0]);
+      ['val.w', VC * F, F], ['val.b', VC, 0], ['val.d1', K * 128, K], ['val.c1', 128, 0], ['val.d2', 128, 128, .1], ['val.c2', 1, 0]);
     return L.map(([nombre, n, fan, esc]) => ({ nombre, n, fan, esc: esc || 1 }));
   }
-  function disposicion(F, nb) {   // igual que GPU.bloque: cada tensor empieza en un múltiplo de 64 floats
-    const T = forma(F, nb); let off = 0;
+  function disposicion(F, nb, cabeza) {   // igual que GPU.bloque: cada tensor empieza en un múltiplo de 64 floats
+    const T = forma(F, nb, cabeza); let off = 0;
     for (const t of T) { t.off = off; off += Math.ceil(t.n / 64) * 64; }
     return { tensores: T, total: Math.max(64, off), por: Object.fromEntries(T.map(t => [t.nombre, t])) };
   }
@@ -57,12 +60,12 @@
     return () => Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u());
   }
   function crear(op) {
-    op = Object.assign({ filtros: 64, bloques: 6, semilla: 1 }, op || {});
-    const d = disposicion(op.filtros, op.bloques), pesos = new Float32Array(d.total), g = azarNormal(op.semilla);
+    op = Object.assign({ filtros: 64, bloques: 6, semilla: 1, cabeza: 'plano' }, op || {});
+    const d = disposicion(op.filtros, op.bloques, op.cabeza), pesos = new Float32Array(d.total), g = azarNormal(op.semilla);
     for (const t of d.tensores) if (t.fan) { const sd = Math.sqrt(2 / t.fan) * t.esc; for (let i = 0; i < t.n; i++) pesos[t.off + i] = g() * sd; }
-    return { v: 1, filtros: op.filtros, bloques: op.bloques, pesos, pasos: 0, total: d.total };
+    return { v: 1, filtros: op.filtros, bloques: op.bloques, cabeza: op.cabeza, pesos, pasos: 0, total: d.total };
   }
-  const vistaCPU = (red, nombre) => { const t = disposicion(red.filtros, red.bloques).por[nombre]; return red.pesos.subarray(t.off, t.off + t.n); };
+  const vistaCPU = (red, nombre) => { const t = disposicion(red.filtros, red.bloques, red.cabeza).por[nombre]; return red.pesos.subarray(t.off, t.off + t.n); };
 
   /* ───── La red en el procesador (referencia) ───── */
   function convCPU(X, W, Bv, B, Ci, Co, k, relu, R) {
@@ -85,7 +88,9 @@
     let t = convCPU(X, w('in.w'), w('in.b'), B, PL, F, 3, true);
     for (let k = 0; k < red.bloques; k++) { const h = convCPU(t, w(`b${k}.w1`), w(`b${k}.b1`), B, F, F, 3, true); t = convCPU(h, w(`b${k}.w2`), w(`b${k}.b2`), B, F, F, 3, true, t); }
     const p1 = convCPU(t, w('pol.w1'), w('pol.b1'), B, F, F, 3, true), lg = convCPU(p1, w('pol.w2'), w('pol.b2'), B, F, 64, 1, false);
-    const vc = convCPU(t, w('val.w'), w('val.b'), B, F, VC, 1, true), v1 = densaCPU(vc, w('val.d1'), w('val.c1'), B, VC * 64, 128, true), zv = densaCPU(v1, w('val.d2'), w('val.c2'), B, 128, 1, false);
+    const vc = convCPU(t, w('val.w'), w('val.b'), B, F, VC, 1, true), media = red.cabeza === 'media';
+    let vp = vc; if (media) { vp = new Float64Array(B * VC); for (let i = 0; i < B * VC; i++) { let a = 0; for (let s = 0; s < 64; s++) a += vc[i * 64 + s]; vp[i] = a / ESC_MEDIA; } }
+    const v1 = densaCPU(vp, w('val.d1'), w('val.c1'), B, media ? VC : VC * 64, 128, true), zv = densaCPU(v1, w('val.d2'), w('val.c2'), B, 128, 1, false);
     return { zv, lg };
   }
   /* La pérdida media, igual que el kernel «perdida» (para comprobar gradientes) */
@@ -104,14 +109,14 @@
     if (!G) throw new Error('falta gpu.js');
     await G.iniciar(); G.preparar2();
     op = Object.assign({ lote: 256, wv: 1, wp: .1, lr: 2e-3, l2: 1e-4 }, op || {});   // política con peso 0,1: con 1 se lleva el tronco y el valor no aprende (medido)   // valor con entropía cruzada (0.38.0): con tanh y error cuadrático no aprendía en la red grande (medido en la 5080)
-    const B = op.lote, F = red.filtros, nb = red.bloques, D = disposicion(F, nb), tam = D.tensores.map(t => t.n);
+    const B = op.lote, F = red.filtros, nb = red.bloques, media = red.cabeza === 'media', KV = media ? VC : VC * 64, D = disposicion(F, nb, red.cabeza), tam = D.tensores.map(t => t.n);
     const P = G.bloque(tam), Gd = G.bloque(tam), Mm = G.bloque(tam), Vv = G.bloque(tam);
     G.escribir({ buf: P.buf, off: 0, n: D.total }, red.pesos.length === D.total ? red.pesos : Float32Array.from(red.pesos));
     const pv = n => P.vistas[D.tensores.indexOf(D.por[n])], gv = n => Gd.vistas[D.tensores.indexOf(D.por[n])];
     const act = n => G.vista(G.buffer(n)), nada = act(1);
     const X = act(B * PL * 64), x0 = act(B * F * 64), hs = [], ys = [];
     for (let k = 0; k < nb; k++) { hs.push(act(B * F * 64)); ys.push(act(B * F * 64)); }
-    const p1 = act(B * F * 64), lg = act(B * NP), vc = act(B * VC * 64), v1 = act(B * 128), zv = act(B);
+    const p1 = act(B * F * 64), lg = act(B * NP), vc = act(B * VC * 64), vp = act(B * VC), dvp = act(B * VC), v1 = act(B * 128), zv = act(B);
     const T = act(B), Obj = act(B), Lo = act(B * 4), dzv = act(B), dlg = act(B * NP), dv1 = act(B * 128), dvc = act(B * VC * 64);
     const gA = act(B * F * 64), gB = act(B * F * 64), tmp = act(B * F * 64);
     const tronco = nb ? ys[nb - 1] : x0;
@@ -125,7 +130,8 @@
     ade.push(G.paso('conv', [tronco, pv('pol.w1'), pv('pol.b1'), nada, p1], [B, F, F, 1, 3], [], [F, B]));
     ade.push(G.paso('conv', [p1, pv('pol.w2'), pv('pol.b2'), nada, lg], [B, F, 64, 0, 1], [], [64, B]));
     ade.push(G.paso('conv', [tronco, pv('val.w'), pv('val.b'), nada, vc], [B, F, VC, 1, 1], [], [VC, B]));
-    ade.push(G.paso('matmul', [vc, pv('val.d1'), pv('val.c1'), v1], [B, VC * 64, 128, 1], [], [8, Math.ceil(B / 16)]));
+    if (media) ade.push(G.paso('media', [vc, vp], [B, VC], [ESC_MEDIA], [VC, B]));
+    ade.push(G.paso('matmul', [media ? vp : vc, pv('val.d1'), pv('val.c1'), v1], [B, KV, 128, 1], [], [8, Math.ceil(B / 16)]));
     ade.push(G.paso('matmul', [v1, pv('val.d2'), pv('val.c2'), zv], [B, 128, 1, 0], [], [1, Math.ceil(B / 16)]));
     const perd = G.paso('perdida', [zv, lg, T, Obj, dzv, dlg, Lo], [B, NP], [op.wv, op.wp], [B]);
     // Hacia atrás
@@ -135,9 +141,10 @@
     atr.push(G.paso('columnas', [dzv, gv('val.c2')], [B, 1], [], [1]));
     atr.push(G.paso('matmul', [dzv, pv('val.d2'), nada, dv1], [B, 1, 128, 4 | 8], [], [8, Math.ceil(B / 16)]));
     atr.push(G.paso('reluAtras', [v1, dv1], [B * 128], [], G.lineal(B * 128)));
-    atr.push(G.paso('matmul', [vc, dv1, nada, gv('val.d1')], [VC * 64, B, 128, 2 | 8], [], [8, VC * 4]));
+    atr.push(G.paso('matmul', [media ? vp : vc, dv1, nada, gv('val.d1')], [KV, B, 128, 2 | 8], [], [8, Math.ceil(KV / 16)]));
     atr.push(G.paso('columnas', [dv1, gv('val.c1')], [B, 128], [], [2]));
-    atr.push(G.paso('matmul', [dv1, pv('val.d1'), nada, dvc], [B, 128, VC * 64, 4 | 8], [], [VC * 4, Math.ceil(B / 16)]));
+    if (media) { atr.push(G.paso('matmul', [dv1, pv('val.d1'), nada, dvp], [B, 128, VC, 4 | 8], [], [Math.ceil(VC / 16), Math.ceil(B / 16)])); atr.push(G.paso('mediaAtras', [dvp, dvc], [B * VC * 64], [ESC_MEDIA], G.lineal(B * VC * 64))); }
+    else atr.push(G.paso('matmul', [dv1, pv('val.d1'), nada, dvc], [B, 128, VC * 64, 4 | 8], [], [VC * 4, Math.ceil(B / 16)]));
     atr.push(G.paso('reluAtras', [vc, dvc], [B * VC * 64], [], G.lineal(B * VC * 64)));
     atr.push(G.paso('convW', [dvc, tronco, gv('val.w')], [B, F, VC, 0, 1], [], [F, VC]));
     atr.push(G.paso('planos', [dvc, gv('val.b')], [B, 0, VC], [], [VC]));
@@ -178,7 +185,7 @@
     };
     const resumir = lo => { let v = 0, p = 0, a = 0, n = 0; for (let i = 0; i < lo.length; i += 4) { v += lo[i]; p += lo[i + 1]; a += lo[i + 2]; n += lo[i + 3]; } const m = lo.length / 4; return { valor: v / m, politica: n ? p / n : 0, acierto: n ? a / n : 0, conJugada: n }; };
     return {
-      lote: B, disposicion: D, depurar: { X, x0, ys, hs, p1, lg, vc, v1, zv, dzv, dv1, dvc, dlg, gA, gB, tmp },
+      lote: B, disposicion: D, depurar: { X, x0, ys, hs, p1, lg, vc, vp, dvp, v1, zv, dzv, dv1, dvc, dlg, gA, gB, tmp },
       /* Un paso de entrenamiento con «lote» muestras { x: planos, t: valor −1…1, obj: índice de jugada o −1 } */
       async paso(lote, conMedida) {
         subir(lote); t++;
