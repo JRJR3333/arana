@@ -573,7 +573,8 @@ function entrenar(si) {
 
 /* ═════════ Stockfish y la escalera ═════════
    Tras cada torneo, las mejores juegan contra Stockfish (blancas y negras, misma apertura) en el peldaño actual.
-   Premio por partida: aguante (hasta 1), calidad según Stockfish (0–1) y resultado (tablas 2, victoria 3).
+   Premio por partida: aguante (hasta 0,5), calidad según Stockfish (0–1) y resultado (tablas 6, victoria 12; desde la 0.36.0,
+   lo pidió Juan: el resultado manda mucho más que durar).
    Si sacan la mitad de los puntos en las últimas 8 partidas jugadas en el peldaño, queda conquistado y se sube al siguiente. */
 const sf = { w: null, listo: false, espera: null };
 let sfFase = null, sfFallo = '', sfVista = null;
@@ -647,7 +648,7 @@ async function faseStockfish() {
     try { r = await partidaSF(p, j.yoB, j.fen, sfFase.E); } catch (e) { sfFallo = (e && e.message) || 'error'; break; }
     if (!r) { sfFase.corriendo = false; marcarSF(); return; }
     sfFase.cola.shift(); sfFase.hechos.push(Object.assign({ id: p.id, nombre: p.nombre }, r));
-    p.sfb = (p.sfb || 0) + Math.min(1, r.plies / 100) + r.calidad + (r.res === 1 ? 3 : r.res === .5 ? 2 : 0);
+    p.sfb = (p.sfb || 0) + Math.min(.5, r.plies / 200) + r.calidad + (r.res === 1 ? 12 : r.res === .5 ? 6 : 0);
     const reg = p.sf = p.sf || { partidas: 0, puntos: 0, mejorPeldano: 0, mejor: null };
     reg.partidas++; reg.puntos += r.res; reg.ultimo = { peldano: sfFase.E.n, res: r.res, plies: r.plies };
     recordarRival(p, 'sf' + sfFase.E.n, r.res); recordarRival(p, 'sf', r.res);

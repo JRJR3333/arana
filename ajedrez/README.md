@@ -96,7 +96,7 @@ aptitud = puntos del torneo + premio de Stockfish + novedad + Elo / 100 000
 ```
 
 - **Puntos del torneo**: 1 por victoria, ½ por tablas, más 1 si es la campeona.
-- **Premio de Stockfish**, por partida: *aguante* (hasta 1, cuanto más dura la partida más vale) + *calidad* (0 a 1, según cómo de mal le iba en la valoración de Stockfish) + *resultado* (tablas 2, victoria 3). Perder rápido da poco; aguantar mucho, más; las tablas valen mucho.
+- **Premio de Stockfish**, por partida: *aguante* (hasta 0,5, cuanto más dura la partida más vale) + *calidad* (0 a 1, según cómo de mal le iba en la valoración de Stockfish) + *resultado* (**tablas 6, victoria 12**). Desde la 0.36.0 (lo pidió Juan) el resultado manda: antes eran tablas 2 y victoria 3, y aguantar valía hasta 1. Ahora unas tablas con Stockfish valen casi lo que ganar todas las partidas del torneo, y una victoria, más.
 - **Novedad** (distópica 37): cuánto se diferencia su estilo de las demás.
 - El **Elo** solo desempata.
 
