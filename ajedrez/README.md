@@ -15,6 +15,7 @@ La araña juega al ajedrez con un cerebro que **no programa nadie a mano**: nace
 - [Jugar fuera: Lichess y motor para el ordenador](#jugar-fuera-lichess-y-motor-para-el-ordenador)
 - [Rendimiento: niveles](#rendimiento-niveles)
 - [Linux sin pantalla (servidor)](#linux-sin-pantalla-servidor)
+- [La red en la gráfica (en construcción)](#la-red-en-la-gráfica-en-construcción)
 - [Sin internet y en segundo plano](#sin-internet-y-en-segundo-plano)
 - [Dónde se guarda todo](#dónde-se-guarda-todo)
 - [Archivos y pruebas](#archivos-y-pruebas)
@@ -222,6 +223,17 @@ En Opciones, **Cuánto trabaja el aparato**. El nivel lo elige usted y **no camb
 
 El servidor (`servidor/`) deja a la araña entrenando las 24 horas en un ordenador con Linux sin entorno gráfico (Arch, con systemd). Desde el móvil, por Tailscale, se ve y se maneja la sala en directo. Cómo instalarlo y usarlo: [`servidor/LEEME.md`](../servidor/LEEME.md).
 
+## La red en la gráfica (en construcción)
+
+Juan quiere que en el Arch entrene la **RTX 5080**. La búsqueda alfa-beta y los 45 detectores no ganan nada en una gráfica, así que será una distópica nueva (la 40): una red neuronal que lee el tablero entero (12 planos de 8×8, bloques residuales, valoración y política, como Leela), valora por lotes en la gráfica con una búsqueda MCTS, aprende por gradiente de lo que etiqueta Stockfish y deja a la evolución el tamaño de la red, cómo busca y cómo aprende. Mientras entrena con la gráfica, el servidor para llama-server.
+
+| Fase | Qué | Estado |
+|---|---|---|
+| 1 | WebGPU en el Chromium del servidor, convolución 3×3 y capa densa en la gráfica, comparadas con el procesador, y medida de velocidad (`gpu.js`, `gpu.html`, `servidor/probar-gpu.js`). Parar y reanudar llama-server. | hecha (0.37.0) |
+| 2 | La red y su entrenamiento en la gráfica, con las posiciones que etiqueta Stockfish | pendiente |
+| 3 | Búsqueda MCTS por lotes; las arañas con red juegan torneo y escalera | pendiente |
+| 4 | Evolución del tamaño de la red, la búsqueda y el aprendizaje | pendiente |
+
 ## Sin internet y en segundo plano
 
 - **Sin internet**: el *service worker* (`../sw.js`) guarda la sala, el motor, las piezas y Stockfish la primera vez que se abre. Después funciona todo sin conexión menos Lichess. En la app de iPhone, la vista web lo permite gracias a `WKAppBoundDomains`.
@@ -246,6 +258,7 @@ El servidor (`servidor/`) deja a la araña entrenando las 24 horas en un ordenad
 | `worker.js` | Un hilo: juega partidas o piensa una jugada. |
 | `sala.js` | La sala: torneo, Stockfish, vistas, fichas, visor, biblioteca, Lichess, exportar. |
 | `index.html` | La página de la sala y sus estilos. |
+| `gpu.js`, `gpu.html` | La gráfica (WebGPU): convolución y capa densa, y la página de prueba. |
 | `piezas.js` | Piezas cburnett (GPLv2+, ver `PIEZAS.md`). |
 | `stockfish/` | Stockfish 19 lite de un hilo (GPL v3, ver `stockfish/LEEME.md`). |
 | `DISENO.md` | Las decisiones de diseño y el estado de cada fase. |

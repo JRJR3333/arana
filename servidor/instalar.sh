@@ -12,6 +12,8 @@ command -v node >/dev/null || falta="$falta nodejs"
 command -v chromium >/dev/null || command -v google-chrome-stable >/dev/null || falta="$falta chromium"
 command -v git >/dev/null || falta="$falta git"
 [ -z "$falta" ] || sudo pacman -S --needed --noconfirm $falta
+# La gráfica (0.37.0): el cargador de Vulkan para que Chromium la use con WebGPU
+if command -v nvidia-smi >/dev/null || lspci 2>/dev/null | grep -qiE "vga.*(nvidia|amd|radeon)"; then pacman -Q vulkan-icd-loader >/dev/null 2>&1 || sudo pacman -S --needed --noconfirm vulkan-icd-loader; fi
 v=$(node -p 'process.versions.node.split(".")[0]')
 [ "$v" -ge 22 ] || { echo "Hace falta Node 22 o posterior (tiene $v): sudo pacman -Syu nodejs"; exit 1; }
 
@@ -36,3 +38,4 @@ else
   echo "Después abra desde el móvil http://<nombre-de-este-aparato>:8733"
 fi
 echo "Ver lo que hace:   journalctl --user -u arana -f"
+echo "Probar la gráfica: node ~/arana/servidor/probar-gpu.js --parar-llama"

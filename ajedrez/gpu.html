@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Araña · prueba de la gráfica</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b0f17; color: #ebebf5; font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  pre { white-space: pre-wrap; background: #121a26; padding: 12px; border-radius: 8px; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  .ok { color: #3dff99; } .mal { color: #ff6b6b; }
+</style>
+</head>
+<body>
+<h1>Prueba de la gráfica (WebGPU)</h1>
+<p id="estado">Probando…</p>
+<pre id="salida"></pre>
+<script src="gpu.js"></script>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search), op = {};
+  for (const k of ['lote', 'filtros', 'bloques', 'vueltas']) if (q.get(k)) op[k] = +q.get(k);
+  const r = await GPU.probar(op);
+  window.__prueba = r;
+  const e = document.getElementById('estado');
+  e.className = r.ok ? 'ok' : 'mal';
+  e.textContent = r.ok ? (r.gpu.simulada ? 'Funciona, pero con una gráfica simulada (sin aceleración real).' : 'La gráfica funciona y calcula igual que el procesador.') : 'No funciona: ' + (r.error || 'los cálculos no coinciden');
+  document.getElementById('salida').textContent = JSON.stringify(r, null, 2);
+})();
+</script>
+</body>
+</html>

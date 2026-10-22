@@ -412,6 +412,22 @@ async function cerrarGeneracion() {
   pintarEstado();
   if (entrenando) { prepararGeneracion(); repartir(); } else construirPlano();
 }
+/* ═════════ La gráfica (WebGPU, fase 1 de la red en la gráfica, 0.37.0) ═════════
+   De momento solo se comprueba que funciona y lo rápida que es. Mientras la sala usa la gráfica (usaGPU), el servidor de Linux
+   para llama-server y lo vuelve a abrir al acabar (lo pidió Juan). */
+let gpuPrueba = null, gpuOcupada = false;
+async function probarGPU(op) {
+  if (typeof GPU === 'undefined') return null;
+  gpuOcupada = true;
+  try { gpuPrueba = await GPU.probar(op); } finally { gpuOcupada = false; }
+  return gpuPrueba;
+}
+function textoGPU() {
+  const r = gpuPrueba; if (!r) return 'Este aparato tiene WebGPU. Pulse «Probar la gráfica» para ver si calcula bien y a qué velocidad.';
+  if (r.error) return 'La gráfica no funciona: ' + r.error;
+  const g = r.gpu, v = r.velocidad, nombre = [g.fabricante, g.arquitectura, g.descripcion].filter(Boolean).join(' · ') || 'sin nombre';
+  return `${nombre}${g.simulada ? ' (simulada: no acelera)' : ''}. ${r.ok ? 'Calcula igual que el procesador' : 'Sus cálculos NO coinciden con el procesador'}.` + (v ? ` Red de prueba (${v.bloques} bloques de ${v.filtros} filtros): ${v.posicionesPorSegundo.toLocaleString('es-ES')} posiciones/s.` : '');
+}
 /* ═════════ Gradiente (39) ═════════
    Al cerrar cada generación: de sus partidas se sacan posiciones tranquilas y se etiquetan (Stockfish a poca profundidad o,
    si no hay Stockfish o así se elige, el resultado de la partida). Después, cada hija recibe unos pasos de descenso de gradiente
@@ -1736,6 +1752,9 @@ function opciones() {
     <label class="op">Arañas que suben a la escalera ${sel('sfTop', [2, 4, 8], v => v)}</label>
     <label class="op">Arañas por generación ${sel('poblacion', [16, 24, 32, 48, 64], v => v, est.opc)}</label>
     <label class="op">Probabilidad de mutar cada gen ${sel('pm', [0.03, 0.06, 0.12], v => Math.round(v * 100) + ' %', est.opc)}</label>
+    ${typeof GPU !== 'undefined' && GPU.disponible() ? `<h2>Gráfica</h2>
+    <p class="nota" id="gpuTxt">${esc(textoGPU())}</p>
+    <div class="ctrl"><button class="btn sec" id="gpuProbar">Probar la gráfica</button></div>` : ''}
     <h2>Distópicas</h2>
     ${M.DIST.map(([n, nombre]) => `<label class="op">${n}. ${nombre} <select data-dist="${n}"><option value="1"${flagsDe()[n] ? ' selected' : ''}>Sí</option><option value="0"${flagsDe()[n] ? '' : ' selected'}>No</option></select></label>`).join('')}
     <label class="op">Gradiente: etiquetas ${sel('gradSF', [1, 0], v => v ? 'Stockfish' : 'Resultado de la partida', est.opc)}</label>
@@ -1752,6 +1771,7 @@ function opciones() {
     if (s.hasAttribute('data-evo')) { est.opc[s.dataset.k] = +s.value; guardarEstado().catch(() => {}); } else { opc[s.dataset.k] = +s.value; guardarOpc(); marcarSF(); repartir(); pintarEstado(); const r = $('#opRend'); if (r && s.dataset.k === 'rend') r.firstChild.textContent = textoRend(); }
   });
   $('#exp').onclick = exportar;
+  { const b = $('#gpuProbar'); if (b) b.onclick = async () => { b.disabled = true; $('#gpuTxt').textContent = 'Probando la gráfica…'; await probarGPU(); $('#gpuTxt').textContent = textoGPU(); b.disabled = false; }; }
   $('#reset').onclick = async () => {
     nuevaEvolucion();
   };
@@ -1996,7 +2016,7 @@ document.addEventListener('keydown', e => {   // atajos en el ordenador
 window.addEventListener('message', e => { if (e.data && e.data.arana === 'ajedrez-entrenar') entrenar(true); });
 
 /* Para pruebas */
-window.__sala = { rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
+window.__sala = { usaGPU: () => gpuOcupada, probarGPU, gpuPrueba: () => gpuPrueba, rend, hilosActivos, msJugada, textoRend, li, liConectar, liDesconectar, liRetar, exportarMotor, torneo: () => torneo, clasif, evoluciones, nuevaEvolucion, duplicarEvolucion, registro, comparar, verPartida, verJuego, visor: () => visor, ana: () => ana, slots: () => slots, importarTexto, accionesDe, partidaHumana, moverHumano, humana: () => ph, duelo, campeona, encolar, conGenes, escalera: ESCALERA, sfEstado: () => ({ fase: sfFase, fallo: sfFallo, vista: sfVista }), estado: () => est, pop: () => pop, juegos: () => juegos, entrenar, ficha, opciones, cerrarGeneracion, exportar, aux: AUX, nivel: () => nivel, escala: () => esc0, zoom: s => aplicarEscala(s, true), acercarMesa, verTodo };
 
 // Sin internet: la sala se guarda en el aparato (sw.js de Araña) también si se abre directamente
 try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); } catch (e) {}

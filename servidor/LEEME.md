@@ -51,6 +51,39 @@ En el móvil: abra esa dirección con Tailscale encendido. En el iPhone puede a�
 - **Aceptar cualquier red** (por ejemplo, la de casa sin Tailscale): `Environment=ARANA_ABIERTO=1`. No lo recomiendo.
 - **Copia de seguridad**: la carpeta `~/.local/share/arana` entera, con el servicio parado. O, más fácil, «Exportar copia» desde el visor.
 
+## La gráfica (desde la 0.37.0)
+
+La sala puede calcular con la gráfica (WebGPU por Vulkan). Es la **fase 1** de la red en la gráfica: de momento solo se comprueba que funciona y lo rápida que es; la red que juega llega en las fases siguientes.
+
+1. Que Vulkan esté instalado (con la NVIDIA, `nvidia-utils` ya trae su parte):
+   ```bash
+   sudo pacman -S --needed vulkan-icd-loader vulkan-tools
+   vulkaninfo --summary | grep -i devicename
+   ```
+2. La prueba (no hace falta parar el servicio):
+   ```bash
+   node ~/arana/servidor/probar-gpu.js --parar-llama
+   ```
+   Prueba en orden tres formas de encender la gráfica en Chromium (`vulkan`, `dawn`, `gl`), comprueba que sus cálculos coinciden con los del procesador, mide cuántas posiciones por segundo valoraría la red prevista y **guarda la forma que funciona** en `~/.local/share/arana/gpu.json`.
+3. `systemctl --user restart arana` para que la sala la use. En la sala, *Opciones → Gráfica → Probar la gráfica* hace la misma prueba desde el visor.
+
+- Sin gráfica (como antes): `systemctl --user edit arana` y `Environment=ARANA_GPU=0`.
+- Si dice «solo ve una gráfica simulada», Chromium no encuentra el driver de Vulkan: revise el paso 1.
+
+## llama-server
+
+Mientras la sala usa la gráfica para entrenar, el servidor **para llama-server** y lo vuelve a abrir un minuto después de que la sala deje de usarla (lo pidió Juan). Si el servidor se para o se reinicia, también lo vuelve a abrir.
+
+- **Si lo abrió a mano** (en una terminal): el servidor guarda la orden, la carpeta y las variables con que se lanzó, lo cierra y luego lo vuelve a lanzar igual. Lo que escriba va a `~/.local/share/arana/llama-server.log`.
+- **Si es un servicio de usuario** de systemd: `systemctl --user stop/start`.
+- **Si es un servicio del sistema**: hace falta permitir que el usuario lo pare y lo arranque sin contraseña. Con `sudo visudo -f /etc/sudoers.d/arana-llama` y esta línea (cambie el usuario y el nombre del servicio):
+  ```
+  miguel ALL=(root) NOPASSWD: /usr/bin/systemctl stop llama.service, /usr/bin/systemctl start llama.service
+  ```
+- **Órdenes propias**: `Environment=ARANA_PARAR=…` y `Environment=ARANA_REANUDAR=…` en `systemctl --user edit arana`.
+- **No tocarlo nunca**: `Environment=ARANA_LLAMA_LIBRE=1`.
+- Si el programa se llama de otra forma: `Environment=ARANA_LLAMA=nombre`.
+
 ## Si algo falla
 
 - *«No encuentro Chromium»*: `sudo pacman -S chromium`.

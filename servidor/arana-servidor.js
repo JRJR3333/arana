@@ -6,24 +6,22 @@
      la de verdad (tocar, arrastrar para moverse, pellizcar para el zoom, escribir, descargar e importar archivos).
    - Solo acepta conexiones de Tailscale (100.64.0.0/10 y fd7a:115c:a1e0::/48) y del propio aparato.
    Requisitos: node 22 o posterior y chromium (pacman -S nodejs chromium). Sin paquetes de npm.
-   Variables: ARANA_PUERTO, ARANA_DATOS (~/.local/share/arana), ARANA_CHROMIUM, ARANA_ABIERTO=1 (aceptar cualquier red). */
+   - Desde la 0.37.0 Chromium usa la gráfica (WebGPU por Vulkan) y, mientras la sala la usa para entrenar, para llama-server
+     y lo vuelve a abrir después (ver comun.js).
+   Variables: ARANA_PUERTO, ARANA_DATOS (~/.local/share/arana), ARANA_CHROMIUM, ARANA_ABIERTO=1 (aceptar cualquier red),
+   ARANA_GPU=0 (sin gráfica), ARANA_LLAMA (nombre del programa, llama-server), ARANA_PARAR / ARANA_REANUDAR (órdenes propias),
+   ARANA_LLAMA_LIBRE=1 (no tocar llama-server). */
 'use strict';
-const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), { spawn, execFileSync } = require('child_process');
+const http = require('http'), fs = require('fs'), path = require('path'), { spawn } = require('child_process');
+const { DATOS, log, buscarChromium, argsGPU, conGPU, pararLlama, reanudarLlama } = require('./comun.js');
 
 const PUERTO = +process.env.ARANA_PUERTO || 8733, PUERTO_SALA = PUERTO + 1;
 const WEB = path.resolve(__dirname, '..');
-const DATOS = process.env.ARANA_DATOS || path.join(os.homedir(), '.local/share/arana');
 const DESCARGAS = path.join(DATOS, 'descargas'), SUBIDAS = path.join(DATOS, 'subidas');
 for (const d of [DATOS, DESCARGAS, SUBIDAS]) fs.mkdirSync(d, { recursive: true });
 const URL_SALA = `http://127.0.0.1:${PUERTO_SALA}/ajedrez/?plat=linux`;
-const log = (...a) => console.log(new Date().toISOString().slice(0, 19).replace('T', ' '), ...a);
 
 if (typeof WebSocket === 'undefined') { console.error('Hace falta Node 22 o posterior (pacman -S nodejs).'); process.exit(1); }
-function buscarChromium() {
-  if (process.env.ARANA_CHROMIUM) return process.env.ARANA_CHROMIUM;
-  for (const n of ['chromium', 'chromium-browser', 'google-chrome-stable', 'google-chrome']) { try { return execFileSync('which', [n]).toString().trim(); } catch (e) {} }
-  console.error('No encuentro Chromium. Instálelo con: sudo pacman -S chromium'); process.exit(1);
-}
 
 /* ───── Archivos de la web (solo para el Chromium de dentro: origen fijo, así su memoria siempre es la misma) ───── */
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.wasm': 'application/wasm', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.md': 'text/plain; charset=utf-8' };
@@ -53,14 +51,14 @@ function conectar(url, alEvento) {
 }
 async function arrancar() {
   const perfil = path.join(DATOS, 'chromium');
-  const args = ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--mute-audio', '--hide-scrollbars',
+  const args = ['--headless=new', '--no-first-run', '--no-default-browser-check', ...argsGPU(), '--mute-audio', '--hide-scrollbars',
     '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
     '--disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion', '--remote-allow-origins=*',
     `--user-data-dir=${perfil}`, '--remote-debugging-port=0', `--window-size=${ancho},${alto}`, URL_SALA];
   if (process.getuid && process.getuid() === 0) args.unshift('--no-sandbox');
   const ch = spawn(buscarChromium(), args, { stdio: ['ignore', 'ignore', 'pipe'] });
   ch.on('exit', c => { log('Chromium terminó (' + c + '); salgo para que systemd me reinicie.'); process.exit(1); });
-  for (const s of ['SIGTERM', 'SIGINT']) process.on(s, () => { ch.kill('SIGTERM'); setTimeout(() => process.exit(0), 3000); });
+  for (const s of ['SIGTERM', 'SIGINT']) process.on(s, () => { ch.kill('SIGTERM'); reanudarLlama().catch(() => {}).finally(() => setTimeout(() => process.exit(0), 3000)); });   // no dejar llama parado
   const wsNav = await new Promise((ok, ko) => { let b = ''; ch.stderr.on('data', d => { b += d; const m = b.match(/DevTools listening on (ws:\S+)/); if (m) ok(m[1]); }); setTimeout(() => ko(new Error('Chromium no arranca:\n' + b)), 30000); });
   const base = wsNav.replace(/^ws:/, 'http:').replace(/\/devtools\/.*/, '');
   navegador = await conectar(wsNav, eventoNavegador);
@@ -71,8 +69,9 @@ async function arrancar() {
   await P('Page.enable'); await P('Runtime.enable'); await P('Inspector.enable');
   await P('Page.setInterceptFileChooserDialog', { enabled: true });
   await metricas();
-  log(`Sala abierta en el Chromium de dentro (${URL_SALA}).`);
+  log(`Sala abierta en el Chromium de dentro (${URL_SALA})${conGPU() ? ', con la gráfica' : ', sin gráfica (ARANA_GPU=0)'}.`);
   setInterval(vigilar, 60000);
+  setInterval(vigilarGPU, 15000); reanudarLlama().catch(() => {});   // si el servidor se cayó con llama parado, se reanuda hasta que la sala vuelva a pedir la gráfica
 }
 const metricas = () => P('Emulation.setDeviceMetricsOverride', { width: ancho, height: alto, deviceScaleFactor: dpr, mobile: true });
 
@@ -97,6 +96,15 @@ async function vigilar() {   // si la página se ha ido de la sala (o se ha qued
   const r = await P('Runtime.evaluate', { expression: "location.pathname + '|' + (!!window.__sala)", returnByValue: true });
   const v = r && r.result && r.result.value;
   if (!v || !v.startsWith('/ajedrez/') || v.endsWith('false')) { log('La sala no está (' + v + '); la vuelvo a abrir.'); P('Page.navigate', { url: URL_SALA }); }
+}
+/* La gráfica: mientras la sala entrena con ella, llama-server queda parado (lo pidió Juan). Se reanuda al minuto de dejar de usarla. */
+let gpuDesde = 0, gpuLibreDesde = 0;
+async function vigilarGPU() {
+  if (process.env.ARANA_LLAMA_LIBRE === '1' || !conGPU()) return;
+  const r = await P('Runtime.evaluate', { expression: '!!(window.__sala && window.__sala.usaGPU && window.__sala.usaGPU())', returnByValue: true });
+  const usa = !!(r && r.result && r.result.value), ahora = Date.now();
+  if (usa) { gpuLibreDesde = 0; if (!gpuDesde) { gpuDesde = ahora; await pararLlama(); } }
+  else if (gpuDesde) { if (!gpuLibreDesde) gpuLibreDesde = ahora; else if (ahora - gpuLibreDesde > 60000) { gpuDesde = 0; gpuLibreDesde = 0; await reanudarLlama(); } }
 }
 async function estado() {
   const r = await P('Runtime.evaluate', { returnByValue: true, expression: `(() => { const s = window.__sala; if (!s) return null; const e = s.estado(), c = s.campeona && s.campeona();
