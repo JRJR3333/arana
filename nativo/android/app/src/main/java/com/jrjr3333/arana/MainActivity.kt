@@ -90,6 +90,8 @@ class MainActivity : Activity() {
             }
         }
         @JavascriptInterface fun capacidades(): String = CAPACIDADES
+        /** 0.42.0: la web sabe qué app de Android tiene usted y le avisa si hay una más nueva. */
+        @JavascriptInterface fun version(): String = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "" } catch (e: Exception) { "" }
         /** 0.31.0 (#36): las apps instaladas, para que la araña las conozca por su nombre. */
         @JavascriptInterface fun apps(): String = try { Apps.lista(this@MainActivity) } catch (e: Exception) { "[]" }
         /** 0.28.0: guardar la copia de las arañas donde diga usted (Descargas, Drive…). */

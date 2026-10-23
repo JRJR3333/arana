@@ -1,9 +1,14 @@
 import SwiftUI
 import UserNotifications
+import AppIntents
 
 @main
 struct AranaApp: App {
-    init() { UNUserNotificationCenter.current().delegate = Avisos.shared }
+    init() {
+        UNUserNotificationCenter.current().delegate = Avisos.shared
+        // 0.42.0: que Siri vuelva a leer mis frases (ya en español) al abrir la app
+        AranaShortcuts.updateAppShortcutParameters()
+    }
     var body: some Scene {
         WindowGroup { ContentView() }
     }

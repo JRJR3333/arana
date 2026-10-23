@@ -222,6 +222,12 @@ const ON_IOS=!ON_ANDROID&&(/iPhone|iPad|iPod/.test(UA)||(/Macintosh/.test(UA)&&n
 const AND=()=>window.AranaAndroid||null;
 // La app de Android 0.22.0 trae el puente «orden»; la 0.21.0 solo entiende enlaces arana:// sencillos.
 const BRIDGE2=IN_APK&&!!(AND()&&AND().orden);
+/* 0.42.0: la versión de mi app de Android (desde la 0.42.0 la dice ella). Sin firma propia, Android no dejaba
+   actualizar encima y Juan seguía con una app vieja: por eso «no abre, no habla, no escucha». */
+const APK_V=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.version?String(b.version()||''):''; }catch(e){ return ''; } })();
+const APK_URL='https://github.com/JRJR3333/arana/releases/download/android/arana.apk';
+const APK_MIN='0.42.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
+const APK_OLD=IN_APK&&(!APK_V||vNum(APK_V)<vNum(APK_MIN));
 const PLAT=IN_APK?'android':ON_IOS?'ios':'web';
 const CAPS={
   spider:true, open:IN_APK||ON_IOS, carry:IN_APK||ON_IOS, pocket:true, whatsapp:true,
@@ -491,7 +497,7 @@ function issueURL(phrase,why){
     '- Versión: '+VERSION.version,
     '- Nivel: '+levelOf(xpNow()).name+' ('+xpNow()+' XP)',
     '- Aciertos/fallos: '+st.ok+'/'+st.ko,
-    '- Dispositivo: '+navigator.userAgent,
+    '- Dispositivo: '+navigator.userAgent+(IN_APK?' · app de Android '+(APK_V||'anterior a la 0.42.0'):''),
     '',
     '_Petición creada desde la app. Si iOS no lo permite, explicarlo y cerrar con la etiqueta `no-posible`._'
   ].join('\n');
@@ -1122,7 +1128,7 @@ function rules(l,raw){
     return {suggestSet:s};
   }
   const a=findApp(l); if(a) return {act:{t:'open',id:a.id}};
-  const ab=l.match(/^(?:abre|abrir|abra|abreme|lanza|entra en|entra)\s+(.{2,40})$/); if(ab&&CAPS.open){ const x=adhocApp(ab[1]); if(x) return {act:{t:'open',id:x.id}}; }
+  const ab=l.replace(/^(?:(?:por favor|oye|arana|puedes|podrias|me puedes|me podrias|quiero que(?: me)?|necesito que(?: me)?)\s+)+/,'').match(/^(?:abre|abrir|abras|abra|abreme|abrime|lanza|entra en|entra)\s+(.{2,40})$/); if(ab&&CAPS.open){ const x=adhocApp(ab[1]); if(x) return {act:{t:'open',id:x.id}}; }
   if(/^(abre|abrir|abra|lanza|entra)\b/.test(l)) return {cant:CAPS.open?'No conozco esa app. Dígame su nombre exacto o pídasela a Claude.':cantHere({t:'open'})};
   return null;
 }
@@ -1263,14 +1269,17 @@ function memoCmd(l,raw){
     return pick(neg?['Tomo nota. Lo evitaré.','Entendido, no se lo propondré.']:['Anotado. Me alegra saberlo.','Lo apunto. Buen gusto, '+myName+'.']); }
   return null;
 }
-/* 0.31.0 (#34): sin cerebro, distingo si me da una orden o si quiere charlar */
-const ORDER_RE=/^(abre|abrir|pon|ponme|activa|desactiva|apaga|enciende|sube|baja|quita|llama|manda|envia|escribe|busca|reproduce|para|pausa|cierra|lanza|cambia|avisame|haz|crea|anade|borra)\b/;
+/* 0.31.0 (#34), rehecho en la 0.42.0 tras su ★: sin cerebro, distingo si me da una orden o si quiere charlar.
+   Antes casi todo «me sonaba a conversación». Ahora solo es charla una pregunta o un sentimiento sin verbo de orden;
+   lo demás es una orden que aún no sé hacer (le propongo opciones o se lo pido a Claude). */
+const ORDER_RE=/\b(abre|abrir|abras|abreme|abrime|pon|poner|pongas|ponme|activa|activar|actives|desactiva|desactivar|apaga|apagar|apagues|enciende|encender|sube|subir|subeme|baja|bajar|bajame|quita|quitar|llama|llamar|llames|llamame|manda|mandar|mandes|envia|enviar|envies|escribe|escribir|busca|buscar|busques|buscame|reproduce|reproducir|pausa|para la|cierra|cerrar|lanza|cambia|cambiar|avisame|avisar|recuerdame|haz|hacer|hagas|hazme|crea|crear|anade|anadir|apunta|borra|programa|despiertame|alarma|temporizador|cronometro|musica|cancion|wifi|bluetooth|linterna|brillo|volumen|foto|camara)\b/;
+const POLITE_RE=/^(quiero que|necesito que|puedes|podrias|me puedes|me podrias|seria posible|por favor|haz el favor|quiero|necesito|me gustaria que)\b/;
 function talkAnswer(l){
-  if(ORDER_RE.test(l)||findApp(l)||findSet(l)) return null;
-  const q=/^(que|como|por que|porque|quien|cuando|donde|cual|cuanto|sabes|te gusta|eres|tienes|puedes|crees)\b/.test(l), feel=/\b(estoy|me siento|tengo (sueno|hambre|frio|calor)|que dia|cansad|aburrid|content|triste|feliz)\b/.test(l);
-  if(!q&&!feel&&l.split(' ').length<4) return null;
+  if(ORDER_RE.test(l)||POLITE_RE.test(l)||findApp(l)||findSet(l)) return null;
+  const q=/^(que|como|por que|porque|quien|cuando|donde|cual|cuanto|sabes|te gusta|eres|tienes|crees|estas)\b/.test(l), feel=/\b(estoy|me siento|tengo (sueno|hambre|frio|calor)|que dia|cansad|aburrid|content|triste|feliz)\b/.test(l);
   if(feel) return pick(['Le escucho, '+myName+'. ','Gracias por contármelo. '])+(/(triste|cansad|aburrid|sueno)/.test(l)?pick(['¿Le pongo música o damos un paseo por la pantalla?','Un descanso le vendrá bien.']):pick(['Me alegro.','Así me gusta.']));
-  return 'Eso me suena a conversación, no a una orden. '+(brain.key?'':'Para charlar de verdad necesito mi cerebro: una clave de Claude en Ajustes. ')+pick(CURIOS);
+  if(!q) return null;
+  return 'Buena pregunta. '+(brain.key?'Ahora no puedo pensarla; inténtelo en un momento. ':'Para contestarla necesito mi cerebro: una clave de Claude en Ajustes. ')+pick(CURIOS);
 }
 /* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
 let myName=store.get('name','Juan');
@@ -1353,7 +1362,11 @@ async function interpret(raw){
       catch(e){ failed=true; console.warn(e); say(/401|authentication/i.test(String(e))?'Mi clave no funciona. Revísela en Ajustes.':/^Error: 4\d\d/.test(String(e))?'Anthropic dice: '+String(e).replace(/^Error: /,'').slice(0,160):'No puedo pensar ahora. Uso mis reglas.',/^Error: 4\d\d/.test(String(e))?7000:3200); }
       finally{ thinking=false; setThinking(false); }
       if(abortFlag) throw ABORT;
-      if(plan){ if((plan.steps||[]).length&&!plan.cannot){ planCache[l]={plan,ts:Date.now()}; const ks=Object.keys(planCache); if(ks.length>60) delete planCache[ks.sort((x,y)=>planCache[x].ts-planCache[y].ts)[0]]; store.set('plans',planCache); } await planFlow(plan,l); }
+      if(plan){ if((plan.steps||[]).length&&!plan.cannot){ planCache[l]={plan,ts:Date.now()}; const ks=Object.keys(planCache); if(ks.length>60) delete planCache[ks.sort((x,y)=>planCache[x].ts-planCache[y].ts)[0]]; store.set('plans',planCache); } await planFlow(plan,l);
+        // 0.42.0 (#40): lo que Claude me enseña una vez, lo aprendo para hacerlo yo sola la próxima (sin gastar consulta).
+        // Si luego me dice «Mal», lo desaprendo como todo lo demás.
+        if((plan.steps||[]).length&&!plan.cannot&&!plan.confirm&&!abortFlag&&!mem[l]){ const {acts,bad}=toActs(plan.steps);
+          if(acts.length&&!bad.length&&!/\d/.test(l)&&acts.every(a=>actOK(a)&&['open','set','spider','music'].includes(a.t))){ mem[l]={steps:acts,score:1,claude:1}; saveAll(); learning(); logEv('learned',{t:'plan',steps:acts},l); } } }
     });
     if(!failed) return;
     await new Promise(r=>setTimeout(r,900));
@@ -1843,7 +1856,7 @@ function openSettings(){
       ${navRow('nPocket','Bolsillo',`<span class="val">${pocket?'Lleno':'Vacío'}</span>`)}</ul></div>
     <div><span class="lbl">Lo que puedo hacer en ${where}</span><ul class="cells">
       ${CAP_LIST.map(([k,t])=>`<li class="cap${CAPS[k]?'':' no'}"><span>${t}</span></li>`).join('')}</ul>
-      <p class="note">${IN_APK?(BRIDGE2?'Mi app de Android es donde más puedo hacer.':'Actualice mi app de Android para tener ajustes, música y citas.'):ON_IOS?'En mi app de iPhone hago aún más: temporizadores, citas, música y escucho sin teclado.':'En mi app de Android o de iPhone puedo hacer cosas en el móvil.'}</p>
+      <p class="note">${IN_APK?(APK_OLD?'Mi app de Android es antigua ('+(APK_V||'anterior a la 0.42.0')+'). <a href="'+APK_URL+'">Instale la nueva</a> para que abra apps, hable y escuche.':'Mi app de Android ('+APK_V+') es donde más puedo hacer.'):ON_IOS?'En mi app de iPhone hago aún más: temporizadores, citas, música y escucho sin teclado.':'En mi app de Android o de iPhone puedo hacer cosas en el móvil.'}</p>
       ${PHONE_APPS.length?`<p class="note">Conozco ${PHONE_APPS.length} apps de su móvil: ${escapeHTML(PHONE_APPS.slice(0,40).map(x=>x.n).join(', '))}${PHONE_APPS.length>40?'…':''}. Dígame «abre» y su nombre.</p>`:''}
       ${CAPS.float?'<ul class="cells" style="margin-top:6px"><li><button type="button" class="act" id="aFloat">Flotar sobre las demás apps</button></li></ul>':''}</div>
     ${ON_IOS?`<div><span class="lbl">Conexión con Atajos</span><ul class="cells">
@@ -2014,7 +2027,7 @@ function openRatings(){
     const L=levelOf(xpNow()), st={ok:log.filter(e=>e.r==='ok').length,ko:log.filter(e=>e.r==='ko').length};
     const body=['**Valoraciones de Juan**','',...items.map(i=>'- '+'★'.repeat(i.nota)+'☆'.repeat(5-i.nota)+' '+i.titulo+' (v'+i.v+')'+(i.comentario?' — «'+i.comentario+'»':'')),
       ...(hitos.length?['','**Hitos**',...hitos.map(h=>'- '+h.id+': '+(h.funciona?'funciona ✓':'no funciona ✗'))]:[]),
-      '','**Uso**',`- Nivel ${L.name}, ${xpNow()} XP · aciertos/fallos ${st.ok}/${st.ko} · consultas al cerebro ${usage.calls}`,
+      '','**Uso**',`- Nivel ${L.name}, ${xpNow()} XP · aciertos/fallos ${st.ok}/${st.ko} · consultas al cerebro ${usage.calls}`+(IN_APK?` · app de Android ${APK_V||'anterior a la 0.42.0'}`:''),
       '','```json',JSON.stringify({version:VERSION.version,valoraciones:items,hitos},null,0),'```'].join('\n');
     const url=`https://github.com/${REPO}/issues/new?labels=valoracion&title=${encodeURIComponent('Valoraciones '+VERSION.version+' · '+new Date().toLocaleDateString('es-ES'))}&body=${encodeURIComponent(body)}`;
     try{ window.open(url,'_blank'); }catch(e){ location.href=url; }
@@ -2040,6 +2053,11 @@ if(Q0){ say('«'+Q0+'». Voy.'); logEv('voz',null,Q0.slice(0,60)); setTimeout(()
 else { say(first?'Buenas. Soy su araña. Dígame qué hacer.':vary('hola'));
 setTimeout(async()=>{ if(first) return; if(!(await offerBrief())) proposeRoutine(); },5200); }
 loadRepoData();
+// 0.42.0: si mi app de Android es vieja, lo digo una vez al día y le doy el enlace de la nueva
+setTimeout(async()=>{ if(!APK_OLD||Q0||busy||overlayOpen()) return; const td=new Date().toISOString().slice(0,10); if(store.get('apkWarn','')===td) return; store.set('apkWarn',td);
+  const v=await chips('Mi app de Android es antigua'+(APK_V?' ('+APK_V+')':'')+': por eso no abro apps, ni hablo ni escucho bien. ¿Instalo la nueva? Antes copio mi memoria.',[['Instalar la nueva','go','yes'],['Luego',null]]).catch(()=>null);
+  if(v!=='go') return; try{ await navigator.clipboard.writeText(exportMemory()); }catch(e){}
+  say('Memoria copiada. Si Android pide desinstalar la vieja, hágalo, instale la nueva y péguemela en Ajustes → Otro aparato. Desde esta versión ya no hará falta.',9000); setTimeout(()=>launch(APK_URL),2500); },7000);
 setTimeout(async()=>{
   if(first||Q0||busy||overlayOpen()||pending||!roll(.7)) return;
   const sd=store.get('surpDay',''), td=new Date().toISOString().slice(0,10); if(sd===td&&!roll(.3)) return;

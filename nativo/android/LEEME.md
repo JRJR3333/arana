@@ -41,4 +41,6 @@ La araña abre la pantalla de Android donde se concede; después, vuelva a pedí
 
 ## Actualizar
 
-Cada versión nueva se descarga del mismo enlace. Mientras no haya llave de firma propia en GitHub Secrets (`ARANA_KEYSTORE_B64`, `ARANA_KEYSTORE_PASS`, `ARANA_KEY_ALIAS`), Android puede pedir desinstalar la anterior: antes, copie su memoria en Ajustes de la araña («Copiar mi memoria») para pegarla después.
+Cada versión nueva se descarga del mismo enlace y, desde la 0.42.0, se instala encima de la anterior sin perder nada: todas salen firmadas con la misma llave (guardada en la caché de GitHub Actions, no en el repo). Si la app es antigua, la araña lo avisa al abrir, copia su memoria y abre la descarga.
+
+La primera vez que pase de una app anterior a la 0.42.0, Android puede pedir desinstalar la vieja: pegue después la memoria en Ajustes de la araña. Si Juan pone su propia llave en GitHub Secrets (`ARANA_KEYSTORE_B64`, `ARANA_KEYSTORE_PASS`, `ARANA_KEY_ALIAS`), se usa esa.

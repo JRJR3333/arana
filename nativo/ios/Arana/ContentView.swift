@@ -1,4 +1,5 @@
 import SwiftUI
+import AppIntents
 import UIKit
 
 /// Una opción bajo la araña (como las de la web): la principal en azul.
@@ -124,6 +125,14 @@ struct ContentView: View {
         .onAppear {
             if Escuchar.pendiente(), !ear.listening, !thinking { toggleEar() }
         }
+        // Sorpresa 0.42.0: agítela y se marea (gira y lo dice). Ver Mareo.swift.
+        .onReceive(NotificationCenter.default.publisher(for: Mareo.aviso)) { _ in
+            guard !moving, !thinking, !ear.listening else { return }
+            bubble = Mareo.frases.randomElement()!; Task { await mover(.spin, callada: true) }
+        }
+        .onChange(of: ear.problema) { _, p in
+            if let p { bubble = p; ear.problema = nil }
+        }
         .onChange(of: ear.done) { _, said in
             guard let said else { return }
             ear.done = nil; input = said; send()
@@ -205,6 +214,12 @@ struct ContentView: View {
                     Toggle("Letra grande en el bocadillo", isOn: $letraGrande)
                     Toggle("Latir en su mano cuando termino de pensar", isOn: $latido)
                     Text("Tóqueme para hablar. Dos toques: salto. Tres: bailo. Mantenga pulsado: mi menú. Arrástreme para cambiarme de sitio.").font(.footnote)
+                }
+                // 0.42.0 (h7): las frases de Siri, ya en español, y el atajo a la app Atajos para verlas
+                Section("Siri") {
+                    Text("Diga «Oye Siri, recuerda en Araña» o «Oye Siri, pregunta a Araña». Si Siri no me encuentra, ábrame una vez después de actualizar.").font(.footnote)
+                    SiriTipView(intent: RecuerdaArana())
+                    ShortcutsLink()
                 }
                 Section("Lo que sé de usted") {
                     if Memory.facts.isEmpty { Text("Aún nada. Cuénteme algo de usted y lo recordaré.").font(.footnote) }

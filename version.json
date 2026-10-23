@@ -1,7 +1,12 @@
 {
- "version": "0.41.0",
- "date": "2026-10-22",
+ "version": "0.42.0",
+ "date": "2026-10-23",
  "notes": [
+  "Siri ya me entiende en español: «Oye Siri, recuerda en Araña».",
+  "Ya sé cuándo se calla: dejo de escuchar sola y, si no le oigo, se lo digo.",
+  "En Android ya me puede actualizar sin desinstalarme, y le aviso si mi app es vieja.",
+  "Ya distingo mejor una orden de una charla.",
+  "Lo que Claude me enseña, lo aprendo para hacerlo yo sola la próxima vez.",
   "Mis redes ya no esperan al final de cada generación: juegan contra sí mismas sin parar en la gráfica, como AlphaZero, y aprenden de esas partidas.",
   "Ya no tengo una red sino una población: aprenden a la vez, juegan contra Stockfish y contra mis mejores arañas, y cada pocas generaciones la peor deja su sitio a una hija de la mejor.",
   "Mi red neuronal ya juega: piensa con una búsqueda como la de Leela, valorando en la gráfica, y cada generación se mide contra Stockfish y contra la campeona.",

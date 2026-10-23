@@ -98,6 +98,7 @@ Al añadir una habilidad nueva:
 - Funciones nuevas: dentro del código de la app (EventKit, App Intents, AVFoundation, WidgetKit, ActivityKit…), no en Atajos.
 - Gastar poco con Claude, igual que en la web: `max_tokens` corto, sin historial largo.
 - La araña tiene también una app de Android (`nativo/android/`, Kotlin sin librerías, workflow «App Android»): la web dentro de un WebView más órdenes nativas `arana://` (`MainActivity.kt` y `Ajustes.kt`). El APK se publica en la versión `android` del repo. Las peticiones de Android (el hermano de Juan) se atienden igual.
+- Firma del APK (0.42.0): sin llave en Secrets, la llave de depuración se guarda en la caché de Actions (`arana-debug-keystore-v1` en `android.yml`) para que cada versión se instale encima. No se cambia esa clave de caché. La app dice su versión (`AranaAndroid.version()`); si es menor que `APK_MIN` en `index.html`, la web avisa y da el enlace. Al cambiar algo nativo de Android que la web necesite, se sube `APK_MIN`.
 - La app de Android carga la web publicada, así que la web nueva tiene que seguir funcionando con un APK antiguo: sin `AranaAndroid.orden`, solo se usan los enlaces `arana://` de siempre.
 - Firma: cuando Juan tenga cuenta de desarrollador, sus certificados van en *GitHub Secrets*, nunca en el repo.
 

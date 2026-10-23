@@ -10,6 +10,11 @@ final class Listener: ObservableObject {
     @Published var heard = ""
     /// Cuando termina de escuchar, deja aquí la frase completa para mandarla.
     @Published var done: String?
+    /// 0.42.0: si termina sin oír nada, aquí dice por qué (antes callaba y parecía que no funcionaba).
+    @Published var problema: String?
+
+    private var ultimo = Date()
+    private var vigia: Task<Void, Never>?
 
     private let engine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -32,20 +37,30 @@ final class Listener: ObservableObject {
 
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
-        if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
+        // 0.42.0: ya no obligo a reconocer dentro del iPhone: si el modelo de español no está descargado, fallaba sin decir nada.
+        req.taskHint = .search
         request = req
         Self.tap(engine.inputNode, req)
         engine.prepare()
         do { try engine.start() } catch { engine.inputNode.removeTap(onBus: 0); return "No puedo abrir el micrófono." }
 
-        heard = ""; done = nil; listening = true
+        heard = ""; done = nil; problema = nil; listening = true; ultimo = Date()
         task = recognizer.recognitionTask(with: req) { [weak self] result, error in
             let text = result?.bestTranscription.formattedString
             let end = error != nil || result?.isFinal == true
             Task { @MainActor in
                 guard let self else { return }
-                if let text { self.heard = text }
+                if let text, text != self.heard { self.heard = text; self.ultimo = Date() }
                 if end { self.stop() }
+            }
+        }
+        // 0.42.0: termino sola cuando usted se calla (1,5 s sin palabras nuevas) o si en 8 s no oigo nada.
+        vigia = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard let self, self.listening else { return }
+                let quieto = Date().timeIntervalSince(self.ultimo)
+                if (!self.heard.isEmpty && quieto > 1.5) || (self.heard.isEmpty && quieto > 8) { self.stop(); return }
             }
         }
         return nil
@@ -55,6 +70,7 @@ final class Listener: ObservableObject {
     func stop() {
         guard listening else { return }
         listening = false
+        vigia?.cancel(); vigia = nil
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
         request?.endAudio()
@@ -62,7 +78,7 @@ final class Listener: ObservableObject {
         request = nil; task = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         let t = heard.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !t.isEmpty { done = t }
+        if !t.isEmpty { done = t } else { problema = "No le he oído. Hable cerca del micrófono, o escríbamelo." }
     }
 
     /// El grifo del micrófono corre fuera del hilo principal.

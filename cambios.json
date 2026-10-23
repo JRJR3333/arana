@@ -1,5 +1,56 @@
 [
  {
+  "v": "0.42.0",
+  "fecha": "2026-10-23",
+  "mejoras": [
+   {
+    "id": "0.42.0-1",
+    "tipo": "arreglo",
+    "hito": "h7",
+    "titulo": "«Oye Siri, recuerda en Araña», ahora en español (app nativa)",
+    "detalle": "Rehecho tras su ★: la app estaba declarada en inglés y Siri solo conoce las frases de una app en su idioma, así que en un iPhone en español no existían. Ahora la app es española (developmentLanguage es), Siri relee las frases al abrirla y en Ajustes → Siri está el botón para verlas en Atajos.",
+    "probar": "Instale la 0.42.0 desde el Mac, ábrala una vez y diga «Oye Siri, recuerda en Araña»."
+   },
+   {
+    "id": "0.42.0-2",
+    "tipo": "arreglo",
+    "hito": "asistente",
+    "titulo": "Mi micrófono, rehecho (app nativa)",
+    "detalle": "Rehecho tras su ★: antes escuchaba hasta que usted volvía a tocar (parecía que no hacía nada) y obligaba a reconocer dentro del iPhone, que falla sin aviso si no está descargado el español. Ahora termino sola cuando usted se calla (1,5 s), uso el reconocimiento normal y, si no oigo nada, se lo digo.",
+    "probar": "Toque la araña, diga «pon un temporizador de un minuto» y cállese."
+   },
+   {
+    "id": "0.42.0-3",
+    "tipo": "arreglo",
+    "titulo": "Android: actualizar sin desinstalar",
+    "detalle": "Por sus ★ a Android («no abre, no habla, no escucha, no flota»): cada versión del APK salía firmada con una llave distinta y Android no dejaba instalarla encima, así que seguía con una app vieja. Ahora todas salen con la misma llave (guardada en la caché de GitHub, no en el repo), la app dice su versión y, si es antigua, la araña lo avisa y copia su memoria antes de bajar la nueva. Esta última vez puede que Android pida desinstalar la anterior.",
+    "probar": "En Android: abra la araña, pulse «Instalar la nueva», instálela y pegue la memoria en Ajustes."
+   },
+   {
+    "id": "0.42.0-4",
+    "tipo": "arreglo",
+    "hito": "asistente",
+    "titulo": "¿Orden o charla?, rehecho",
+    "detalle": "Rehecho tras su ★ («todo le suena a conversación»): ahora solo es charla una pregunta o un sentimiento sin verbo de orden. «Quiero que abras…», «¿puedes poner…?» o cualquier frase con abrir, poner, llamar, alarma, música… es una orden: si no la sé, le propongo opciones o se la pido a Claude. También entiendo «puedes abrir X» y «quiero que abras X».",
+    "probar": "Sin clave: «quiero que me abras la cámara» y «necesito que pongas música»."
+   },
+   {
+    "id": "0.42.0-5",
+    "tipo": "funcionalidad",
+    "titulo": "Lo que Claude me enseña, lo aprendo (#40)",
+    "detalle": "Petición de Android: cuando mi cerebro resuelve una orden de abrir apps, ajustes, música o moverme, me la quedo aprendida y la próxima vez la hago yo sola, sin gastar consulta. Si me dice «Mal», la desaprendo.",
+    "probar": "Con clave: pida una orden nueva dos veces; la segunda va al instante."
+   },
+   {
+    "id": "0.42.0-6",
+    "tipo": "sorpresa",
+    "titulo": "Agítela y se marea (app nativa)",
+    "detalle": "Dado: 0,154 / 0,707 → sorpresa sí, sin condición. Si agita el iPhone, la araña da una vuelta y se queja del mareo. Se quita borrando Mareo.swift.",
+    "probar": "Agite el iPhone con la araña abierta."
+   }
+  ]
+ },
+ {
   "v": "0.33.0",
   "fecha": "2026-10-22",
   "mejoras": [

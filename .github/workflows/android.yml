@@ -17,6 +17,14 @@ jobs:
         with: { distribution: temurin, java-version: "17" }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: "8.10.2" }
+      # 0.42.0: sin llave propia, cada compilación firmaba con una llave nueva y Android no dejaba
+      # actualizar encima (había que desinstalar). Ahora la llave de depuración se guarda en la caché
+      # de Actions (no en el repo) y todas las versiones salen con la misma.
+      - name: Misma llave de depuración en cada versión
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: arana-debug-keystore-v1
       - name: Llave de firma (opcional, la pone Juan en Secrets)
         env: { KS: "${{ secrets.ARANA_KEYSTORE_B64 }}" }
         run: |
