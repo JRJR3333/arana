@@ -31,6 +31,17 @@ struct RecuerdaArana: AppIntent {
     }
 }
 
+/// 0.43.0 (h7): «Oye Siri, qué sabe Araña de mí»: Siri lee lo que la araña tiene apuntado, sin abrir la app.
+struct QueSabeArana: AppIntent {
+    static var title: LocalizedStringResource = "Lo que sabe de mí"
+    static var description = IntentDescription("La araña dice lo que tiene apuntado de usted, sin abrir la app.")
+    static var openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        .result(dialog: IntentDialog(stringLiteral: Recuerdo.loQueSe()))
+    }
+}
+
 struct AranaShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AskArana(),
@@ -41,5 +52,9 @@ struct AranaShortcuts: AppShortcutsProvider {
                     phrases: ["Recuerda en \(.applicationName)", "Apunta en \(.applicationName)", "\(.applicationName), recuerda esto"],
                     shortTitle: "Recordar algo",
                     systemImageName: "brain")
+        AppShortcut(intent: QueSabeArana(),
+                    phrases: ["Qué sabe \(.applicationName) de mí", "Qué recuerda \(.applicationName) de mí", "\(.applicationName), qué sabes de mí"],
+                    shortTitle: "Lo que sabe de mí",
+                    systemImageName: "person.text.rectangle")
     }
 }

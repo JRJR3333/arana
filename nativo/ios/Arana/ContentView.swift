@@ -41,6 +41,9 @@ struct ContentView: View {
     @State private var idleSince = Date()
     @State private var lastQuestion = Date()
     @State private var esperandoDeseo = false
+    // 0.43.0: nuestra charla (la conversación entera) y empezar de cero
+    @State private var showCharla = false
+    @State private var confirmarCero = false
     @FocusState private var typing: Bool
     @Environment(\.openURL) private var openURL
 
@@ -101,6 +104,7 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: typing)
         .sheet(isPresented: $showSettings) { settings }
+        .sheet(isPresented: $showCharla) { NavigationStack { charlaView } }
         .fullScreenCover(isPresented: $showAjedrez) {
             SalaAjedrez(entrenar: entrenarAjedrez,
                         cerrar: { showAjedrez = false; bubble = "He vuelto de la sala. Mis arañas me esperan allí." },
@@ -112,6 +116,7 @@ struct ContentView: View {
         // 0.31.0: con VoiceOver, leo en voz alta lo que pongo en el bocadillo
         .onChange(of: bubble) { _, t in
             if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: t) }
+            Charla.shared.apuntar(t, deUsted: false)
         }
         .onChange(of: typing) { _, t in if t { idleSince = Date(); if escondida || off != .zero { off = .zero; escondida = false } } }
         .onOpenURL { u in
@@ -185,9 +190,17 @@ struct ContentView: View {
             .accessibilityAction(named: "Pregúnteme algo") { preguntarAlgo(forzar: true) }
     }
 
+    private var charlaView: some View {
+        CharlaView(pensando: thinking) { t in input = t; send() }
+    }
+
     private var settings: some View {
         NavigationStack {
             Form {
+                Section("Nuestra charla") {
+                    NavigationLink { charlaView } label: { Label("Ver la conversación", systemImage: "bubble.left.and.bubble.right") }
+                    Text("Todo lo que hablamos, como un chat. También se abre diciendo «nuestra charla».").font(.footnote)
+                }
                 Section("Cerebro (Claude)") {
                     SecureField("Clave de API (sk-ant-…)", text: $key)
                     Button("Guardar clave") { Keychain.save(key.trimmingCharacters(in: .whitespacesAndNewlines)); showSettings = false; bubble = "Clave guardada. Ya puedo pensar." }
@@ -226,6 +239,16 @@ struct ContentView: View {
                     ForEach(Memory.facts, id: \.self) { Text($0).font(.footnote) }
                     Text("Dígame «recuerda que…» o, a Siri, «Recuerda en Araña». «Olvida que…» lo borra.").font(.footnote).foregroundStyle(.secondary)
                 }
+                Section {
+                    Button("Empezar de cero", role: .destructive) { confirmarCero = true }
+                        .confirmationDialog("¿Empiezo de cero? Olvidaré lo que sé de usted, nuestra charla y la telaraña. No se puede deshacer.",
+                                            isPresented: $confirmarCero, titleVisibility: .visible) {
+                            Button("Sí, olvidarlo todo", role: .destructive) {
+                                EmpezarDeCero.hacer(); hilos = 0; showSettings = false
+                                bubble = "Hecho. No recuerdo nada. Empezamos de cero."
+                            }
+                        }
+                } footer: { Text("Se quedan la clave, el token y el ajedrez.") }
             }.navigationTitle("Ajustes")
         }
     }
@@ -242,7 +265,9 @@ struct ContentView: View {
             ofrecerClaude(t, "Juan quiere que lo aprenda (se lo preguntó la araña).")
             return
         }
+        Charla.shared.apuntar(t, deUsted: true)
         let n = Self.normal(t)
+        if Charla.esOrden(n) { typing = false; showCharla = true; bubble = "Aquí tiene nuestra charla."; return }
         if let a = SalaAjedrez.orden(n) { typing = false; abrirAjedrez(entrenar: a); return }
         if let m = Movimiento.desde(n) { typing = false; Task { await mover(m) }; return }
         if ["preguntame algo", "hazme una pregunta", "hazme preguntas", "preguntame"].contains(n) { typing = false; preguntarAlgo(forzar: true); return }

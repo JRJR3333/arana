@@ -1,7 +1,9 @@
 {
- "version": "0.42.0",
- "date": "2026-10-23",
+ "version": "0.43.0",
+ "date": "2026-10-24",
  "notes": [
+  "Ya le enseño nuestra charla entera, como un chat, y puedo empezar de cero si usted me lo pide.",
+  "Siri ya le dice lo que sé de usted: «Oye Siri, qué sabe Araña de mí».",
   "Siri ya me entiende en español: «Oye Siri, recuerda en Araña».",
   "Ya sé cuándo se calla: dejo de escuchar sola y, si no le oigo, se lo digo.",
   "En Android ya me puede actualizar sin desinstalarme, y le aviso si mi app es vieja.",

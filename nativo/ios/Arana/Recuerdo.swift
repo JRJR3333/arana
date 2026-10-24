@@ -19,10 +19,15 @@ enum Recuerdo {
             return Memory.forget(containing: q) ? "Olvidado." : "No tenía apuntado eso."
         }
         if ["que sabes de mi", "que recuerdas de mi", "que has apuntado", "que te he dicho"].contains(n) {
-            let f = Memory.facts.suffix(6)
-            return f.isEmpty ? "Aún sé poco de usted. Dígame «recuerda que…» y lo apunto." : "Sé esto de usted: " + f.joined(separator: "; ") + "."
+            return loQueSe()
         }
         return nil
+    }
+
+    /// 0.43.0: lo que tengo apuntado (también lo dice Siri sin abrir la app). Sin puntos dobles.
+    static func loQueSe() -> String {
+        let f = Memory.facts.suffix(6).map { $0.hasSuffix(".") ? String($0.dropLast()) : $0 }
+        return f.isEmpty ? "Aún sé poco de usted. Dígame «recuerda que…» y lo apunto." : "Sé esto de usted: " + f.joined(separator: "; ") + "."
     }
 
     /// Guarda el dato y contesta. Devuelve nil si no había nada que guardar.

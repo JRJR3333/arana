@@ -141,6 +141,14 @@ textarea{min-height:110px; resize:vertical; border:0}
 .seg input:checked + label{background:var(--cell); box-shadow:0 1px 3px rgba(0,0,0,.15)}
 @media (prefers-color-scheme: dark){ .seg input:checked + label{background:#636366} }
 /* Evolución */
+.charla{display:flex; flex-direction:column; gap:8px; background:none!important; padding:0!important}
+.charla p{margin:0; max-width:84%; padding:8px 12px; border-radius:16px; font-size:16px; line-height:1.3; white-space:pre-wrap; word-wrap:break-word}
+.charla .u{align-self:flex-end; background:#0a84ff; color:#fff; border-bottom-right-radius:4px}
+.charla .a{align-self:flex-start; background:var(--cell); border-bottom-left-radius:4px}
+.charla small{align-self:center; opacity:.55; font-size:12px}
+.charlaIn{position:sticky; bottom:0; display:flex; gap:8px; background:var(--sheet)!important; padding:8px 0!important}
+.charlaIn input{flex:1; min-width:0; font-size:17px; padding:9px 12px; border-radius:18px; border:.5px solid var(--line); background:var(--cell); color:var(--fg)}
+.charlaIn button{border:0; border-radius:18px; padding:0 16px; background:#0a84ff; color:#fff; font-size:17px}
 .learned{list-style:none; margin:0; padding:0; display:flex; flex-direction:column}
 .learned li{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:.5px solid var(--line)}
 .learned li:last-child{border-bottom:0}
@@ -922,7 +930,12 @@ let voiceUnlocked=false;
 addEventListener('pointerdown',()=>{ if(voiceUnlocked||!window.speechSynthesis) return; voiceUnlocked=true; try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} },{capture:true});
 try{ if(window.speechSynthesis) speechSynthesis.onvoiceschanged=()=>{}; }catch(e){}
 function voiceName(v){ return v?v.name.replace(/\s*\(.*\)\s*/g,'').trim():'la de su iPhone'; }
-function say(text){ sayEl.textContent=String(text||''); sayEl.scrollTop=0; }
+function say(text){ sayEl.textContent=String(text||''); sayEl.scrollTop=0;  charlaAdd('a',text); }
+/* 0.43.0 (#42): nuestra charla. Guardo lo que nos decimos (aparte de la memoria que va a Claude: no gasta nada). */
+let charla=store.get('charla',[]);
+function charlaAdd(w,t){ t=String(t||'').trim(); if(!t) return; const last=charla[charla.length-1]; if(last&&last.w===w&&last.t===t) return;
+  charla.push({w,t:t.slice(0,600),ts:Date.now()}); if(charla.length>120) charla=charla.slice(-120); store.set('charla',charla);
+  if(here===openCharla&&!$('#sheet').hidden) drawCharla(); }
 /* «Pensando…» bajo la araña, como en la app; «Escuchando…» aparte */
 function status(words){
   const w=words?[].concat(words)[0]:'';
@@ -935,7 +948,7 @@ function setThinking(on){ S.think=on; $('#mic').disabled=on; $('#go').disabled=o
 /* Opciones bajo la araña. Cada opción: [texto, valor, clase, alPulsar]. alPulsar corre dentro del toque (iOS lo exige para abrir apps y el portapapeles). */
 function chips(text,opts){
   return new Promise((res,rej)=>{
-    closeChip();
+    closeChip(); if(here===openCharla) closeSheet();
     if(text) say(text);
     choicesEl.innerHTML='';
     let myWeb=null;
@@ -1319,7 +1332,7 @@ function quickAnswer(l,raw){
 }
 function answer(text,phrase){ say(text); speak(text); happy(); addThread(); logEv('answer',null,phrase); }
 async function interpret(raw){
-  const l=norm(raw); if(!l) return; lastActive=performance.now(); if(!follow&&!busy) goHome();
+  const l=norm(raw); if(!l) return; if(!/^(hazme una sola pregunta|inventate una rutina)/.test(l)) charlaAdd('u',raw); lastActive=performance.now(); if(!follow&&!busy) goHome();
   if(thinking){ say('Un momento, estoy pensando.'); return; }
   // 0) Respuestas al instante (hora, cuentas, su nombre…): gratis y sin cerebro
   // 0.16.0 (#7): cómo suena mi voz y cambiarla, sin cerebro
@@ -1849,6 +1862,7 @@ function openSettings(){
       ${facts.length?`<ul class="learned">${facts.slice().reverse().map(f=>`<li><div class="ph"><b style="white-space:normal">${escapeHTML(f.t)}</b></div><button type="button" data-fact="${escapeHTML(f.t)}" aria-label="Olvidar">×</button></li>`).join('')}</ul>`:'<p class="note">Aún nada. Cuénteme algo de usted y lo recordaré.</p>'}
       <ul class="cells" style="margin-top:6px"><li><button type="button" class="act" id="askNow">Pregúnteme algo ahora</button></li></ul></div>
     <div><span class="lbl">Evolución</span><ul class="cells">
+      ${navRow('nCharla','Nuestra charla',`<span class="val">${charla.length}</span>`)}
       ${navRow('nEvo','Evolución',`<span class="val">${escapeHTML(L.name)}</span>`)}
       ${navRow('nChess','Ajedrez: sala de partidas')}
       ${navRow('nRate','Valorar mejoras',nUn?`<span class="badge">${nUn}</span>`:'')}
@@ -1867,7 +1881,8 @@ function openSettings(){
     <div><span class="lbl">Cómo me porto</span>
       <ul class="cells"><li><span>Hablar en voz alta</span>${sw('vozOn',prefs.voice!==false)}</li>
         <li><span>Pasear por la pantalla cuando no hago nada</span>${sw('roamOn',prefs.roam!==false)}</li>
-        <li><span>Hacerle preguntas de vez en cuando</span>${sw('askOn',prefs.preguntas!==false)}</li></ul>
+        <li><span>Hacerle preguntas de vez en cuando</span>${sw('askOn',prefs.preguntas!==false)}</li>
+        <li><span>Abrir en nuestra charla<small>Al entrar, le enseño la conversación entera</small></span>${sw('chatOn',!!prefs.chat)}</li></ul>
       <p class="note" style="margin-top:6px">Tóqueme para hablar. Dos toques: salto. Tres: bailo. Mantenga pulsado: mi menú. Arrástreme para cambiarme de sitio.</p>
       <span class="lbl" style="margin-top:12px">Pedir permiso</span>${seg('perm',[['siempre','Siempre'],['aprendido','Según lo aprendido'],['nunca','Nunca']],prefs.perm)}
       <p class="note" style="margin-top:6px">«Según lo aprendido»: pregunto hasta que algo me ha salido bien varias veces.</p>
@@ -1876,7 +1891,9 @@ function openSettings(){
       <li><button type="button" class="act" id="mOut">Copiar mi memoria</button></li>
       <li><button type="button" class="act" id="mIn">Pegar memoria</button></li></ul>
       <p class="note">Copio lo que he aprendido como texto; péguelo en la araña del otro aparato. La clave no viaja.</p></div>
-    <div><ul class="cells"><li><button type="button" class="act warn" id="reset">Olvidar lo aprendido</button></li></ul></div>
+    <div><ul class="cells"><li><button type="button" class="act warn" id="reset">Olvidar lo aprendido</button></li>
+      <li><button type="button" class="act warn" id="zero">Empezar de cero</button></li></ul>
+      <p class="note">«Empezar de cero» borra en ${where} todo lo que sé: lo de usted, lo aprendido, la charla, el diario y el bolsillo. Se quedan la clave, el token, los ajustes y el ajedrez.</p></div>
     <p class="note" style="text-align:center">Araña ${escapeHTML(VERSION.version)} · ${escapeHTML(deviceName())}</p>`);
   document.querySelectorAll('#sheet input[name="perm"]').forEach(i=>i.onchange=()=>{ prefs.perm=i.value; saveAll(); });
   document.querySelectorAll('#sheet input[name="surp"]').forEach(i=>i.onchange=()=>{ prefs.surp=i.value; saveAll(); if(i.value==='alta') happy(); });
@@ -1886,6 +1903,9 @@ function openSettings(){
   $('#brOn').onchange=e=>{ brain.on=e.target.checked; saveBrain(); };
   $('#roamOn').onchange=e=>{ prefs.roam=e.target.checked; saveAll(); if(!prefs.roam) goHome(); };
   $('#askOn').onchange=e=>{ prefs.preguntas=e.target.checked; saveAll(); };
+  $('#chatOn').onchange=e=>{ prefs.chat=e.target.checked; saveAll(); };
+  $('#nCharla').onclick=openCharla;
+  $('#zero').onclick=()=>{ if(!confirm('¿Empiezo de cero? Olvidaré todo lo que sé de usted, lo aprendido y nuestra charla. No se puede deshacer.')) return; if(!confirm('Última pregunta: ¿seguro?')) return; startOver(); };
   $('#autoCl').onchange=e=>{ prefs.autoClaude=e.target.checked; saveAll(); };
   $('#askNow').onclick=()=>{ closeSheet(); askQuestion(true); };
   $('#ghSave').onclick=async()=>{ const k=$('#ghtok').value.trim(); if(!k){ $('#ghtok').focus(); return; } ghTok=k; store.set('gh',k); closeSheet(); happy();
@@ -1906,6 +1926,27 @@ function openSettings(){
   $('#reset').onclick=()=>{ if(!confirm('¿Olvido las frases y los aciertos que he aprendido? Lo que sé de usted se queda.')) return; mem={}; stats={}; saveAll(); openSettings(); say('Memoria borrada. Empezamos de cero.'); };
   $('#mOut').onclick=()=>{ const t=exportMemory(); try{ navigator.clipboard.writeText(t).then(()=>say('Memoria copiada. Péguela en el otro aparato.'),()=>{ prompt('Copie este texto:',t); }); }catch(e){ prompt('Copie este texto:',t); } };
   $('#mIn').onclick=()=>{ const t=prompt('Pegue aquí la memoria que copió en el otro aparato:'); if(!t) return; const n=importMemory(t); if(n<0){ say('Ese texto no es una memoria mía.'); return; } closeSheet(); say('Hecho. Traigo '+n+' recuerdos. Guardé copia de lo de antes.'); happy(); setTimeout(()=>location.reload(),2600); };
+}
+/* 0.43.0 (#42): nuestra charla, como un chat. Lo que escriba aquí lo pienso igual que en la pantalla. */
+function openCharla(){
+  closeMenus(); here=openCharla;
+  openSheet(`<h2>Nuestra charla</h2><div class="charla" id="chatLog"></div>
+    <form class="charlaIn" id="chatF"><input id="chatT" autocomplete="off" enterkeyhint="send" placeholder="Escríbame"><button type="submit">Ir</button></form>
+    <p class="note">${brainReady()?'Pienso con Claude: no hace falta decirme las palabras exactas.':'Sin clave de Claude solo entiendo frases sencillas. Póngala en Ajustes → Cerebro y pensaré por mí misma.'} Lo que me cuente de usted lo recuerdo.</p>`);
+  drawCharla();
+  $('#chatF').onsubmit=e=>{ e.preventDefault(); const t=$('#chatT').value.trim(); if(!t) return; $('#chatT').value=''; interpret(t); };
+}
+function drawCharla(){
+  const el=$('#chatLog'); if(!el) return; let lastDay='';
+  el.innerHTML=charla.length?charla.slice(-80).map(m=>{ const d=new Date(m.ts).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}); const sep=d!==lastDay?`<small>${escapeHTML(d)}</small>`:''; lastDay=d; return sep+`<p class="${m.w==='u'?'u':'a'}">${escapeHTML(m.t)}</p>`; }).join(''):'<p class="a">Buenas. Aquí queda todo lo que hablemos. Dígame lo que quiera.</p>';
+  const c=$('#sheetCard'); if(c) c.scrollTop=c.scrollHeight;
+}
+/* 0.43.0 (#42): empezar de cero, solo si lo pide usted (dos confirmaciones). No toca la clave, el token, los ajustes ni el ajedrez. */
+const ZERO_KEEP=new Set(['brain','gh','prefs','ver','goal','changes','rates','goalOK','seen','day','usage','apkWarn','muted']);
+function startOver(){
+  const ks=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('arana.')&&!ZERO_KEEP.has(k.slice(6))&&!k.startsWith('arana.ajedrez')) ks.push(k); }
+  ks.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  closeSheet(); say('Hecho. No recuerdo nada. Empezamos de cero.'); setTimeout(()=>location.reload(),2200);
 }
 function openLearned(){
   closeMenus(); here=openLearned;
@@ -2050,6 +2091,7 @@ const first=!store.get('seen',false); store.set('seen',true);
 // Se borra de la dirección enseguida para que una recarga no la repita.
 let Q0='', A0=''; try{ const u=new URL(location.href); Q0=(u.searchParams.get('q')||'').trim().slice(0,200); A0=(u.searchParams.get('a')||'').slice(0,400); if(u.searchParams.has('q')||u.searchParams.has('a')){ u.searchParams.delete('q'); u.searchParams.delete('a'); history.replaceState(null,'',u.pathname+(u.search||'')+u.hash); } }catch(e){}
 if(Q0){ say('«'+Q0+'». Voy.'); logEv('voz',null,Q0.slice(0,60)); setTimeout(()=>{ const l=norm(Q0), st=parseSteps(A0), m=mem[l]; if(st.length&&!(m&&m.score>=1)) st.length===1?run(()=>doAction(st[0],l)):run(()=>planFlow({acts:st,say:'Enseguida.'},l)); else interpret(Q0); },900); }
+else if(prefs.chat){ setTimeout(openCharla,400); }
 else { say(first?'Buenas. Soy su araña. Dígame qué hacer.':vary('hola'));
 setTimeout(async()=>{ if(first) return; if(!(await offerBrief())) proposeRoutine(); },5200); }
 loadRepoData();
@@ -2091,7 +2133,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent};
+window.__arana={chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),charla:()=>openCharla(),zero:()=>startOver(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent};
 })();
 </script>
 </body>

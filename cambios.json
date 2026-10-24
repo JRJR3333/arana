@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.43.0",
+  "fecha": "2026-10-24",
+  "mejoras": [
+   {
+    "id": "0.43.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "«Oye Siri, qué sabe Araña de mí» (app nativa)",
+    "detalle": "Siri lee lo que tengo apuntado de usted sin abrir la app, como ya hacía «Recuerda en Araña». Dado de hoy: sin sorpresa y sin condición.",
+    "probar": "Instale la 0.43.0 desde el Mac, ábrala una vez y diga «Oye Siri, qué sabe Araña de mí»."
+   },
+   {
+    "id": "0.43.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Nuestra charla: la conversación entera, como un chat (app nativa)",
+    "detalle": "Guardo lo que nos decimos (las 120 últimas frases) y se ve como un chat: usted a la derecha, yo a la izquierda, y se puede escribir desde ahí. No gasta API: a Claude solo le mando los últimos turnos, como antes.",
+    "probar": "Ajustes → Nuestra charla, o diga «nuestra charla»."
+   },
+   {
+    "id": "0.43.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Android y web: nuestra charla y empezar de cero (#42)",
+    "detalle": "Lo pidió el móvil Android: un chat con la araña que recuerda y piensa con Claude, y poder borrarlo todo para empezar. Ajustes → Nuestra charla (y «Abrir en nuestra charla» para entrar directo) y Ajustes → Empezar de cero, con doble confirmación. En iPhone también está.",
+    "probar": "Ajustes → Nuestra charla: escriba «hola». Empezar de cero solo si quiere borrarlo todo."
+   }
+  ]
+ },
+ {
   "v": "0.42.0",
   "fecha": "2026-10-23",
   "mejoras": [
