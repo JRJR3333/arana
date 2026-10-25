@@ -33,11 +33,20 @@ enum Actions {
                 if let f = await Musica.run(action: s.action, query: s.text) { fails.append(f) }
             case "agenda":
                 fails.append(await agenda(days: s.days ?? 0))
+            case "search":
+                // 0.44.0 (#45): buscar en internet con Safari
+                if let u = searchURL(s.text ?? "") { _ = await UIApplication.shared.open(u) }
             default:
                 fails.append("Aún no sé hacer «\(s.type)».")
             }
         }
         return fails
+    }
+
+    static func searchURL(_ q: String) -> URL? {
+        var c = URLComponents(string: "https://www.google.com/search")
+        c?.queryItems = [URLQueryItem(name: "q", value: q)]
+        return c?.url
     }
 
     /// Temporizador o alarma: un aviso local que suena aunque la app esté cerrada.

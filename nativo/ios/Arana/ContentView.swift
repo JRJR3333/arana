@@ -270,6 +270,13 @@ struct ContentView: View {
         if Charla.esOrden(n) { typing = false; showCharla = true; bubble = "Aquí tiene nuestra charla."; return }
         if let a = SalaAjedrez.orden(n) { typing = false; abrirAjedrez(entrenar: a); return }
         if let m = Movimiento.desde(n) { typing = false; Task { await mover(m) }; return }
+        // 0.44.0 (#46): «aprende a …» va directo a Claude; «aprende» a secas, le pregunto qué
+        if let qu = Self.aprende(n) {
+            typing = false
+            if qu.isEmpty { esperandoDeseo = true; bubble = "¿Qué quiere que aprenda? Dígamelo y se lo paso a Claude."; return }
+            ofrecerClaude(qu, "Juan quiere que lo aprenda (me dijo «aprende»).")
+            return
+        }
         if ["preguntame algo", "hazme una pregunta", "hazme preguntas", "preguntame"].contains(n) { typing = false; preguntarAlgo(forzar: true); return }
         thinking = true
         Task {
@@ -288,6 +295,14 @@ struct ContentView: View {
         bubble = t; Voice.shared.say(t)
         entrenarAjedrez = entrenar
         showAjedrez = true
+    }
+
+    static func aprende(_ n: String) -> String? {
+        for p in ["quiero que aprendas a ", "quiero que aprendas ", "aprende a ", "aprendete ", "aprende "] where n.hasPrefix(p) {
+            let r = String(n.dropFirst(p.count))
+            return r.hasPrefix("de ") || r.hasPrefix("que ") ? nil : r
+        }
+        return n == "aprende" || n == "aprende algo" ? "" : nil
     }
 
     static func normal(_ t: String) -> String {

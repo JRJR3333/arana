@@ -42,6 +42,23 @@ struct QueSabeArana: AppIntent {
     }
 }
 
+/// 0.44.0 (h7): «Oye Siri, calcula con Araña»: Siri pregunta la cuenta y la araña la resuelve en local, sin abrir la app ni gastar API.
+struct CalculaArana: AppIntent {
+    static var title: LocalizedStringResource = "Hacer una cuenta"
+    static var description = IntentDescription("La araña hace la cuenta en el iPhone, sin abrir la app.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Cuenta", requestValueDialog: "¿Qué cuenta?")
+    var cuenta: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let t = cuenta.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
+            .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        let r = Rapido.cuenta(t) ?? Rapido.cuenta("cuanto es " + t) ?? "Esa cuenta no la sé. Dígamela con números, por ejemplo «12 por 7»."
+        return .result(dialog: IntentDialog(stringLiteral: r))
+    }
+}
+
 struct AranaShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AskArana(),
@@ -56,5 +73,9 @@ struct AranaShortcuts: AppShortcutsProvider {
                     phrases: ["Qué sabe \(.applicationName) de mí", "Qué recuerda \(.applicationName) de mí", "\(.applicationName), qué sabes de mí"],
                     shortTitle: "Lo que sabe de mí",
                     systemImageName: "person.text.rectangle")
+        AppShortcut(intent: CalculaArana(),
+                    phrases: ["Calcula con \(.applicationName)", "Haz una cuenta con \(.applicationName)", "\(.applicationName), haz una cuenta"],
+                    shortTitle: "Hacer una cuenta",
+                    systemImageName: "plus.forwardslash.minus")
     }
 }

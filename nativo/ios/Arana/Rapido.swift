@@ -35,6 +35,20 @@ enum Rapido {
            let a = n(String(m.output[1].substring ?? "")), a >= 0 {
             return "Son \(fmt(a.squareRoot()))."
         }
+        // 0.44.0 (#44): un poco más de matemáticas, en local
+        if let m = s.firstMatch(of: try! Regex("^(?:la )?raiz cubica de \(num)$")), let a = n(String(m.output[1].substring ?? "")) {
+            return "Son \(fmt(cbrt(a)))."
+        }
+        if let m = s.firstMatch(of: try! Regex("^\(num) (al cuadrado|al cubo|elevado a \(num))$")), let a = n(String(m.output[1].substring ?? "")) {
+            let k = String(m.output[2].substring ?? "")
+            let e: Double = k == "al cuadrado" ? 2 : k == "al cubo" ? 3 : n(String(m.output[3].substring ?? "")) ?? 1
+            guard abs(e) <= 64 else { return nil }
+            return "Son \(fmt(pow(a, e)))."
+        }
+        if let m = s.firstMatch(of: try! Regex("^(?:el |la )?(doble|triple|mitad|tercio|cuarto) de \(num)$")), let a = n(String(m.output[2].substring ?? "")) {
+            let k: [String: Double] = ["doble": 2, "triple": 3, "mitad": 0.5, "tercio": 1.0 / 3, "cuarto": 0.25]
+            return "Son \(fmt(a * (k[String(m.output[1].substring ?? "")] ?? 1)))."
+        }
         guard let m = s.firstMatch(of: try! Regex("^\(num) ?(mas|\\+|menos|-|por|x|\\*|entre|dividido entre|dividido por|/) ?\(num)$")),
               let a = n(String(m.output[1].substring ?? "")), let b = n(String(m.output[3].substring ?? "")) else { return nil }
         let op = String(m.output[2].substring ?? "")
@@ -48,6 +62,20 @@ enum Rapido {
             r = a / b
         }
         return "Son \(fmt(r))."
+    }
+
+    /// 0.44.0 (#45): «busca en internet recetas de pollo», «busca el tiempo en google», «googlea …». Devuelve lo que hay que buscar.
+    static func busqueda(_ t: String) -> String? {
+        guard t.contains("internet") || t.contains("google") || t.contains("la web") || t.hasPrefix("googlea") else { return nil }
+        var s = t
+        for p in ["por favor ", "oye ", "arana ", "puedes ", "quiero que "] where s.hasPrefix(p) { s = String(s.dropFirst(p.count)) }
+        guard let v = ["buscame ", "busca ", "buscar ", "googlea "].first(where: { s.hasPrefix($0) }) else { return nil }
+        s = String(s.dropFirst(v.count))
+        for p in ["en internet", "en google", "en la web"] {
+            if s.hasPrefix(p) { s = String(s.dropFirst(p.count)) }
+            if s.hasSuffix(p) { s = String(s.dropLast(p.count)) }
+        }
+        return s.trimmingCharacters(in: .whitespaces)
     }
 
     /// «cuántos días faltan para navidad», «cuánto falta para el 15 de diciembre».

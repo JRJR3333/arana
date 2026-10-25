@@ -1,5 +1,48 @@
 [
  {
+  "v": "0.44.0",
+  "fecha": "2026-10-25",
+  "mejoras": [
+   {
+    "id": "0.44.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "«Oye Siri, calcula con Araña» (app nativa)",
+    "detalle": "Siri le pregunta la cuenta y yo la resuelvo en el iPhone, sin abrir la app y sin gastar consulta.",
+    "probar": "Instale la 0.44.0 desde el Mac, ábrala una vez y diga «Oye Siri, calcula con Araña» y luego «12 por 7»."
+   },
+   {
+    "id": "0.44.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Busco en internet (iPhone, Android y web)",
+    "detalle": "«Busca en internet recetas de pollo», «busca el tiempo en Google» o «googlea…»: abro el navegador con la búsqueda. El cerebro también puede usarlo. Petición #45.",
+    "probar": "Diga «busca en internet recetas de pollo»."
+   },
+   {
+    "id": "0.44.0-3",
+    "tipo": "funcionalidad",
+    "titulo": "Más matemáticas, en local",
+    "detalle": "Raíces cuadradas y cúbicas, al cuadrado, al cubo, elevado a, el doble, el triple, la mitad, un tercio o un cuarto. Sin gastar consulta. Petición #44.",
+    "probar": "Diga «cuánto es 5 al cubo» o «la mitad de 9»."
+   },
+   {
+    "id": "0.44.0-4",
+    "tipo": "iniciativa",
+    "titulo": "«Aprende a…» va directo a Claude",
+    "detalle": "Si me dice «aprende a contar chistes», se lo pido a Claude en el acto; con «aprende» a secas, le pregunto qué. Petición #46.",
+    "probar": "Diga «aprende a contar chistes»."
+   },
+   {
+    "id": "0.44.0-5",
+    "tipo": "arreglo",
+    "titulo": "Pido permiso menos",
+    "detalle": "Condición del dado de hoy: restar. Con «no me pidas permiso» (o Ajustes → Pedir permiso → Nunca) ya no le pregunto nada, ni siquiera lo que antes salió mal; solo le pido un toque para copiar. «Pídeme permiso» lo deshace. Petición #43.",
+    "probar": "En Android diga «no me pidas permiso» y luego «abre Spotify»."
+   }
+  ]
+ },
+ {
   "v": "0.43.0",
   "fecha": "2026-10-24",
   "mejoras": [

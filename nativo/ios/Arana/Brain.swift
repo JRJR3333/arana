@@ -48,6 +48,7 @@ enum Brain {
     call (phone), message (phone y text), event (text, when AAAA-MM-DDTHH:MM o minutes, duration: cita en el calendario), \
     agenda (days 0 hoy, 1 mañana: leer el calendario), \
     music (action play|pause|next|previous; text opcional: canción, artista o disco de su biblioteca), \
+    search (text: buscar en internet con Safari), \
     spider (action dance|walk|spin|jump|come|hide|bow: lo que hace usted con su cuerpo en la pantalla: bailar, pasear, dar una vuelta, saltar, volver a su sitio, esconderse, reverencia). Si no hace falta ningún paso, steps vacío. \
     Si le piden HACER algo que estos pasos no permiten, no finja que lo hace: explíquelo en cannot y, si una habilidad nueva programable lo resolvería, descríbala en skill_request (Claude la programará). \
     Siga el hilo de la conversación. Si Juan le cuenta algo duradero de sí mismo (gustos, personas, costumbres), \
@@ -64,7 +65,7 @@ enum Brain {
                 "steps": ["type": "array", "items": [
                     "type": "object",
                     "properties": [
-                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda", "music", "spider"]],
+                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda", "music", "search", "spider"]],
                         "url": ["type": "string"], "text": ["type": "string"],
                         "minutes": ["type": "integer"], "seconds": ["type": "integer"], "phone": ["type": "string"],
                         "when": ["type": "string"], "duration": ["type": "integer"], "days": ["type": "integer"], "action": ["type": "string"]
@@ -137,6 +138,12 @@ enum Brain {
         let t = text.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
             .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         if let r = Recuerdo.responder(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
+        if let q = Rapido.busqueda(t) {
+            _ = await Actions.run([Step(type: "search", text: q)])
+            let r = q.isEmpty ? "Le abro el buscador." : "Busco «\(q)» en internet."
             Memory.addTurn(user: text, reply: r)
             return r
         }

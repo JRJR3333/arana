@@ -240,7 +240,7 @@ const PLAT=IN_APK?'android':ON_IOS?'ios':'web';
 const CAPS={
   spider:true, open:IN_APK||ON_IOS, carry:IN_APK||ON_IOS, pocket:true, whatsapp:true,
   set:BRIDGE2||ON_IOS, call:IN_APK||ON_IOS||ON_ANDROID, message:IN_APK||ON_IOS||ON_ANDROID,
-  timer:IN_APK, alarm:IN_APK, music:BRIDGE2, event:BRIDGE2, float:IN_APK, exit:IN_APK
+  timer:IN_APK, alarm:IN_APK, music:BRIDGE2, event:BRIDGE2, float:IN_APK, exit:IN_APK, search:true
 };
 const deviceName=()=>IN_APK?'Android, dentro de mi propia app':ON_ANDROID?'Android, en el navegador':ON_IOS?'su iPhone, en la web':'un ordenador';
 
@@ -507,7 +507,7 @@ function issueURL(phrase,why){
     '- Aciertos/fallos: '+st.ok+'/'+st.ko,
     '- Dispositivo: '+navigator.userAgent+(IN_APK?' · app de Android '+(APK_V||'anterior a la 0.42.0'):''),
     '',
-    '_Petición creada desde la app. Si iOS no lo permite, explicarlo y cerrar con la etiqueta `no-posible`._'
+    '_Petición creada desde la app. Si '+(IN_APK||ON_ANDROID?'Android':'iOS')+' no lo permite, explicarlo y cerrar con la etiqueta `no-posible`._'
   ].join('\n');
   return `https://github.com/${REPO}/issues/new?labels=nueva-habilidad&title=${encodeURIComponent('Araña quiere aprender: '+phrase)}&body=${encodeURIComponent(body)}`;
 }
@@ -545,6 +545,7 @@ function label(a){
     case 'alarm': return 'Alarma a las '+a.h+':'+String(a.m).padStart(2,'0');
     case 'music': return {play:'Poner música',pause:'Pausar la música',next:'Siguiente canción',previous:'Canción anterior'}[a.v]||'Música';
     case 'event': return 'Cita: '+(a.text||'');
+    case 'search': return a.text?'Buscar «'+a.text+'» en internet':'Abrir el buscador';
     case 'plan': return labelSteps(a.steps||[]);
     case 'spider': return MOVE_NAMES[a.v]||'Moverme';
   }
@@ -987,6 +988,8 @@ function apk(u){
 const apkLaunch=u=>setTimeout(()=>apk(u).then(r=>{ if(r&&r.msg) say(r.msg); }),900);
 /* En Android abro las apps por su nombre en el móvil, no por enlaces de iPhone. */
 function apkOpen(x){ return 'arana://abrir?app='+enc(x.name)+'&id='+enc(x.id)+'&url='+enc(x.url||''); }
+/* 0.44.0 (#45): buscar en internet. En Android abre su navegador; en el iPhone, Safari. */
+const searchURL=q=>'https://www.google.com/search?q='+enc(q||'');
 function urlFor(a){
   if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); if(!x||!CAPS.open) return ''; return IN_APK?apkOpen(x):x.url; }
   if(a.t==='set'){ const s=setById(a.id); if(!s) return ''; if(BRIDGE2) return 'arana://ajuste?id='+s.sc+'&v='+enc(a.v); if(ON_IOS) return a.multi?scMulti(a.multi):scURL(s.sc,a.v); return ''; }
@@ -996,6 +999,7 @@ function urlFor(a){
   if(a.t==='timer') return CAPS.timer?'arana://temporizador?min='+Math.floor(a.s/60)+'&seg='+(a.s%60)+'&texto='+enc(a.text||'Araña'):'';
   if(a.t==='alarm') return CAPS.alarm?'arana://alarma?hora='+a.h+'&min='+a.m+'&texto='+enc(a.text||'Araña'):'';
   if(a.t==='music') return CAPS.music?'arana://musica?accion='+a.v:'';
+  if(a.t==='search') return searchURL(a.text);
   if(a.t==='event') return CAPS.event?'arana://evento?titulo='+enc(a.text||'Cita')+'&inicio='+a.ms+'&min='+(a.dur||60):'';
   return null;
 }
@@ -1063,7 +1067,7 @@ async function doAction(a,phrase,opt={}){
   const go=()=>{ if(a.t==='carry'){ try{ navigator.clipboard&&navigator.clipboard.writeText(pocket); }catch(e){} }
     pending=opt.inPlan?{plan:true}:{act:a,phrase};
     if(native) res=apk(url); else launch(url); };
-  const mustAsk=a.t==='carry'||opt.forceAsk||(!opt.noAsk&&(prefs.perm==='siempre'||(prefs.perm==='aprendido'&&!t.sure)||t.doubtful));
+  const mustAsk=a.t==='carry'||(prefs.perm!=='nunca'&&(opt.forceAsk||(!opt.noAsk&&(prefs.perm==='siempre'||(prefs.perm==='aprendido'&&!t.sure)||t.doubtful))));
   if(mustAsk){
     const q=a.t==='carry'?`¿Lo copio y abro ${nm}?`:a.t==='wa'?'¿Abro WhatsApp con el texto?':`¿${label(a)}?`;
     const v=await chips(q,[['Sí',true,'yes',go],['No',false]]);
@@ -1120,6 +1124,13 @@ const ALL_ACTS=()=>[
 ];
 function findApp(l){ let best=null,bl=0; for(const a of APPS) for(const x of a.al){ if(x.length>bl&&new RegExp('(^|\\s)'+esc(x)+'(\\s|$)').test(l)){ best=a; bl=x.length; } } return best; }
 const findSet=l=>SETS.find(s=>s.al.some(x=>new RegExp('\\b'+x+'\\b').test(l)));
+function permCmd(l){
+  if(/^(?:quiero que )?(?:en android )?(?:no me pidas permiso|no pidas permiso|deja de pedir(?:me)? permiso|no me preguntes antes|no preguntes antes|hazlo (?:todo )?(?:directamente|sin preguntar)|haz las cosas (?:directamente|sin preguntar)|no me pidas confirmacion)\b/.test(l)){
+    prefs.perm='nunca'; saveAll();
+    return 'Entendido: desde ahora lo hago directamente, sin preguntarle.'+(IN_APK?' Solo los permisos del propio Android (micrófono, flotar, accesibilidad) los tiene que dar usted una vez: Android no deja que ninguna app se los dé sola.':' Solo le pediré un toque para copiar, porque el móvil lo exige.'); }
+  if(/^(?:pideme permiso|preguntame antes|vuelve a pedirme permiso|pideme confirmacion)\b/.test(l)){ prefs.perm='aprendido'; saveAll(); return 'De acuerdo: le preguntaré cuando no lo tenga claro.'; }
+  return null;
+}
 function rules(l,raw){
   const OFF=/\b(apaga|apagar|desactiva|desactivar|quita|quitar|off|cierra|sin)\b/, ON=/\b(enciende|encender|activa|activar|pon|poner|on|con|abre)\b/;
   if(/\b(whatsapp|wasap|whats|guasap)\b/.test(l)&&/\b(envia|manda|escribe|mensaje|dile)\b/.test(l)){
@@ -1127,6 +1138,9 @@ function rules(l,raw){
     return {act:{t:'wa',text}};
   }
   if(/\b(lleva|llevar|pasa|pasalo|pega|pegalo|copia)\b/.test(l)&&/\b(bolsillo|esto|lo)\b|\ba\b/.test(l)){ const a=findApp(l); if(a) return {act:{t:'carry',id:a.id}}; }
+  // 0.44.0 (#45): «busca en internet recetas de pollo», «busca el tiempo en google», «googlea …»
+  const bq=l.replace(/^(?:(?:por favor|oye|arana|puedes|podrias|quiero que(?: me)?)\s+)+/,'').match(/^(?:busca(?:me|r)?|busques|googlea|mira)\s+(?:en (?:internet|google|la web|el navegador)\s*)?(.*?)\s*(?:en (?:internet|google|la web|el navegador))?(?: en (?:android|el movil))?$/);
+  if(bq&&(/\b(internet|google|la web|navegador)\b/.test(l)||/^googlea/.test(l))) return {act:{t:'search',text:bq[1].replace(/^(?:en (?:android|el movil))$/,'').trim()}};
   if(/\b(guarda|bolsillo)\b/.test(l)) return {pocket:true};
   for(const [re,msg] of CANT) if(re.test(l)) return {cant:msg};
   const s=findSet(l);
@@ -1174,6 +1188,11 @@ function dateTarget(l){
 function calc(raw){
   let t=String(raw).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[¿?¡!=]/g,' ').replace(/\s+/g,' ').trim();
   t=t.replace(/^(oye |dime |y )?(cuanto (es|son|da|hacen)|calcula|calculame|hazme la cuenta)\s*/,'').replace(/(\d),(\d)/g,'$1.$2');
+  // 0.44.0 (#44): un poco más de matemáticas, en local: raíces, al cubo, doble, triple, mitad y tercio
+  const rz=t.match(/^(?:la )?raiz (?:cuadrada )?de (\d+(?:\.\d+)?)$/); if(rz) return 'Son '+Math.sqrt(+rz[1]).toLocaleString('es-ES',{maximumFractionDigits:4})+'.';
+  const rc=t.match(/^(?:la )?raiz cubica de (-?\d+(?:\.\d+)?)$/); if(rc) return 'Son '+Math.cbrt(+rc[1]).toLocaleString('es-ES',{maximumFractionDigits:4})+'.';
+  const fr=t.match(/^(?:el |la )?(doble|triple|mitad|tercio|cuarto) de (-?\d+(?:\.\d+)?)$/); if(fr){ const k={doble:2,triple:3,mitad:.5,tercio:1/3,cuarto:.25}[fr[1]]; return 'Son '+(k*+fr[2]).toLocaleString('es-ES',{maximumFractionDigits:4})+'.'; }
+  t=t.replace(/\bal cubo\b/g,'**3');
   const pc=t.match(/^(\d+(?:\.\d+)?) ?(?:%|por ciento) de (\d+(?:\.\d+)?)$/);
   if(pc) t='('+pc[1]+'*'+pc[2]+'/100)';
   else t=t.replace(/\bal cuadrado\b/g,'**2').replace(/\belevado a\b/g,'**').replace(/\bdividido (entre|por)\b|\bentre\b|÷/g,'/').replace(/\bmas\b/g,'+').replace(/\bmenos\b/g,'-').replace(/\bpor\b|×/g,'*').replace(/(\d)\s*x\s*(?=\d)/g,'$1*');
@@ -1335,6 +1354,13 @@ async function interpret(raw){
   const l=norm(raw); if(!l) return; if(!/^(hazme una sola pregunta|inventate una rutina)/.test(l)) charlaAdd('u',raw); lastActive=performance.now(); if(!follow&&!busy) goHome();
   if(thinking){ say('Un momento, estoy pensando.'); return; }
   // 0) Respuestas al instante (hora, cuentas, su nombre…): gratis y sin cerebro
+  // 0.44.0 (#43): «no me pidas permiso»: hago las cosas directamente. «pídeme permiso» lo deshace.
+  const pm=permCmd(l); if(pm){ say(pm,5200); speak(pm); happy(); logEv('answer',null,l); return; }
+  // 0.44.0 (#46): «aprende a …»: se lo pido a Claude directamente, sin esperar a fallar
+  const ap=l.match(/^(?:arana |oye )?(?:aprende(?:te)?|quiero que aprendas|ensename a|apunta para aprender)(?: a)?(?:\s+(.{3,}))?$/);
+  if(ap&&!/^aprende (de |que )/.test(l)){ if(!ap[1]){ wishNext=true; say('¿Qué quiere que aprenda? Escríbalo o dígalo y se lo paso a Claude.'); $('#cmd').placeholder='Lo que quiere que aprenda'; return; }
+    const ph=norm(ap[1]); addWish(ph,'Juan quiere que lo aprenda (me dijo «aprende»).'); happy(); logEv('idea',null,l);
+    if(ghTok) askClaude(ph,'Juan quiere que lo aprenda.'); else { say('Anotado. Se lo pido a Claude.'); chips('¿Abro GitHub para pedírselo?',[['Sí','go','yes',()=>askClaude(ph,'Juan quiere que lo aprenda.')],['Luego',null]]).then(x=>{ if(x==='go') say('Pulse «Create» en GitHub.'); }).catch(()=>{}); } return; }
   // 0.16.0 (#7): cómo suena mi voz y cambiarla, sin cerebro
   if(/\b(como suena tu voz|que voz tienes|dejame oirte|quiero oirte|como hablas)\b/.test(l)){ const t='Así sueno. Mi voz es '+voiceName(myVoice())+'. Si prefiere otra, dígame «cambia de voz».'; say(t,5200); speak(t,true); logEv('answer',null,l); return; }
   if(/^(cambia(r)? (de |la )?voz|otra voz|pon otra voz)$/.test(l)){ const vs=esVoices(); if(vs.length<2){ const t='Su iPhone solo me da una voz en español. Puede bajar más en Ajustes del iPhone → Accesibilidad → Contenido leído → Voces.'; say(t,6500); speak(t,true); return; }
@@ -1430,7 +1456,8 @@ const STEP_DOCS={
   timer:()=>'- timer: temporizador del reloj. minutes y/o seconds, text opcional.',
   alarm:()=>'- alarm: alarma del reloj. time = HH:MM, text opcional.',
   music:()=>'- music: controlar la música que suena. action = play|pause|next|previous.',
-  event:()=>'- event: cita en el calendario. text, when = AAAA-MM-DDTHH:MM (o minutes desde ahora), duration en minutos.'
+  event:()=>'- event: cita en el calendario. text, when = AAAA-MM-DDTHH:MM (o minutes desde ahora), duration en minutos.',
+  search:()=>'- search: buscar en internet (abre el navegador). text = lo que buscar.'
 };
 const STEP_TYPES=Object.keys(STEP_DOCS).filter(k=>CAPS[k]);
 const PLACE={android:'tu propia app de Android, en su móvil',ios:'una web app de la pantalla de inicio de su iPhone',web:'una página web abierta en un ordenador'}[PLAT];
@@ -1540,6 +1567,7 @@ function toActs(steps){
     else if(x.type==='alarm'&&CAPS.alarm){ const m=String(x.time||'').match(/(\d{1,2})(?:[:.h ](\d{2}))?/); if(m&&+m[1]<24&&+(m[2]||0)<60) acts.push({t:'alarm',h:+m[1],m:+(m[2]||0),text:x.text||''}); else bad.push('alarma'); }
     else if(x.type==='music'&&CAPS.music) acts.push({t:'music',v:['play','pause','next','previous'].includes(x.action)?x.action:'play'});
     else if(x.type==='event'&&CAPS.event){ const d=parseWhen(x.when)||(x.minutes?new Date(Date.now()+x.minutes*6e4):null); if(d) acts.push({t:'event',text:x.text||'Cita',ms:d.getTime(),dur:+x.duration||60}); else bad.push('cita'); }
+    else if(x.type==='search'&&CAPS.search) acts.push({t:'search',text:String(x.text||'').slice(0,200)});
     else bad.push(x.type);
   }
   return {acts,bad};
@@ -1833,7 +1861,7 @@ const navRow=(id,text,val)=>`<li><button type="button" class="go" id="${id}"><sp
 const CAP_LIST=[
   ['spider','Moverme: caminar, bailar, seguirle el dedo, esconderme'],['open','Abrir sus apps'],['set','Ajustes: linterna, brillo, no molestar, Wi-Fi…'],['timer','Temporizadores'],['alarm','Alarmas'],
   ['music','Música: poner, pausar, siguiente'],['event','Citas en el calendario'],['call','Llamar y preparar mensajes'],
-  ['whatsapp','Preparar un WhatsApp'],['carry','Llevar el bolsillo a otra app'],['float','Flotar sobre las demás apps'],['exit','Cerrarme cuando me lo pida']];
+  ['whatsapp','Preparar un WhatsApp'],['carry','Llevar el bolsillo a otra app'],['search','Buscar en internet'],['float','Flotar sobre las demás apps'],['exit','Cerrarme cuando me lo pida']];
 function capsText(){ const ok=CAP_LIST.filter(([k])=>CAPS[k]).map(([,t])=>t.split(':')[0].toLowerCase());
   return ok.length?'Aquí sé '+(ok.length>1?ok.slice(0,-1).join(', ')+' y '+ok[ok.length-1]:ok[0])+'. Y contestar, pensar y recordar.':'Aquí contesto, pienso, recuerdo y guardo cosas en el bolsillo. Para hacer cosas en el móvil, use mi app.'; }
 function openSettings(){
@@ -2133,7 +2161,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),charla:()=>openCharla(),zero:()=>startOver(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent};
+window.__arana={chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),charla:()=>openCharla(),zero:()=>startOver(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent,perm:(t)=>permCmd(norm(t)),prefs:()=>prefs};
 })();
 </script>
 </body>
