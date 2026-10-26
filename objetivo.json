@@ -1,6 +1,6 @@
 {
   "meta": "Que la araña sea su propia app nativa: un asistente tipo Siri que gestiona el iPhone de Juan",
-  "actualizado": "2026-10-24",
+  "actualizado": "2026-10-26",
   "hitos": [
     {
       "id": "h1",
@@ -59,7 +59,7 @@
       "nombre": "App nativa de la araña",
       "pts": 40,
       "estado": "en_curso",
-      "desc": "App SwiftUI en nativo/ios, compilada en un Mac de GitHub. Ya tiene cerebro Claude con memoria de conversación, voz, micrófono propio, temporizadores, agenda y citas del calendario, música, «Oye Siri, Araña» (y «qué sabe Araña de mí»), nuestra charla como un chat, recordatorios, llamadas, mensajes y abrir apps. Falta firmarla para instalarla con un enlace (cuenta de desarrollador de Apple, 99 $/año).",
+      "desc": "App SwiftUI en nativo/ios, compilada en un Mac de GitHub. Ya tiene cerebro Claude con memoria de conversación, una voz natural que se puede cambiar, micrófono propio, temporizadores, agenda y citas del calendario, música, «Oye Siri, Araña» (y «qué sabe Araña de mí»), nuestra charla como un chat, recordatorios, llamadas, mensajes y abrir apps. Falta firmarla para instalarla con un enlace (cuenta de desarrollador de Apple, 99 $/año).",
       "guia": "https://github.com/JRJR3333/arana/blob/master/nativo/h7/LEEME.md",
       "juan": "Darse de alta en el Apple Developer Program (99 $/año) para poder firmar e instalar la app con un enlace."
     },

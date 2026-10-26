@@ -59,6 +59,17 @@ struct CalculaArana: AppIntent {
     }
 }
 
+/// Sorpresa 0.45.0: «Oye Siri, cuéntame una curiosidad de Araña», sin abrir la app ni gastar API.
+struct CuriosidadArana: AppIntent {
+    static var title: LocalizedStringResource = "Una curiosidad"
+    static var description = IntentDescription("La araña le cuenta una curiosidad de las arañas, sin abrir la app.")
+    static var openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        .result(dialog: IntentDialog(stringLiteral: Rapido.curiosidades.randomElement() ?? "Las arañas tejen sin prisa."))
+    }
+}
+
 struct AranaShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AskArana(),
@@ -77,5 +88,9 @@ struct AranaShortcuts: AppShortcutsProvider {
                     phrases: ["Calcula con \(.applicationName)", "Haz una cuenta con \(.applicationName)", "\(.applicationName), haz una cuenta"],
                     shortTitle: "Hacer una cuenta",
                     systemImageName: "plus.forwardslash.minus")
+        AppShortcut(intent: CuriosidadArana(),
+                    phrases: ["Cuéntame una curiosidad de \(.applicationName)", "Curiosidad de \(.applicationName)", "\(.applicationName), cuéntame algo curioso"],
+                    shortTitle: "Una curiosidad",
+                    systemImageName: "sparkles")
     }
 }

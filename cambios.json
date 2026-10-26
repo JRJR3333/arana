@@ -1,5 +1,49 @@
 [
  {
+  "v": "0.45.0",
+  "fecha": "2026-10-26",
+  "mejoras": [
+   {
+    "id": "0.45.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "Una voz más natural en la app de iPhone",
+    "detalle": "Hablo con la mejor voz en español que tenga su iPhone (Premium o Mejorada si la hay) y, con «otra voz», cambio y me quedo con la que usted elija. Lo mismo que pidió su hermano para Android (#50). Dado: sin condición esta vez.",
+    "probar": "Instale la 0.45.0 desde el Mac y diga «otra voz» un par de veces."
+   },
+   {
+    "id": "0.45.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "WhatsApp a quien usted diga (Android)",
+    "detalle": "«Manda un WhatsApp a Pedro diciendo que llego tarde»: busco a Pedro en sus contactos y abro su chat con el mensaje escrito; usted solo pulsa enviar. Petición #47.",
+    "probar": "En Android, actualice la app y diga «manda un whatsapp a (alguien) diciendo hola»."
+   },
+   {
+    "id": "0.45.0-3",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Micrófono propio y araña flotante que escucha (Android)",
+    "detalle": "Ya no salta la ventana del micrófono de Google: escucho dentro de la app y enseño lo que voy oyendo (#48). Al flotar soy la araña de verdad, con patas, y un toque basta para hablarme sin entrar en la app: contesto en un bocadillo (#49).",
+    "probar": "En Android, toque el micro; luego diga «flota», toque la araña y pídale algo."
+   },
+   {
+    "id": "0.45.0-4",
+    "tipo": "funcionalidad",
+    "titulo": "Voz más humana en Android",
+    "detalle": "Elijo la voz en español más natural del móvil y, con «otra voz», paso a la siguiente y la recuerdo. Si solo hay una, le abro la descarga de voces. Petición #50.",
+    "probar": "En Android, diga «otra voz»."
+   },
+   {
+    "id": "0.45.0-5",
+    "tipo": "sorpresa",
+    "titulo": "«Oye Siri, cuéntame una curiosidad de Araña»",
+    "detalle": "Una curiosidad de arañas con Siri, sin abrir la app ni gastar consulta. También en la app: «cuéntame una curiosidad».",
+    "probar": "Con la 0.45.0 instalada, diga «Oye Siri, cuéntame una curiosidad de Araña»."
+   }
+  ]
+ },
+ {
   "v": "0.44.0",
   "fecha": "2026-10-25",
   "mejoras": [

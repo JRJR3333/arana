@@ -147,6 +147,12 @@ enum Brain {
             Memory.addTurn(user: text, reply: r)
             return r
         }
+        // 0.45.0 (h7): «otra voz» cambia la voz de la araña y la recuerda
+        if ["otra voz", "cambia de voz", "cambia la voz", "cambiate la voz", "pon otra voz", "habla con otra voz", "cambia tu voz"].contains(t) {
+            let r = Voice.shared.siguiente()
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         if let r = Rapido.responder(t) {
             Memory.addTurn(user: text, reply: r)
             return r

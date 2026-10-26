@@ -13,6 +13,8 @@ import android.provider.CalendarContract
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
+import android.content.pm.PackageManager
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.webkit.ValueCallback
@@ -40,6 +42,13 @@ class MainActivity : Activity() {
     // 0.28.0: el ajedrez importa y guarda copias de sus arañas
     private var archivoCb: ValueCallback<Array<Uri>>? = null
     private var porGuardar: String? = null
+    // 0.45.0: el oído propio (#48), lo que llega de la araña flotante (#49) y el WhatsApp que espera permiso (#47)
+    private var oido: Oido? = null
+    private var pidioMicro = false
+    private var paginaLista = false
+    private var porDecir: String? = null
+    private var waPendiente: Uri? = null
+    private var delante = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +60,10 @@ class MainActivity : Activity() {
         web.settings.mediaPlaybackRequiresUserGesture = false
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean = abrir(req.url)
+            override fun onPageFinished(view: WebView, url: String) {
+                paginaLista = true
+                porDecir?.let { porDecir = null; view.postDelayed({ oirFuera(it) }, 600) }
+            }
         }
         web.webChromeClient = object : WebChromeClient() {
             // Elegir un archivo (importar arañas de otro aparato)
@@ -65,22 +78,51 @@ class MainActivity : Activity() {
         web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
         tts = TextToSpeech(this) { ok ->
             ttsLista = ok == TextToSpeech.SUCCESS
-            if (ttsLista) tts?.language = Locale("es", "ES")
+            if (ttsLista) mejorVoz()
         }
         setContentView(web)
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(SITE)
-        if (intent?.data?.host == "escuchar") escuchar()
+        viva = this
+        porIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.data?.host == "escuchar") escuchar()
+        porIntent(intent)
     }
+
+    private fun porIntent(i: Intent?) {
+        val u = i?.data ?: return
+        if (u.scheme != "arana") return
+        when (u.host) {
+            "escuchar" -> escuchar()
+            // 0.45.0 (#49): una frase oída por la araña flotante cuando la app estaba cerrada
+            "decir" -> u.getQueryParameter("texto")?.takeIf { it.isNotBlank() }?.let { if (paginaLista) oirFuera(it) else porDecir = it }
+        }
+    }
+
+    override fun onResume() { super.onResume(); delante = true }
+    override fun onPause() { super.onPause(); delante = false }
+
+    /** 0.45.0 (#49): la araña flotante oyó algo; la app lo piensa sin salir a la pantalla. */
+    fun oirFuera(texto: String): Boolean {
+        if (!paginaLista) { porDecir = texto; return true }
+        web.evaluateJavascript("window.__aranaOir&&window.__aranaOir(" + JSONObject.quote(texto) + ")", null)
+        return true
+    }
+
+    fun callar() { tts?.stop() }
 
     inner class Puente {
         @JavascriptInterface fun escuchar() { runOnUiThread { this@MainActivity.escuchar() } }
         @JavascriptInterface fun hablar(texto: String) { runOnUiThread { decir(texto) } }
         @JavascriptInterface fun callar() { runOnUiThread { tts?.stop() } }
+        /** 0.45.0 (#48): dejar de escuchar desde el botón del micro. */
+        @JavascriptInterface fun pararOido() { runOnUiThread { oido?.parar() } }
+        /** 0.45.0 (#49): lo que dice la araña, también en el bocadillo de la araña flotante si la app no está delante. */
+        @JavascriptInterface fun bocadillo(texto: String) { runOnUiThread { if (!delante) Flotante.actual?.bocadillo(texto) } }
+        /** 0.45.0 (#50): qué voz tiene ahora. */
+        @JavascriptInterface fun vozNombre(): String = vozActual()
         @JavascriptInterface fun puedeHablar(): Boolean = ttsLista
         /** 0.22.0: una orden arana:// con respuesta para la web. */
         @JavascriptInterface fun orden(id: Int, url: String) {
@@ -124,9 +166,129 @@ class MainActivity : Activity() {
         tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "arana")
     }
 
-    /** El micrófono del propio Android: escucha en español y le pasa la frase a la araña. */
+    /**
+     * 0.45.0 (#50): «que tu voz no sea tan robótica». Elige la voz en español más natural que tenga el
+     * móvil (más calidad, de España, instalada y sin internet) o la que usted eligió con «otra voz».
+     */
+    private fun vocesEs(): List<Voice> = try {
+        (tts?.voices ?: emptySet<Voice>())
+            .filter { it.locale.language == "es" && !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) }
+            .sortedWith(compareByDescending<Voice> { it.quality }
+                .thenByDescending { it.locale.country == "ES" }
+                .thenBy { it.isNetworkConnectionRequired }
+                .thenBy { it.name })
+    } catch (e: Exception) { emptyList() }
+
+    private fun mejorVoz() {
+        val t = tts ?: return
+        val elegida = getSharedPreferences("arana", MODE_PRIVATE).getString("voz", null)
+        val vs = vocesEs()
+        val v = vs.firstOrNull { it.name == elegida } ?: vs.firstOrNull()
+        if (v == null || runCatching { t.voice = v }.isFailure) t.language = Locale("es", "ES")
+        t.setSpeechRate(1.0f)
+        t.setPitch(1.0f)
+    }
+
+    private fun vozActual(): String {
+        val v = runCatching { tts?.voice }.getOrNull() ?: return ""
+        val vs = vocesEs()
+        val n = vs.indexOfFirst { it.name == v.name } + 1
+        val calidad = if (v.quality >= Voice.QUALITY_VERY_HIGH) "muy natural" else if (v.quality >= Voice.QUALITY_HIGH) "natural" else "sencilla"
+        val de = if (v.locale.country == "ES") "de España" else "en español"
+        return if (n > 0) "la voz $n de ${vs.size}, $de, $calidad" else "una voz $de"
+    }
+
+    /** «otra voz»: la siguiente voz en español del móvil, y se queda con ella. */
+    private fun voz(accion: String): Res {
+        if (!ttsLista) return Res(false, "Este móvil no me deja hablar todavía.")
+        val vs = vocesEs()
+        if (accion == "siguiente") {
+            if (vs.size < 2) {
+                try { startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) {}
+                return Res(true, "Solo tengo una voz en español. Descargue otra más natural ahí, en la voz de Google, y la usaré sola.", true)
+            }
+            val i = vs.indexOfFirst { it.name == tts?.voice?.name }
+            val v = vs[(i + 1) % vs.size]
+            getSharedPreferences("arana", MODE_PRIVATE).edit().putString("voz", v.name).apply()
+            mejorVoz()
+            return Res(true, "Ahora hablo con ${vozActual()}. ¿Mejor así? Diga «otra voz» para cambiar.")
+        }
+        return Res(true, "Hablo con ${vozActual()}.")
+    }
+
+    private fun tienePermiso(p: String) = checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * 0.45.0 (#48): el micrófono de la araña, sin la ventana de Google: escucha dentro de la app y le pasa
+     * la frase. La primera vez pide el permiso de micrófono; si usted no lo da, usa la ventana de siempre.
+     */
     private fun escuchar() {
         tts?.stop()
+        if (!tienePermiso(android.Manifest.permission.RECORD_AUDIO)) {
+            if (!pidioMicro) { pidioMicro = true; requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), PERMISO_MICRO); return }
+            escucharGoogle(); return
+        }
+        val o = oido ?: Oido(this, { t ->
+            web.evaluateJavascript("window.__aranaParcial&&window.__aranaParcial(" + JSONObject.quote(t) + ")", null)
+        }) { t, err ->
+            if (t.isNullOrBlank() && err != null) Toast.makeText(this, err, Toast.LENGTH_SHORT).show()
+            web.evaluateJavascript("window.__aranaOir&&window.__aranaOir(" + JSONObject.quote(t ?: "") + ")", null)
+        }.also { oido = it }
+        if (o.empezar()) web.evaluateJavascript("window.__aranaParcial&&window.__aranaParcial('')", null)
+        else escucharGoogle()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        val si = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+        when (requestCode) {
+            PERMISO_MICRO -> if (si) escuchar() else escucharGoogle()
+            PERMISO_CONTACTOS -> {
+                val u = waPendiente; waPendiente = null
+                if (u != null) {
+                    val r = if (si) whatsapp(u) else whatsappSinContacto(u.getQueryParameter("texto").orEmpty(), "Sin permiso no veo sus contactos. Elija usted a quién.")
+                    if (r.msg.isNotEmpty()) { Toast.makeText(this, r.msg, Toast.LENGTH_LONG).show(); decir(r.msg) }
+                }
+            }
+        }
+    }
+
+    /**
+     * 0.45.0 (#47): «manda un WhatsApp a Pedro diciendo que llego tarde». Busca a Pedro en sus contactos y abre
+     * su chat de WhatsApp con el mensaje escrito: usted solo pulsa enviar (WhatsApp no deja que nadie más lo pulse).
+     */
+    private fun whatsapp(u: Uri): Res {
+        val quien = u.getQueryParameter("a").orEmpty().trim()
+        val texto = u.getQueryParameter("texto").orEmpty()
+        if (quien.isEmpty()) return whatsappSinContacto(texto, "Elija el contacto. Enviar lo pulsa usted.")
+        if (!tienePermiso(android.Manifest.permission.READ_CONTACTS)) {
+            waPendiente = u
+            requestPermissions(arrayOf(android.Manifest.permission.READ_CONTACTS), PERMISO_CONTACTOS)
+            return Res(true, "Deme permiso para ver sus contactos y se lo preparo.")
+        }
+        val c = try { Contactos.buscar(this, quien) } catch (e: Exception) { null }
+            ?: return whatsappSinContacto(texto, "No encuentro a $quien en sus contactos. Elíjalo usted; el mensaje ya va escrito.")
+        val i = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=" + Contactos.internacional(c.tel) + "&text=" + Uri.encode(texto)))
+        paqueteWhatsApp()?.let { i.setPackage(it) }
+        return try {
+            startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            Res(true, "Le dejo el mensaje para ${c.nombre} escrito. Pulse enviar.", true)
+        } catch (e: ActivityNotFoundException) { Res(false, "No encuentro WhatsApp en este móvil.") }
+    }
+
+    private fun paqueteWhatsApp(): String? = listOf("com.whatsapp", "com.whatsapp.w4b").firstOrNull {
+        try { packageManager.getPackageInfo(it, 0); true } catch (e: Exception) { false }
+    }
+
+    private fun whatsappSinContacto(texto: String, msg: String): Res {
+        val i = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, texto)
+        paqueteWhatsApp()?.let { i.setPackage(it) }
+        return try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); Res(true, msg, true) }
+        catch (e: ActivityNotFoundException) { Res(false, "No encuentro WhatsApp en este móvil.") }
+    }
+
+    /** La ventana del micrófono de Google, para móviles sin reconocimiento para apps o sin permiso. */
+    private fun escucharGoogle() {
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
@@ -225,6 +387,7 @@ class MainActivity : Activity() {
      * arana://abrir?app=WhatsApp&id=whatsapp · arana://ajuste?id=linterna&v=on · arana://temporizador?min=5&seg=30&texto=Pasta
      * arana://alarma?hora=7&min=30 · arana://musica?accion=pause · arana://evento?titulo=Médico&inicio=<ms>&min=30
      * arana://llamar?tel=600… · arana://mensaje?tel=600…&texto=… · arana://flotar · arana://escuchar · arana://salir
+     * arana://voz?accion=siguiente · arana://whatsapp?a=Pedro&texto=…
      */
     private fun ejecutar(u: Uri): Res {
         val q = { k: String -> u.getQueryParameter(k).orEmpty() }
@@ -234,6 +397,8 @@ class MainActivity : Activity() {
             "abrir" -> abrirApp(u)
             "flotar" -> flotar()
             "escuchar" -> { escuchar(); Res(true) }
+            "voz" -> voz(q("accion"))
+            "whatsapp" -> whatsapp(u)
             "ajuste" -> Ajustes.aplicar(this, q("id"), q("v"))
             "musica" -> musica(q("accion"))
             "temporizador" -> {
@@ -263,6 +428,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        if (viva === this) viva = null
+        oido?.parar()
         tts?.shutdown()
         super.onDestroy()
     }
@@ -281,9 +448,14 @@ class MainActivity : Activity() {
         const val OIR = 7
         const val ABRIR = 8
         const val GUARDAR = 9
+        const val PERMISO_MICRO = 11
+        const val PERMISO_CONTACTOS = 12
+        /** 0.45.0 (#49): la app abierta (aunque esté detrás), para que la araña flotante le pase lo que oye. */
+        @SuppressLint("StaticFieldLeak")
+        var viva: MainActivity? = null
         const val FONDO = 0xFF090A14.toInt()
         const val HOST = "jrjr3333.github.io"
         const val SITE = "https://jrjr3333.github.io/arana/?app=android"
-        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar,apps"
+        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar,apps,voz,whatsapp,oido"
     }
 }

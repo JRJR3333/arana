@@ -8,6 +8,7 @@ enum Rapido {
     /// `t` llega en minúsculas, sin tildes ni signos al principio o al final.
     static func responder(_ t: String, ahora: Date = Date()) -> String? {
         if let r = azar(t) { return r }
+        if t.count < 45, t.contains("curiosidad") || t.contains("algo curioso") { return curiosidades.randomElement() }
         if t.count > 60 { return nil }
         if ["que hora es", "que hora tienes", "dime la hora", "hora"].contains(t) || t.hasPrefix("que hora es") {
             return "Son las \(ahora.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(es)))."
@@ -115,6 +116,20 @@ enum Rapido {
         }
         return nil
     }
+
+    /// Sorpresa 0.45.0: curiosidades de arañas, en la app y con «Oye Siri, cuéntame una curiosidad de Araña».
+    static let curiosidades = [
+        "Las arañas no se pegan a su propia tela: caminan por los hilos que no tienen pegamento.",
+        "Hay arañas que viajan cientos de kilómetros volando con un hilo, como cometas.",
+        "La seda de araña es, a igual grosor, más resistente que el acero.",
+        "Muchas arañas se comen su tela vieja para reciclar la seda.",
+        "Las arañas saltadoras ven en color y calculan la distancia antes de saltar.",
+        "Una tela de araña puede llevar hasta veinte metros de hilo.",
+        "Algunas arañas decoran su tela con zigzags que reflejan la luz ultravioleta.",
+        "Las arañas llevan el esqueleto por fuera y mudan de piel para crecer.",
+        "La mayoría de las arañas tienen ocho ojos, y aun así muchas ven poco: se fían de las vibraciones.",
+        "Las patas de las arañas se estiran con presión de líquido, no con músculos.",
+    ]
 
     static func fmt(_ x: Double) -> String {
         let f = NumberFormatter()

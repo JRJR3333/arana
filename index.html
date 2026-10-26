@@ -234,8 +234,11 @@ const BRIDGE2=IN_APK&&!!(AND()&&AND().orden);
    actualizar encima y Juan seguía con una app vieja: por eso «no abre, no habla, no escucha». */
 const APK_V=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.version?String(b.version()||''):''; }catch(e){ return ''; } })();
 const APK_URL='https://github.com/JRJR3333/arana/releases/download/android/arana.apk';
-const APK_MIN='0.42.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
+const APK_MIN='0.45.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
 const APK_OLD=IN_APK&&(!APK_V||vNum(APK_V)<vNum(APK_MIN));
+/* 0.45.0: lo que sabe hacer mi app de Android (voz, whatsapp con contacto, oído propio). Una app vieja no lo dice. */
+const APK_CAP=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.capacidades?String(b.capacidades()||'').split(','):[]; }catch(e){ return []; } })();
+const apkCan=c=>APK_CAP.includes(c);
 const PLAT=IN_APK?'android':ON_IOS?'ios':'web';
 const CAPS={
   spider:true, open:IN_APK||ON_IOS, carry:IN_APK||ON_IOS, pocket:true, whatsapp:true,
@@ -536,7 +539,7 @@ function label(a){
   switch(a&&a.t){
     case 'open': return 'Abrir '+an(a.id);
     case 'set': { const s=setById(a.id); return s?s.name+': '+(a.v==='on'?'activar':a.v==='off'?'desactivar':a.v+' %'):'Ajuste'; }
-    case 'wa': return 'Preparar un WhatsApp';
+    case 'wa': return a.to?'Preparar un WhatsApp para '+a.to:'Preparar un WhatsApp';
     case 'carry': return 'Llevar el bolsillo a '+an(a.id);
     case 'pocket': return 'Guardar en el bolsillo';
     case 'call': return 'Llamar al '+(a.phone||'');
@@ -931,7 +934,9 @@ let voiceUnlocked=false;
 addEventListener('pointerdown',()=>{ if(voiceUnlocked||!window.speechSynthesis) return; voiceUnlocked=true; try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} },{capture:true});
 try{ if(window.speechSynthesis) speechSynthesis.onvoiceschanged=()=>{}; }catch(e){}
 function voiceName(v){ return v?v.name.replace(/\s*\(.*\)\s*/g,'').trim():'la de su iPhone'; }
-function say(text){ sayEl.textContent=String(text||''); sayEl.scrollTop=0;  charlaAdd('a',text); }
+function say(text){ sayEl.textContent=String(text||''); sayEl.scrollTop=0;  charlaAdd('a',text);
+  // 0.45.0 (#49): si estoy flotando fuera de la app, lo digo también en mi bocadillo
+  try{ const b=AND(); if(b&&b.bocadillo&&text) b.bocadillo(String(text)); }catch(e){} }
 /* 0.43.0 (#42): nuestra charla. Guardo lo que nos decimos (aparte de la memoria que va a Claude: no gasta nada). */
 let charla=store.get('charla',[]);
 function charlaAdd(w,t){ t=String(t||'').trim(); if(!t) return; const last=charla[charla.length-1]; if(last&&last.w===w&&last.t===t) return;
@@ -993,7 +998,7 @@ const searchURL=q=>'https://www.google.com/search?q='+enc(q||'');
 function urlFor(a){
   if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); if(!x||!CAPS.open) return ''; return IN_APK?apkOpen(x):x.url; }
   if(a.t==='set'){ const s=setById(a.id); if(!s) return ''; if(BRIDGE2) return 'arana://ajuste?id='+s.sc+'&v='+enc(a.v); if(ON_IOS) return a.multi?scMulti(a.multi):scURL(s.sc,a.v); return ''; }
-  if(a.t==='wa') return 'whatsapp://send?text='+enc(a.text||'');
+  if(a.t==='wa') return a.to&&BRIDGE2&&apkCan('whatsapp')?'arana://whatsapp?a='+enc(a.to)+'&texto='+enc(a.text||''):'whatsapp://send?text='+enc(a.text||'');
   if(a.t==='call') return BRIDGE2?'arana://llamar?tel='+enc(telOf(a.phone)):'tel:'+telOf(a.phone);
   if(a.t==='msg') return BRIDGE2?'arana://mensaje?tel='+enc(telOf(a.phone))+'&texto='+enc(a.text||''):'sms:'+telOf(a.phone)+(ON_IOS?'&':'?')+'body='+enc(a.text||'');
   if(a.t==='timer') return CAPS.timer?'arana://temporizador?min='+Math.floor(a.s/60)+'&seg='+(a.s%60)+'&texto='+enc(a.text||'Araña'):'';
@@ -1069,7 +1074,7 @@ async function doAction(a,phrase,opt={}){
     if(native) res=apk(url); else launch(url); };
   const mustAsk=a.t==='carry'||(prefs.perm!=='nunca'&&(opt.forceAsk||(!opt.noAsk&&(prefs.perm==='siempre'||(prefs.perm==='aprendido'&&!t.sure)||t.doubtful))));
   if(mustAsk){
-    const q=a.t==='carry'?`¿Lo copio y abro ${nm}?`:a.t==='wa'?'¿Abro WhatsApp con el texto?':`¿${label(a)}?`;
+    const q=a.t==='carry'?`¿Lo copio y abro ${nm}?`:a.t==='wa'?(a.to?`¿Le escribo a ${a.to} por WhatsApp?`:'¿Abro WhatsApp con el texto?'):`¿${label(a)}?`;
     const v=await chips(q,[['Sí',true,'yes',go],['No',false]]);
     if(!v){ say(vary('no')); if(phrase) learn(phrase,a,-1); logEv('cancel',a,phrase); throw CANCEL; }
   } else go();
@@ -1131,9 +1136,18 @@ function permCmd(l){
   if(/^(?:pideme permiso|preguntame antes|vuelve a pedirme permiso|pideme confirmacion)\b/.test(l)){ prefs.perm='aprendido'; saveAll(); return 'De acuerdo: le preguntaré cuando no lo tenga claro.'; }
   return null;
 }
+/* 0.45.0 (#47): «manda un whatsapp a Pedro diciendo que llego tarde», «dile a mamá por whatsapp que ya voy». */
+const WA_NAME='[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+';
+function waParse(raw){
+  const r=String(raw||'').trim().replace(/[.!¡¿?]+$/,'');
+  const m=r.match(new RegExp('(?:^|\\s)(?:a|para)\\s+((?:mi\\s+)?'+WA_NAME+'(?:\\s+(?!(?:que|diciendo|diciendole|por|y|de|con)\\b)'+WA_NAME+')?)\\s*(?:por\\s+(?:whats\\w*|wasap|guasap))?\\s*(?:,?\\s*y\\s+(?:dile|escribele|ponle)(?=\\s+que\\b|\\s*:))?\\s*(?::\\s*|,?\\s+(?:diciendo(?:le)?(?:\\s+que)?|que\\s+dice|que\\s+pone|que)\\s+)(.+)$','i'));
+  if(!m||/^(whats\w*|wasap|guasap|un|el|mi)$/i.test(m[1])) return null;
+  const text=m[2].trim(); return text?{to:m[1].trim(),text:text[0].toUpperCase()+text.slice(1)}:null;
+}
 function rules(l,raw){
   const OFF=/\b(apaga|apagar|desactiva|desactivar|quita|quitar|off|cierra|sin)\b/, ON=/\b(enciende|encender|activa|activar|pon|poner|on|con|abre)\b/;
   if(/\b(whatsapp|wasap|whats|guasap)\b/.test(l)&&/\b(envia|manda|escribe|mensaje|dile)\b/.test(l)){
+    const w=waParse(raw); if(w) return {act:{t:'wa',text:w.text,to:w.to}};
     const text=raw.includes(':')?raw.split(':').slice(1).join(':').trim():'';
     return {act:{t:'wa',text}};
   }
@@ -1279,6 +1293,8 @@ function androidAnswer(l){
   if(m){ const h=+m[1], mi=m[2]==='media'?30:m[2]==='cuarto'?15:+(m[2]||0); if(h<24&&mi<60){ apkLaunch('arana://alarma?hora='+h+'&min='+mi+'&texto=Ara%C3%B1a'); return 'Alarma a las '+h+':'+String(mi).padStart(2,'0')+'.'; } }
   return null;
 }
+/* 0.45.0 (#48): mi app de Android ya escucha sin la ventana de Google y me pasa lo que va oyendo */
+window.__aranaParcial=t=>{ try{ S.listen=true; micUI(); earEl.textContent=t?t+'…':'Escuchando…'; earEl.hidden=false; }catch(e){} };
 window.__aranaOir=t=>{ try{ status(null); S.listen=false; micUI(); }catch(e){} if(t) interpret(String(t)); };
 /* 0.20.0 (#29): charla sin cerebro, para cuando no hay clave */
 function chatAnswer(l){
@@ -1362,6 +1378,9 @@ async function interpret(raw){
     const ph=norm(ap[1]); addWish(ph,'Juan quiere que lo aprenda (me dijo «aprende»).'); happy(); logEv('idea',null,l);
     if(ghTok) askClaude(ph,'Juan quiere que lo aprenda.'); else { say('Anotado. Se lo pido a Claude.'); chips('¿Abro GitHub para pedírselo?',[['Sí','go','yes',()=>askClaude(ph,'Juan quiere que lo aprenda.')],['Luego',null]]).then(x=>{ if(x==='go') say('Pulse «Create» en GitHub.'); }).catch(()=>{}); } return; }
   // 0.16.0 (#7): cómo suena mi voz y cambiarla, sin cerebro
+  if(/\b(como suena tu voz|que voz tienes|dejame oirte|quiero oirte|como hablas)\b/.test(l)&&apkCan('voz')){ let n=''; try{ n=AND().vozNombre(); }catch(e){} const t='Así sueno. Hablo con '+(n||'la voz de su Android')+'. Si prefiere otra, dígame «otra voz».'; say(t); speak(t,true); logEv('answer',null,l); return; }
+  // 0.45.0 (#50): en Android la voz la elige mi app, entre las voces en español del móvil
+  if(/^(cambia(r)? (de |la |tu )?voz|otra voz|pon otra voz|habla con otra voz|cambiate la voz)$/.test(l)&&apkCan('voz')){ prefs.voice=true; saveAll(); apk('arana://voz?accion=siguiente').then(r=>{ if(r&&r.msg){ say(r.msg); speak(r.msg,true); } }); happy(); return; }
   if(/\b(como suena tu voz|que voz tienes|dejame oirte|quiero oirte|como hablas)\b/.test(l)){ const t='Así sueno. Mi voz es '+voiceName(myVoice())+'. Si prefiere otra, dígame «cambia de voz».'; say(t,5200); speak(t,true); logEv('answer',null,l); return; }
   if(/^(cambia(r)? (de |la )?voz|otra voz|pon otra voz)$/.test(l)){ const vs=esVoices(); if(vs.length<2){ const t='Su iPhone solo me da una voz en español. Puede bajar más en Ajustes del iPhone → Accesibilidad → Contenido leído → Voces.'; say(t,6500); speak(t,true); return; }
     const i=vs.findIndex(x=>x===myVoice()), v=vs[(i+1)%vs.length]; prefs.voiceName=v.name; prefs.voice=true; saveAll(); const t='Ahora hablo así. Soy '+voiceName(v)+'.'; say(t,4200); speak(t,true); happy(); return; }
@@ -1448,7 +1467,7 @@ const STEP_DOCS={
   spider:()=>'- spider: lo que haces con tu cuerpo en la pantalla. action = '+Object.keys(MOVE_NAMES).join('|')+' (bailar, pasear, dar una vuelta, saltar, volver, esconderte, seguir su dedo, quedarte quieta, reverencia).',
   open:()=>'- open: abrir una app. app = id de: '+APPS.filter(a=>canOpen(a)&&!isPhoneApp(a)).map(a=>a.id+' ('+a.name+')').join(', ')+'.'+(IN_APK?' Si no está en la lista, usa el nombre que tenga en el móvil.':''),
   set:()=>'- set: cambiar un ajuste del '+(IN_APK?'móvil (lo hago yo en Android; Wi-Fi, datos y Bluetooth abren su panel para que Juan toque)':'iPhone con el atajo «Araña»')+'. setting = '+SETS.map(x=>x.id+' ('+x.name+'; '+(x.kind==='level'?'valor 1-100':'on/off')+')').join(', ')+'.',
-  whatsapp:()=>'- whatsapp: abrir WhatsApp con un texto escrito; Juan elige el contacto y pulsa enviar. text = mensaje.',
+  whatsapp:()=>apkCan('whatsapp')?'- whatsapp: escribir un WhatsApp. text = mensaje; to = a quién (nombre del contacto, si lo dice): abro su chat con el texto y Juan pulsa enviar.':'- whatsapp: abrir WhatsApp con un texto escrito; Juan elige el contacto y pulsa enviar. text = mensaje.',
   pocket:()=>'- pocket: guardar un texto en tu bolsillo. text = contenido.',
   carry:()=>'- carry: copiar el bolsillo y abrir una app para que Juan pegue. app = id.',
   call:()=>'- call: llamar por teléfono. phone = número.',
@@ -1491,6 +1510,7 @@ const PLAN_TOOL={name:'plan',description:'Lo que la araña dice y hace ante la o
     setting:{type:'string',description:'id de ajuste (set)'},
     value:{type:'string',description:'on, off o 1-100 para el brillo (set)'},
     text:{type:'string'},
+    ...(apkCan('whatsapp')?{to:{type:'string',description:'a quién (whatsapp)'}}:{}),
     ...(CAPS.call||CAPS.message?{phone:{type:'string'}}:{}),
     ...(CAPS.timer||CAPS.event?{minutes:{type:'integer'},seconds:{type:'integer'}}:{}),
     ...(CAPS.alarm?{time:{type:'string',description:'HH:MM (alarm)'}}:{}),
@@ -1559,7 +1579,7 @@ function toActs(steps){
       else if(v!=='on'&&v!=='off') v=/(off|apag|desact|^no)/.test(v)?'off':'on';
       acts.push({t:'set',id:st.id,v}); }
     else if(x.type==='spider'){ const v=String(x.action||'').toLowerCase(); if(MOVES[v]) acts.push({t:'spider',v}); else bad.push('moverme así'); }
-    else if(x.type==='whatsapp') acts.push({t:'wa',text:x.text||''});
+    else if(x.type==='whatsapp') acts.push(x.to?{t:'wa',text:x.text||'',to:String(x.to)}:{t:'wa',text:x.text||''});
     else if(x.type==='pocket') acts.push({t:'pocket',text:x.text||''});
     else if(x.type==='call'&&CAPS.call&&telOf(x.phone)) acts.push({t:'call',phone:telOf(x.phone)});
     else if(x.type==='message'&&CAPS.message) acts.push({t:'msg',phone:telOf(x.phone),text:x.text||''});
@@ -1784,7 +1804,7 @@ function micUI(){ const m=$('#mic'); m.classList.toggle('on',S.listen); m.setAtt
   m.querySelector('g').style.display=S.listen?'none':''; m.querySelector('.stop').hidden=!S.listen; }
 function toggleEar(){
   if(S.think) return;
-  if(S.listen){ S.listen=false; micUI(); status(null); try{ rec&&rec.stop(); }catch(e){} return; }
+  if(S.listen){ S.listen=false; micUI(); status(null); try{ rec&&rec.stop(); }catch(e){} try{ const b=AND(); b&&b.pararOido&&b.pararOido(); }catch(e){} return; }
   const b=AND();
   if(b&&b.escuchar){ try{ b.escuchar(); status('Escuchando'); return; }catch(e){} }
   if(!SR){ say(ON_IOS?'Aquí no tengo micrófono propio. Use el dictado del teclado (el micro junto a la barra espaciadora), o mi app de iPhone.':'Aquí no tengo micrófono propio. Use el dictado del teclado.'); $('#cmd').focus(); return; }

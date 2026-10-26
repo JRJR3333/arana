@@ -13,6 +13,10 @@
     <!-- 0.30.0: entrenar al ajedrez con la pantalla apagada y avisar de cómo va -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 0.45.0: escuchar sin la ventana de Google, también desde la araña flotante (#48, #49), y buscar a quién escribir por WhatsApp (#47) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <application
         android:label="Araña"
         android:icon="@drawable/arana"
@@ -33,7 +37,7 @@
         <service
             android:name=".Flotante"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|microphone">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="La araña flota sobre las demás apps para escuchar con un toque." />
@@ -57,6 +61,11 @@
         <intent><action android:name="android.intent.action.INSERT" /><data android:mimeType="vnd.android.cursor.dir/event" /></intent>
         <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>
         <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
+        <intent><action android:name="android.intent.action.SEND" /><data android:mimeType="text/plain" /></intent>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+        <intent><action android:name="android.speech.tts.engine.INSTALL_TTS_DATA" /></intent>
     </queries>
 </manifest>
