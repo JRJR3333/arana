@@ -79,6 +79,12 @@ class MainActivity : Activity() {
         tts = TextToSpeech(this) { ok ->
             ttsLista = ok == TextToSpeech.SUCCESS
             if (ttsLista) mejorVoz()
+            // 0.46.0 (#52): aviso a la web cuando termino de hablar, para seguir la conversación de viva voz
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) { runOnUiThread { if (delante && paginaLista) web.evaluateJavascript("window.__aranaCalla&&window.__aranaCalla()", null) } }
+                @Deprecated("Deprecated in Java") override fun onError(id: String?) {}
+            })
         }
         setContentView(web)
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(SITE)
@@ -246,7 +252,11 @@ class MainActivity : Activity() {
             PERMISO_CONTACTOS -> {
                 val u = waPendiente; waPendiente = null
                 if (u != null) {
-                    val r = if (si) whatsapp(u) else whatsappSinContacto(u.getQueryParameter("texto").orEmpty(), "Sin permiso no veo sus contactos. Elija usted a quién.")
+                    val r = when {
+                        u.host == "whatsapp" -> if (si) whatsapp(u) else whatsappSinContacto(u.getQueryParameter("texto").orEmpty(), "Sin permiso no veo sus contactos. Elija usted a quién.")
+                        si -> aContacto(u)
+                        else -> Res(false, "Sin permiso no veo sus contactos. Dígame el número.")
+                    }
                     if (r.msg.isNotEmpty()) { Toast.makeText(this, r.msg, Toast.LENGTH_LONG).show(); decir(r.msg) }
                 }
             }
@@ -274,6 +284,34 @@ class MainActivity : Activity() {
             startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             Res(true, "Le dejo el mensaje para ${c.nombre} escrito. Pulse enviar.", true)
         } catch (e: ActivityNotFoundException) { Res(false, "No encuentro WhatsApp en este móvil.") }
+    }
+
+    /**
+     * 0.46.0 (#51): «manda un mensaje a Pedro diciendo que llego tarde», «llama a mamá». Busco el número en sus
+     * contactos y abro Mensajes con el texto escrito (usted pulsa enviar) o el teléfono con el número marcado.
+     */
+    private fun aContacto(u: Uri): Res {
+        val quien = u.getQueryParameter("a").orEmpty().trim()
+        if (!tienePermiso(android.Manifest.permission.READ_CONTACTS)) {
+            waPendiente = u
+            requestPermissions(arrayOf(android.Manifest.permission.READ_CONTACTS), PERMISO_CONTACTOS)
+            return Res(true, "Deme permiso para ver sus contactos y se lo preparo.")
+        }
+        val c = try { Contactos.buscar(this, quien) } catch (e: Exception) { null }
+        if (c == null) {
+            return if (u.host == "mensaje") {
+                val r = lanzar(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")).putExtra("sms_body", u.getQueryParameter("texto").orEmpty()), "No encuentro la app de mensajes.")
+                if (r.ok) Res(true, "No encuentro a $quien en sus contactos. Elíjalo usted; el mensaje ya va escrito.", true) else r
+            } else Res(false, "No encuentro a $quien en sus contactos.")
+        }
+        val tel = c.tel.filter { it.isDigit() || it == '+' }
+        return if (u.host == "llamar") {
+            val r = lanzar(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(tel))), "Este móvil no puede llamar.")
+            if (r.ok) Res(true, "Le marco a ${c.nombre}. Pulse llamar.", true) else r
+        } else {
+            val r = lanzar(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(tel))).putExtra("sms_body", u.getQueryParameter("texto").orEmpty()), "No encuentro la app de mensajes.")
+            if (r.ok) Res(true, "Le dejo el mensaje para ${c.nombre} escrito. Pulse enviar.", true) else r
+        }
     }
 
     private fun paqueteWhatsApp(): String? = listOf("com.whatsapp", "com.whatsapp.w4b").firstOrNull {
@@ -420,6 +458,14 @@ class MainActivity : Activity() {
                     .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, ini)
                     .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, ini + dura * 60_000L), "No encuentro un calendario en este móvil.")
             }
+            "llamar", "mensaje" -> if (q("a").isNotBlank() && q("tel").isBlank()) aContacto(u) else ejecutarTel(u)
+            else -> Res(false, "Aún no sé hacer eso en Android.")
+        }
+    }
+
+    private fun ejecutarTel(u: Uri): Res {
+        val q = { k: String -> u.getQueryParameter(k).orEmpty() }
+        return when (u.host) {
             "llamar" -> lanzar(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + q("tel"))), "Este móvil no puede llamar.")
             "mensaje" -> lanzar(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + q("tel"))).putExtra("sms_body", q("texto")),
                 "No encuentro la app de mensajes.")
@@ -456,6 +502,6 @@ class MainActivity : Activity() {
         const val FONDO = 0xFF090A14.toInt()
         const val HOST = "jrjr3333.github.io"
         const val SITE = "https://jrjr3333.github.io/arana/?app=android"
-        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar,apps,voz,whatsapp,oido"
+        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar,apps,voz,whatsapp,oido,contacto,seguir"
     }
 }

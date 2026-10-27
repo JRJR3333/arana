@@ -234,7 +234,7 @@ const BRIDGE2=IN_APK&&!!(AND()&&AND().orden);
    actualizar encima y Juan seguía con una app vieja: por eso «no abre, no habla, no escucha». */
 const APK_V=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.version?String(b.version()||''):''; }catch(e){ return ''; } })();
 const APK_URL='https://github.com/JRJR3333/arana/releases/download/android/arana.apk';
-const APK_MIN='0.45.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
+const APK_MIN='0.46.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
 const APK_OLD=IN_APK&&(!APK_V||vNum(APK_V)<vNum(APK_MIN));
 /* 0.45.0: lo que sabe hacer mi app de Android (voz, whatsapp con contacto, oído propio). Una app vieja no lo dice. */
 const APK_CAP=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.capacidades?String(b.capacidades()||'').split(','):[]; }catch(e){ return []; } })();
@@ -542,8 +542,8 @@ function label(a){
     case 'wa': return a.to?'Preparar un WhatsApp para '+a.to:'Preparar un WhatsApp';
     case 'carry': return 'Llevar el bolsillo a '+an(a.id);
     case 'pocket': return 'Guardar en el bolsillo';
-    case 'call': return 'Llamar al '+(a.phone||'');
-    case 'msg': return 'Mensaje'+(a.phone?' al '+a.phone:'');
+    case 'call': return a.to?'Llamar a '+a.to:'Llamar al '+(a.phone||'');
+    case 'msg': return 'Mensaje'+(a.to?' a '+a.to:a.phone?' al '+a.phone:'');
     case 'timer': return 'Temporizador de '+fmtDur(a.s);
     case 'alarm': return 'Alarma a las '+a.h+':'+String(a.m).padStart(2,'0');
     case 'music': return {play:'Poner música',pause:'Pausar la música',next:'Siguiente canción',previous:'Canción anterior'}[a.v]||'Música';
@@ -999,6 +999,9 @@ function urlFor(a){
   if(a.t==='open'||a.t==='carry'){ const x=appById(a.id); if(!x||!CAPS.open) return ''; return IN_APK?apkOpen(x):x.url; }
   if(a.t==='set'){ const s=setById(a.id); if(!s) return ''; if(BRIDGE2) return 'arana://ajuste?id='+s.sc+'&v='+enc(a.v); if(ON_IOS) return a.multi?scMulti(a.multi):scURL(s.sc,a.v); return ''; }
   if(a.t==='wa') return a.to&&BRIDGE2&&apkCan('whatsapp')?'arana://whatsapp?a='+enc(a.to)+'&texto='+enc(a.text||''):'whatsapp://send?text='+enc(a.text||'');
+  // 0.46.0 (#51): a un contacto por su nombre; lo busca mi app de Android en sus contactos
+  if(a.t==='call'&&a.to&&BRIDGE2&&apkCan('contacto')) return 'arana://llamar?a='+enc(a.to);
+  if(a.t==='msg'&&a.to&&BRIDGE2&&apkCan('contacto')) return 'arana://mensaje?a='+enc(a.to)+'&texto='+enc(a.text||'');
   if(a.t==='call') return BRIDGE2?'arana://llamar?tel='+enc(telOf(a.phone)):'tel:'+telOf(a.phone);
   if(a.t==='msg') return BRIDGE2?'arana://mensaje?tel='+enc(telOf(a.phone))+'&texto='+enc(a.text||''):'sms:'+telOf(a.phone)+(ON_IOS?'&':'?')+'body='+enc(a.text||'');
   if(a.t==='timer') return CAPS.timer?'arana://temporizador?min='+Math.floor(a.s/60)+'&seg='+(a.s%60)+'&texto='+enc(a.text||'Araña'):'';
@@ -1045,7 +1048,7 @@ async function askFeedback(p){
   st.forEach(a=>{ const k=keyOf(a); stats[k]=stats[k]||{ok:0,ko:0}; stats[k][v]++; });
   if(v==='ok'){ learn(p.phrase,st,2); happy(); say(p.phrase?'Gracias. Lo recordaré así.':vary('gracias')); }
   else { learn(p.phrase,st,-3); sad(); if(p.phrase&&planCache[p.phrase]){ delete planCache[p.phrase]; store.set('plans',planCache); }
-    if(p.phrase) convo.push({role:'user',content:'(Nota: lo que hiciste para «'+p.phrase+'» salió mal según Juan.)'},{role:'assistant',content:'(Entendido, lo tendré en cuenta.)'});
+    if(p.phrase) badNote={t:p.phrase,ts:Date.now()};
     say(st.some(a=>a.t==='set')&&ON_IOS?'Anotado. Revise que el atajo «Araña» tenga ese paso.':brainReady()?'Anotado. Dígame qué esperaba y lo corrijo.':'Anotado. Lo haré con más cuidado.',3800); }
   logEv(v,one,p.phrase); saveAll(); checkLevel();
 }
@@ -1074,7 +1077,7 @@ async function doAction(a,phrase,opt={}){
     if(native) res=apk(url); else launch(url); };
   const mustAsk=a.t==='carry'||(prefs.perm!=='nunca'&&(opt.forceAsk||(!opt.noAsk&&(prefs.perm==='siempre'||(prefs.perm==='aprendido'&&!t.sure)||t.doubtful))));
   if(mustAsk){
-    const q=a.t==='carry'?`¿Lo copio y abro ${nm}?`:a.t==='wa'?(a.to?`¿Le escribo a ${a.to} por WhatsApp?`:'¿Abro WhatsApp con el texto?'):`¿${label(a)}?`;
+    const q=a.t==='carry'?`¿Lo copio y abro ${nm}?`:a.t==='msg'&&a.to?`¿Le escribo un mensaje a ${a.to}?`:a.t==='call'&&a.to?`¿Llamo a ${a.to}?`:a.t==='wa'?(a.to?`¿Le escribo a ${a.to} por WhatsApp?`:'¿Abro WhatsApp con el texto?'):`¿${label(a)}?`;
     const v=await chips(q,[['Sí',true,'yes',go],['No',false]]);
     if(!v){ say(vary('no')); if(phrase) learn(phrase,a,-1); logEv('cancel',a,phrase); throw CANCEL; }
   } else go();
@@ -1148,9 +1151,18 @@ function rules(l,raw){
   const OFF=/\b(apaga|apagar|desactiva|desactivar|quita|quitar|off|cierra|sin)\b/, ON=/\b(enciende|encender|activa|activar|pon|poner|on|con|abre)\b/;
   if(/\b(whatsapp|wasap|whats|guasap)\b/.test(l)&&/\b(envia|manda|escribe|mensaje|dile)\b/.test(l)){
     const w=waParse(raw); if(w) return {act:{t:'wa',text:w.text,to:w.to}};
+    // 0.46.0 (#51): sin mensaje, abro su chat igualmente
+    const wt=apkCan('whatsapp')&&!raw.includes(':')&&l.match(/\b(?:a|para)\s+((?:mi\s+)?[a-zñ]+(?:\s+[a-zñ]+)?)(?:\s+por\s+(?:whats\w*|wasap|guasap))?$/);
+    if(wt&&!/^(un|el|mi|whats\w*|wasap|guasap)$/.test(wt[1])) return {act:{t:'wa',text:'',to:wt[1]}};
     const text=raw.includes(':')?raw.split(':').slice(1).join(':').trim():'';
     return {act:{t:'wa',text}};
   }
+  // 0.46.0 (#51): SMS y llamadas a un contacto por su nombre (mi app de Android lo busca)
+  if(apkCan('contacto')&&/\b(mensaje|sms)\b/.test(l)&&/\b(envia|enviale|manda|mandale|escribe|escribele|pon|ponle)\b/.test(l)){
+    const w=waParse(raw); if(w) return {act:{t:'msg',to:w.to,text:w.text}};
+    const m=l.match(/\b(?:a|para)\s+((?:mi\s+)?[a-zñ]+(?:\s+[a-zñ]+)?)$/); if(m&&!/^(un|el|mi)$/.test(m[1])) return {act:{t:'msg',to:m[1],text:''}};
+  }
+  if(apkCan('contacto')){ const c=l.match(/^(?:(?:por favor|oye|arana)\s+)*(?:llama(?:le)?|llamame a|telefonea)\s+a\s+((?:mi\s+)?[a-zñ]+(?:\s+[a-zñ]+)?)$/); if(c&&!/\d/.test(c[1])) return {act:{t:'call',to:c[1]}}; }
   if(/\b(lleva|llevar|pasa|pasalo|pega|pegalo|copia)\b/.test(l)&&/\b(bolsillo|esto|lo)\b|\ba\b/.test(l)){ const a=findApp(l); if(a) return {act:{t:'carry',id:a.id}}; }
   // 0.44.0 (#45): «busca en internet recetas de pollo», «busca el tiempo en google», «googlea …»
   const bq=l.replace(/^(?:(?:por favor|oye|arana|puedes|podrias|quiero que(?: me)?)\s+)+/,'').match(/^(?:busca(?:me|r)?|busques|googlea|mira)\s+(?:en (?:internet|google|la web|el navegador)\s*)?(.*?)\s*(?:en (?:internet|google|la web|el navegador))?(?: en (?:android|el movil))?$/);
@@ -1295,7 +1307,9 @@ function androidAnswer(l){
 }
 /* 0.45.0 (#48): mi app de Android ya escucha sin la ventana de Google y me pasa lo que va oyendo */
 window.__aranaParcial=t=>{ try{ S.listen=true; micUI(); earEl.textContent=t?t+'…':'Escuchando…'; earEl.hidden=false; }catch(e){} };
-window.__aranaOir=t=>{ try{ status(null); S.listen=false; micUI(); }catch(e){} if(t) interpret(String(t)); };
+window.__aranaOir=t=>{ try{ status(null); S.listen=false; micUI(); }catch(e){} if(t){ heardAt=Date.now(); interpret(String(t)); } };
+/* 0.46.0 (#52): mi app de Android avisa cuando termino de hablar; si le hice una pregunta de viva voz, le escucho otra vez */
+window.__aranaCalla=()=>{ if(!wantListen||Date.now()-wantListen>60e3||S.listen||S.think) return; wantListen=0; try{ const b=AND(); if(b&&b.escuchar){ b.escuchar(); status('Escuchando'); } }catch(e){} };
 /* 0.20.0 (#29): charla sin cerebro, para cuando no hay clave */
 function chatAnswer(l){
   if(!/^(habla(me)?( con ?migo| conmigo)?|hablemos|charlemos|conversa con ?migo|cuentame algo|di algo)( arana| un rato| por favor)?$/.test(l)) return null;
@@ -1371,6 +1385,9 @@ async function interpret(raw){
   if(thinking){ say('Un momento, estoy pensando.'); return; }
   // 0) Respuestas al instante (hora, cuentas, su nombre…): gratis y sin cerebro
   // 0.44.0 (#43): «no me pidas permiso»: hago las cosas directamente. «pídeme permiso» lo deshace.
+  if(TOPIC_RE.test(l)){ convoCut=Date.now(); store.set('convoCut',convoCut); brainAsked=0; const t='De acuerdo. Hablemos de otra cosa.'; say(t); speak(t); logEv('answer',null,l); return; }
+  // 0.46.0 (#52): si acabo de preguntarle algo, o me sigue el hilo («¿y mañana?»), lo pienso con la conversación
+  const hilo=brainReady()&&!capReached()&&((brainAsked&&Date.now()-brainAsked<3*60e3)||(convoAt&&Date.now()-convoAt<5*60e3&&/^(?:y|pero|entonces|por que|porque|y si|vale y|y eso|y que|o sea)\b/.test(l)&&l.split(' ').length<=9)); brainAsked=0;
   const pm=permCmd(l); if(pm){ say(pm,5200); speak(pm); happy(); logEv('answer',null,l); return; }
   // 0.44.0 (#46): «aprende a …»: se lo pido a Claude directamente, sin esperar a fallar
   const ap=l.match(/^(?:arana |oye )?(?:aprende(?:te)?|quiero que aprendas|ensename a|apunta para aprender)(?: a)?(?:\s+(.{3,}))?$/);
@@ -1398,19 +1415,19 @@ async function interpret(raw){
   const mv=moveCmd(l); if(mv){ logEv('answer',null,l); return runMove(mv); }
   // 0.23.0: que me pregunte cosas
   if(/\b(preguntame|hazme (una )?pregunta(s)?|pregunta(me)? algo|quiero que me preguntes|conoceme)\b/.test(l)) return askQuestion(true);
-  const qa=quickAnswer(l,raw); if(qa) return answer(qa,l);
+  const qa=hilo?null:quickAnswer(l,raw); if(qa) return answer(qa,l);
   // 1) Lo aprendido manda (gratis y al instante)
   let m=mem[l]; if(!m){ let best=null,bs=0; for(const k in mem){ const s=similar(k,l); if(s>bs){ bs=s; best=k; } } if(bs>=.75&&mem[best].score>=1) m=mem[best]; }
-  if(m&&m.score>=1){ const st=stepsOf(m); if(st.length&&st.every(actOK)) return st.length===1?run(()=>doAction(st[0],l)):run(()=>planFlow({acts:st,say:'Enseguida.'},l)); }
+  if(m&&m.score>=1&&!hilo){ const st=stepsOf(m); if(st.length&&st.every(actOK)) return st.length===1?run(()=>doAction(st[0],l)):run(()=>planFlow({acts:st,say:'Enseguida.'},l)); }
   // 2) Órdenes propias de la app
   const r=rules(l,raw);
   if(r&&r.pocket&&!brainReady()) return fillPocket();
   // 3) Si mis reglas lo tienen claro y la orden es simple, lo hago yo: no gasto consulta
   const complex=/\b(y|luego|despues|tambien|ademas|antes|mientras|si|cuando|como siempre)\b|,/.test(l)||l.split(' ').length>9;
-  if(!complex&&r&&(r.act||r.cant)) return rulesFlow(l,raw,r);
+  if(!complex&&!hilo&&r&&(r.act||r.cant)) return rulesFlow(l,raw,r);
   const ma=complex?multiRules(l):null; if(ma) return run(()=>planFlow({acts:ma,say:vary('ok')},l));
   // 4) Un plan que ya pensé hace poco para la misma frase: lo reutilizo gratis
-  const pc=planCache[l]; if(pc&&Date.now()-pc.ts<7*864e5&&brain.on) return run(()=>planFlow({...pc.plan,remember:[],forget:[],routine:null},l));
+  const pc=hilo?null:planCache[l]; if(pc&&Date.now()-pc.ts<7*864e5&&brain.on) return run(()=>planFlow({...pc.plan,remember:[],forget:[],routine:null},l));
   // 5) El cerebro piensa (con tope diario)
   if(brainReady()&&!capReached()){
     let failed=false;
@@ -1420,7 +1437,9 @@ async function interpret(raw){
       catch(e){ failed=true; console.warn(e); say(/401|authentication/i.test(String(e))?'Mi clave no funciona. Revísela en Ajustes.':/^Error: 4\d\d/.test(String(e))?'Anthropic dice: '+String(e).replace(/^Error: /,'').slice(0,160):'No puedo pensar ahora. Uso mis reglas.',/^Error: 4\d\d/.test(String(e))?7000:3200); }
       finally{ thinking=false; setThinking(false); }
       if(abortFlag) throw ABORT;
-      if(plan){ if((plan.steps||[]).length&&!plan.cannot){ planCache[l]={plan,ts:Date.now()}; const ks=Object.keys(planCache); if(ks.length>60) delete planCache[ks.sort((x,y)=>planCache[x].ts-planCache[y].ts)[0]]; store.set('plans',planCache); } await planFlow(plan,l);
+      // 0.46.0 (#52): si le he hecho una pregunta, su respuesta sigue el hilo; si me habló con la voz, vuelvo a escucharle
+      if(plan&&!(plan.steps||[]).length&&/\?\s*$/.test(plan.say||'')){ brainAsked=Date.now(); if(heardAt&&Date.now()-heardAt<30e3&&apkCan('seguir')&&prefs.voice!==false) wantListen=Date.now(); }
+      if(plan){ if((plan.steps||[]).length&&!plan.cannot&&!hilo){ planCache[l]={plan,ts:Date.now()}; const ks=Object.keys(planCache); if(ks.length>60) delete planCache[ks.sort((x,y)=>planCache[x].ts-planCache[y].ts)[0]]; store.set('plans',planCache); } await planFlow(plan,l);
         // 0.42.0 (#40): lo que Claude me enseña una vez, lo aprendo para hacerlo yo sola la próxima (sin gastar consulta).
         // Si luego me dice «Mal», lo desaprendo como todo lo demás.
         if((plan.steps||[]).length&&!plan.cannot&&!plan.confirm&&!abortFlag&&!mem[l]){ const {acts,bad}=toActs(plan.steps);
@@ -1455,6 +1474,20 @@ let usage=store.get('usage',{in:0,out:0,calls:0});
 let day=store.get('day',{d:'',n:0,in:0,out:0});           // gasto de hoy
 let planCache=store.get('plans',{});                       // frase -> {plan, ts}
 let convo=[], convoAt=0, thinking=false, capWarned=false;
+/* 0.46.0 (#52): una conversación de verdad. A Claude le paso lo último que nos hemos dicho (también lo que contesté yo
+   sola sin pensar), si es de la última media hora; «cambiemos de tema» lo corta. Corto y recortado: gasta poco. */
+let convoCut=store.get('convoCut',0), brainAsked=0, heardAt=0, wantListen=0, badNote=null;
+function convoMsgs(raw){
+  const lim=Math.max(Date.now()-30*60e3,convoCut), cur=String(raw||'').trim().slice(0,600);
+  let xs=charla.filter(c=>c.ts>lim).map(c=>({role:c.w==='u'?'user':'assistant',content:c.t.slice(0,280)}));
+  if(xs.length&&xs[xs.length-1].role==='user'&&xs[xs.length-1].content===cur.slice(0,280)) xs.pop();
+  xs=xs.slice(-8); const out=[];
+  for(const x of xs){ const o=out[out.length-1]; if(o&&o.role===x.role) o.content=(o.content+' / '+x.content).slice(-400); else out.push({...x}); }
+  while(out.length&&out[0].role!=='user') out.shift();
+  if(out.length&&out[out.length-1].role==='user') out.pop();
+  return out;
+}
+const TOPIC_RE=/^(?:(?:arana|oye|vale|bueno)\s+)*(?:cambiemos de tema|cambia(?:mos)? de tema|otro tema|hablemos de otra cosa|olvida (?:esta|la|nuestra) conversacion|empecemos (?:la conversacion )?de nuevo)$/;
 const CAP_DEF=40;
 const dayNow=()=>{ const d=new Date().toISOString().slice(0,10); if(day.d!==d) day={d,n:0,in:0,out:0}; return day; };
 const capReached=()=>dayNow().n>=(prefs.cap||CAP_DEF);
@@ -1470,8 +1503,8 @@ const STEP_DOCS={
   whatsapp:()=>apkCan('whatsapp')?'- whatsapp: escribir un WhatsApp. text = mensaje; to = a quién (nombre del contacto, si lo dice): abro su chat con el texto y Juan pulsa enviar.':'- whatsapp: abrir WhatsApp con un texto escrito; Juan elige el contacto y pulsa enviar. text = mensaje.',
   pocket:()=>'- pocket: guardar un texto en tu bolsillo. text = contenido.',
   carry:()=>'- carry: copiar el bolsillo y abrir una app para que Juan pegue. app = id.',
-  call:()=>'- call: llamar por teléfono. phone = número.',
-  message:()=>'- message: preparar un SMS; Juan pulsa enviar. phone y text.',
+  call:()=>'- call: llamar por teléfono. phone = número'+(apkCan('contacto')?', o to = nombre del contacto (lo busco en sus contactos).':'.'),
+  message:()=>'- message: preparar un SMS; Juan pulsa enviar. text y phone'+(apkCan('contacto')?', o to = nombre del contacto (lo busco en sus contactos).':'.'),
   timer:()=>'- timer: temporizador del reloj. minutes y/o seconds, text opcional.',
   alarm:()=>'- alarm: alarma del reloj. time = HH:MM, text opcional.',
   music:()=>'- music: controlar la música que suena. action = play|pause|next|previous.',
@@ -1492,6 +1525,7 @@ Vives en ${PLACE}. Solo actúas con estos pasos:
 ${STEP_TYPES.map(k=>STEP_DOCS[k]()).join('\n')}
 ${LIMITS} Si te piden HACER algo que tus pasos no permiten, no finjas que lo haces: explícalo en "cannot" y, si una habilidad nueva programable lo resolvería, descríbela en "skill_request" (Claude la programará).
 Piensa por ti misma: combina pasos para tareas nuevas («modo cine», «me voy a dormir»), usa lo que sabes de ${myName} y lo que ha pasado antes. Si define o bautiza una rutina, rellena "routine". Si cuenta algo duradero de sí mismo o de sus gustos, añádelo a "remember" en tercera persona. Si es charla, contesta en "say" sin pasos. Si la orden es ambigua, pregunta en "say" sin pasos. Pon "confirm" a true si un paso desconecta algo (wifi, datos, bluetooth), si hay 3 pasos o más o si no estás segura.
+Esto es una conversación: los mensajes anteriores son lo último que os habéis dicho. Si la frase sigue el hilo («¿y mañana?», «sí», «el segundo», «¿por qué?»), entiéndela con ese contexto.${badNote&&Date.now()-badNote.ts<30*60e3?' Lo que hiciste para «'+badNote.t+'» salió mal según Juan.':''}
 Ahora: ${nowText()}.
 Lo que sabes de ${myName}:
 ${facts.length?facts.slice(-25).map(f=>'- '+f.t).join('\n'):'(nada todavía)'}
@@ -1510,7 +1544,7 @@ const PLAN_TOOL={name:'plan',description:'Lo que la araña dice y hace ante la o
     setting:{type:'string',description:'id de ajuste (set)'},
     value:{type:'string',description:'on, off o 1-100 para el brillo (set)'},
     text:{type:'string'},
-    ...(apkCan('whatsapp')?{to:{type:'string',description:'a quién (whatsapp)'}}:{}),
+    ...(apkCan('whatsapp')||apkCan('contacto')?{to:{type:'string',description:'a quién: nombre del contacto (whatsapp'+(apkCan('contacto')?', message, call':'')+')'}}:{}),
     ...(CAPS.call||CAPS.message?{phone:{type:'string'}}:{}),
     ...(CAPS.timer||CAPS.event?{minutes:{type:'integer'},seconds:{type:'integer'}}:{}),
     ...(CAPS.alarm?{time:{type:'string',description:'HH:MM (alarm)'}}:{}),
@@ -1529,7 +1563,7 @@ async function think(raw){
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctl.signal,headers:{
       'x-api-key':brain.key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,system:brainSystem()+(roll(.5)?'\nEsta vez, sorpréndale: añada en "say" un toque inesperado (una ocurrencia, una idea nueva que podría probar, humor seco de mayordomo) sin dejar de cumplir la orden.':''),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...(Date.now()-convoAt<10*60e3?convo.slice(-4):[]),{role:'user',content:raw}]})});
+      body:JSON.stringify({model:BRAIN_MODEL,max_tokens:350,system:brainSystem()+(roll(.5)?'\nEsta vez, sorpréndale: añada en "say" un toque inesperado (una ocurrencia, una idea nueva que podría probar, humor seco de mayordomo) sin dejar de cumplir la orden.':''),tools:[PLAN_TOOL],tool_choice:{type:'tool',name:'plan'},messages:[...convoMsgs(raw),{role:'user',content:raw}]})});
     if(!r.ok){ const e=await r.text().catch(()=>''); let m=e; try{ const j=JSON.parse(e); m=(j.error&&j.error.message)||e; }catch(_){} throw new Error(r.status+' '+String(m).slice(0,240)); }
     const j=await r.json();
     const ti=(j.usage&&j.usage.input_tokens)||0, to2=(j.usage&&j.usage.output_tokens)||0;
@@ -1582,6 +1616,8 @@ function toActs(steps){
     else if(x.type==='whatsapp') acts.push(x.to?{t:'wa',text:x.text||'',to:String(x.to)}:{t:'wa',text:x.text||''});
     else if(x.type==='pocket') acts.push({t:'pocket',text:x.text||''});
     else if(x.type==='call'&&CAPS.call&&telOf(x.phone)) acts.push({t:'call',phone:telOf(x.phone)});
+    else if(x.type==='call'&&CAPS.call&&x.to&&apkCan('contacto')) acts.push({t:'call',to:String(x.to)});
+    else if(x.type==='message'&&CAPS.message&&!telOf(x.phone)&&x.to&&apkCan('contacto')) acts.push({t:'msg',to:String(x.to),text:x.text||''});
     else if(x.type==='message'&&CAPS.message) acts.push({t:'msg',phone:telOf(x.phone),text:x.text||''});
     else if(x.type==='timer'&&CAPS.timer){ const s=(+x.minutes||0)*60+(+x.seconds||0); if(s>0) acts.push({t:'timer',s,text:x.text||''}); else bad.push('temporizador'); }
     else if(x.type==='alarm'&&CAPS.alarm){ const m=String(x.time||'').match(/(\d{1,2})(?:[:.h ](\d{2}))?/); if(m&&+m[1]<24&&+(m[2]||0)<60) acts.push({t:'alarm',h:+m[1],m:+(m[2]||0),text:x.text||''}); else bad.push('alarma'); }
@@ -2181,7 +2217,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),charla:()=>openCharla(),zero:()=>startOver(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent,perm:(t)=>permCmd(norm(t)),prefs:()=>prefs};
+window.__arana={convo:(t)=>convoMsgs(t),chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),charla:()=>openCharla(),zero:()=>startOver(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent,perm:(t)=>permCmd(norm(t)),prefs:()=>prefs};
 })();
 </script>
 </body>

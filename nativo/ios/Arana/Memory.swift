@@ -1,18 +1,23 @@
 import Foundation
 
 /// La memoria de la araña: sigue el hilo de la conversación y recuerda lo que Juan le cuenta de sí mismo.
-/// Gastar poco: solo los 3 últimos intercambios, recortados, y como mucho 20 datos sueltos.
+/// Gastar poco: solo los 5 últimos intercambios de la última media hora, recortados, y como mucho 30 datos sueltos.
 enum Memory {
     private static let d = UserDefaults.standard
     private static let kHist = "arana.historial"
     private static let kFacts = "arana.datos"
-    static let maxTurns = 3
+    private static let kHora = "arana.historialHora"
+    /// 0.46.0: una conversación de verdad (5 turnos), pero si pasa media hora sin hablar, se empieza otra.
+    static let maxTurns = 5
     static let maxFacts = 30
 
     /// Mensajes previos en formato de la API (alternan user / assistant).
     static var history: [[String: String]] {
-        (d.array(forKey: kHist) as? [[String: String]]) ?? []
+        guard Date().timeIntervalSince1970 - d.double(forKey: kHora) < 30 * 60 else { return [] }
+        return (d.array(forKey: kHist) as? [[String: String]]) ?? []
     }
+
+    static func olvidarHilo() { d.removeObject(forKey: kHist) }
 
     static var facts: [String] {
         d.stringArray(forKey: kFacts) ?? []
@@ -23,6 +28,7 @@ enum Memory {
         h.append(["role": "user", "content": String(user.prefix(300))])
         h.append(["role": "assistant", "content": String(reply.prefix(300))])
         d.set(Array(h.suffix(maxTurns * 2)), forKey: kHist)
+        d.set(Date().timeIntervalSince1970, forKey: kHora)
     }
 
     static func remember(_ fact: String) {

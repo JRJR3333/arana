@@ -1,5 +1,41 @@
 [
  {
+  "v": "0.46.0",
+  "fecha": "2026-10-27",
+  "mejoras": [
+   {
+    "id": "0.46.0-1",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Una conversación de verdad, sin olvidar lo anterior",
+    "detalle": "Petición #52. Cuando pienso con Claude le paso lo último que nos hemos dicho en la última media hora (también lo que contesté yo sola), y si le hago una pregunta, su respuesta sigue el hilo en vez de tomarse como una orden nueva. «Cambiemos de tema» lo corta. En la app de iPhone, cinco turnos en vez de tres. Gasta poco: mensajes recortados. Dado: sin sorpresa y sin condición esta vez.",
+    "probar": "Pregúnteme «¿qué película me recomiendas?» y luego «¿y otra más corta?»."
+   },
+   {
+    "id": "0.46.0-2",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "En la app de iPhone llamo y escribo a sus contactos por su nombre",
+    "detalle": "«Manda un mensaje a Pedro diciendo que llego tarde», «llama a mamá», «escribe a Ana por WhatsApp que ya voy»: busco el número en Contactos (le pido permiso la primera vez) y dejo el mensaje escrito; enviar lo pulsa usted.",
+    "probar": "Instale la 0.46.0 desde el Mac y diga «llama a» y el nombre de alguien de sus contactos."
+   },
+   {
+    "id": "0.46.0-3",
+    "tipo": "arreglo",
+    "titulo": "Android: los mensajes y las llamadas ya funcionan con el nombre",
+    "detalle": "Petición #51. Si me pedía un SMS o una llamada a alguien por su nombre, abría Mensajes sin destinatario. Ahora lo busco en sus contactos. «Manda un WhatsApp a Pedro» sin texto también abre su chat.",
+    "probar": "En Android 0.46.0: «manda un mensaje a» y un contacto, «diciendo que» y el texto."
+   },
+   {
+    "id": "0.46.0-4",
+    "tipo": "iniciativa",
+    "titulo": "Android: si le pregunto algo de viva voz, vuelvo a escucharle",
+    "detalle": "Petición #52. Cuando me habla con el micro y yo le contesto con una pregunta, al terminar de hablar abro el micro yo sola para que me responda, como en una charla.",
+    "probar": "En Android 0.46.0, con el micro: «recomiéndame algo para cenar» y responda a lo que le pregunte."
+   }
+  ]
+ },
+ {
   "v": "0.45.0",
   "fecha": "2026-10-26",
   "mejoras": [

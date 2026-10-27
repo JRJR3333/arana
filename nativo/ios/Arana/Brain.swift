@@ -12,6 +12,7 @@ struct Step: Codable {
     var duration: Int?        // para "event": minutos que dura (60 si no se dice)
     var days: Int?            // para "agenda": 0 hoy, 1 mañana
     var action: String?       // para "music": play | pause | next | previous
+    var to: String? = nil     // 0.46.0: para "call", "message" y "whatsapp": nombre del contacto
 }
 
 struct Plan: Codable {
@@ -45,13 +46,13 @@ enum Brain {
     Responde siempre con la herramienta plan. "say" es lo que dirás en voz alta (una o dos frases). \
     Pasos posibles: open (url con el enlace de la app, p. ej. spotify://, whatsapp://, instagram://, youtube://, maps://?q=lugar), \
     reminder (text y minutes), timer (minutes y/o seconds, text opcional: temporizador o alarma dentro de un rato), \
-    call (phone), message (phone y text), event (text, when AAAA-MM-DDTHH:MM o minutes, duration: cita en el calendario), \
+    call (phone, o to con el nombre del contacto), message (SMS: text y phone o to), whatsapp (text y to: abre su chat con el texto; Juan pulsa enviar), event (text, when AAAA-MM-DDTHH:MM o minutes, duration: cita en el calendario), \
     agenda (days 0 hoy, 1 mañana: leer el calendario), \
     music (action play|pause|next|previous; text opcional: canción, artista o disco de su biblioteca), \
     search (text: buscar en internet con Safari), \
     spider (action dance|walk|spin|jump|come|hide|bow: lo que hace usted con su cuerpo en la pantalla: bailar, pasear, dar una vuelta, saltar, volver a su sitio, esconderse, reverencia). Si no hace falta ningún paso, steps vacío. \
     Si le piden HACER algo que estos pasos no permiten, no finja que lo hace: explíquelo en cannot y, si una habilidad nueva programable lo resolvería, descríbala en skill_request (Claude la programará). \
-    Siga el hilo de la conversación. Si Juan le cuenta algo duradero de sí mismo (gustos, personas, costumbres), \
+    Esto es una conversación: los mensajes anteriores son lo último que se han dicho; si la frase sigue el hilo («¿y mañana?», «sí», «el segundo»), entiéndala así. Siga el hilo de la conversación. Si Juan le cuenta algo duradero de sí mismo (gustos, personas, costumbres), \
     póngalo en remember como frase corta en tercera persona.
     """
 
@@ -65,9 +66,9 @@ enum Brain {
                 "steps": ["type": "array", "items": [
                     "type": "object",
                     "properties": [
-                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "timer", "event", "agenda", "music", "search", "spider"]],
+                        "type": ["type": "string", "enum": ["open", "reminder", "call", "message", "whatsapp", "timer", "event", "agenda", "music", "search", "spider"]],
                         "url": ["type": "string"], "text": ["type": "string"],
-                        "minutes": ["type": "integer"], "seconds": ["type": "integer"], "phone": ["type": "string"],
+                        "minutes": ["type": "integer"], "seconds": ["type": "integer"], "phone": ["type": "string"], "to": ["type": "string"],
                         "when": ["type": "string"], "duration": ["type": "integer"], "days": ["type": "integer"], "action": ["type": "string"]
                     ],
                     "required": ["type"]
@@ -137,6 +138,11 @@ enum Brain {
     static func quick(_ text: String) async -> String? {
         let t = text.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
             .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        // 0.46.0: «cambiemos de tema» corta el hilo de la conversación (lo que sabe de Juan no se toca)
+        if ["cambiemos de tema", "cambia de tema", "otro tema", "hablemos de otra cosa", "olvida esta conversacion", "olvida la conversacion"].contains(t) {
+            Memory.olvidarHilo()
+            return "De acuerdo. Hablemos de otra cosa."
+        }
         if let r = Recuerdo.responder(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
             Memory.addTurn(user: text, reply: r)
             return r

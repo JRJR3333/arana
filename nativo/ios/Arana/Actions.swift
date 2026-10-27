@@ -15,11 +15,8 @@ enum Actions {
             switch s.type {
             case "open":
                 if let u = s.url.flatMap(URL.init(string:)) { _ = await UIApplication.shared.open(u) } else { fails.append("No sé abrir eso.") }
-            case "call":
-                if let p = s.phone, let u = URL(string: "tel:" + p.filter { "+0123456789".contains($0) }) { _ = await UIApplication.shared.open(u) }
-            case "message":
-                let t = (s.text ?? "").addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                if let u = URL(string: "sms:\(s.phone ?? "")&body=\(t)") { _ = await UIApplication.shared.open(u) }
+            case "call", "message", "whatsapp":
+                if let f = await aContacto(s) { fails.append(f) }
             case "reminder":
                 let ok = await addReminder(s.text ?? "Recordatorio", minutes: s.minutes ?? 0)
                 if !ok { fails.append("No tengo permiso para Recordatorios.") }
@@ -41,6 +38,40 @@ enum Actions {
             }
         }
         return fails
+    }
+
+    /// 0.46.0 (h7): llamar, SMS y WhatsApp, con el número o con el nombre del contacto (lo busca en Contactos).
+    /// Devuelve lo que hay que decir si algo no salió; enviar lo pulsa Juan (iOS no deja que nadie más lo pulse).
+    static func aContacto(_ s: Step) async -> String? {
+        var tel = (s.phone ?? "").filter { "+0123456789".contains($0) }
+        var nombre = ""
+        if tel.isEmpty, let quien = s.to?.trimmingCharacters(in: .whitespaces), !quien.isEmpty {
+            guard let c = await Contactos.buscar(quien) else {
+                if s.type == "call" { return "No encuentro a \(quien) en sus contactos." }
+                return await abrirMensaje(s, tel: "") ? "No encuentro a \(quien) en sus contactos. Elíjalo usted; el texto ya va escrito." : "No puedo abrir la app."
+            }
+            tel = c.tel.filter { "+0123456789".contains($0) }; nombre = c.nombre
+        }
+        if s.type == "call" {
+            guard !tel.isEmpty, let u = URL(string: "tel:" + tel) else { return "¿A quién llamo?" }
+            _ = await UIApplication.shared.open(u)
+            return nil
+        }
+        let ok = await abrirMensaje(s, tel: tel)
+        if !ok { return s.type == "whatsapp" ? "No encuentro WhatsApp en este iPhone." : "No puedo abrir Mensajes." }
+        return nombre.isEmpty ? nil : "Lo dejo escrito para \(nombre). Pulse enviar."
+    }
+
+    private static func abrirMensaje(_ s: Step, tel: String) async -> Bool {
+        let t = (s.text ?? "").addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        let url: String
+        if s.type == "whatsapp" {
+            url = tel.isEmpty ? "whatsapp://send?text=\(t)" : "https://wa.me/\(Contactos.internacional(tel))?text=\(t)"
+        } else {
+            url = "sms:\(tel)&body=\(t)"
+        }
+        guard let u = URL(string: url) else { return false }
+        return await UIApplication.shared.open(u)
     }
 
     static func searchURL(_ q: String) -> URL? {
