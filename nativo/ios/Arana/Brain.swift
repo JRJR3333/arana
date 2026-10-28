@@ -163,6 +163,11 @@ enum Brain {
             Memory.addTurn(user: text, reply: r)
             return r
         }
+        // 0.47.0 (asistente): «qué es…», «quién fue…» lo contesta Wikipedia, gratis y sin gastar API
+        if let r = await Wiki.responder(t, original: text) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         let musica = await Musica.quick(t)
         if let r = musica ?? Metronomo.shared.quick(t) {
             Memory.addTurn(user: text, reply: r)

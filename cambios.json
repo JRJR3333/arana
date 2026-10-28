@@ -1,5 +1,41 @@
 [
  {
+  "v": "0.47.0",
+  "fecha": "2026-10-28",
+  "mejoras": [
+   {
+    "id": "0.47.0-1",
+    "tipo": "arreglo",
+    "titulo": "Android: las actualizaciones ya se instalan encima",
+    "detalle": "Petición #53. La llave de firma nunca llegaba a guardarse (Gradle no la dejaba donde la buscaba la caché), así que cada APK salía con una llave distinta y Android decía que había un conflicto entre paquetes. Ahora la creo yo en un sitio fijo y se guarda. Esta última vez hay que desinstalar la vieja; antes le copio mi memoria para pegarla en la nueva.",
+    "probar": "Instale la 0.47.0 (desinstalando la vieja tras copiar la memoria) y, cuando salga la siguiente, instálela encima sin desinstalar."
+   },
+   {
+    "id": "0.47.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Sin cerebro, contesto con Wikipedia o lo busco",
+    "detalle": "Peticiones #54 y #55. «¿Qué es la fotosíntesis?», «¿quién fue Cervantes?»: lo contesto con Wikipedia, gratis y sin clave. Otras preguntas de datos («¿cuándo juega el Madrid?») las busco en internet directamente, y «busca recetas de pollo» ya busca sin decir «en internet». Ya no añado curiosidades al azar a una pregunta (era «decir lo que me apetece»), y con cerebro le pido a Claude que razone y conteste exactamente a lo preguntado. Dado: sorpresa sí, sin condición.",
+    "probar": "Sin clave de Claude, pregúnteme «¿quién fue Cervantes?» y luego «busca recetas de pollo»."
+   },
+   {
+    "id": "0.47.0-3",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "App de iPhone: «Oye Siri, pregunta a Wikipedia con Araña»",
+    "detalle": "Siri le pregunta qué quiere saber y la araña lo contesta con Wikipedia, sin abrir la app ni gastar API. Dentro de la app, «qué es…» y «quién es…» también van a Wikipedia, y «busca …» abre Safari sin decir «en internet».",
+    "probar": "Instale la 0.47.0 desde el Mac y diga «Oye Siri, pregunta a Wikipedia con Araña» y luego «la Alhambra»."
+   },
+   {
+    "id": "0.47.0-4",
+    "tipo": "sorpresa",
+    "titulo": "Trabalenguas",
+    "detalle": "En la app de iPhone, «dime un trabalenguas» y le digo uno (hay uno mío, de arañas). Nadie lo pidió; se quita sin romper nada.",
+    "probar": "En la app de iPhone: «dime un trabalenguas»."
+   }
+  ]
+ },
+ {
   "v": "0.46.0",
   "fecha": "2026-10-27",
   "mejoras": [

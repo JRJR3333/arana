@@ -8,6 +8,7 @@ enum Rapido {
     /// `t` llega en minúsculas, sin tildes ni signos al principio o al final.
     static func responder(_ t: String, ahora: Date = Date()) -> String? {
         if let r = azar(t) { return r }
+        if let r = trabalenguas(t) { return r }
         if t.count < 45, t.contains("curiosidad") || t.contains("algo curioso") { return curiosidades.randomElement() }
         if t.count > 60 { return nil }
         if ["que hora es", "que hora tienes", "dime la hora", "hora"].contains(t) || t.hasPrefix("que hora es") {
@@ -67,9 +68,12 @@ enum Rapido {
 
     /// 0.44.0 (#45): «busca en internet recetas de pollo», «busca el tiempo en google», «googlea …». Devuelve lo que hay que buscar.
     static func busqueda(_ t: String) -> String? {
-        guard t.contains("internet") || t.contains("google") || t.contains("la web") || t.hasPrefix("googlea") else { return nil }
         var s = t
         for p in ["por favor ", "oye ", "arana ", "puedes ", "quiero que "] where s.hasPrefix(p) { s = String(s.dropFirst(p.count)) }
+        // 0.47.0 (#54): «busca recetas de pollo» también busca, sin decir «en internet» («buscar mi iphone» no: es Encontrar)
+        let suelto = ["busca ", "buscame "].contains { s.hasPrefix($0) } && s.count > 9
+            && !["mi iphone", "mis llaves", "mis airpods", "mi movil", "contacto"].contains { s.contains($0) }
+        guard suelto || t.contains("internet") || t.contains("google") || t.contains("la web") || t.hasPrefix("googlea") else { return nil }
         guard let v = ["buscame ", "busca ", "buscar ", "googlea "].first(where: { s.hasPrefix($0) }) else { return nil }
         s = String(s.dropFirst(v.count))
         for p in ["en internet", "en google", "en la web"] {
@@ -115,6 +119,18 @@ enum Rapido {
             return "El \(Int.random(in: a...b))."
         }
         return nil
+    }
+
+    /// Sorpresa 0.47.0: «dime un trabalenguas». Se quita sin romper nada.
+    static func trabalenguas(_ t: String) -> String? {
+        guard t.count < 40, t.contains("trabalenguas") else { return nil }
+        return [
+            "Tres tristes tigres tragaban trigo en un trigal.",
+            "Pablito clavó un clavito. ¿Qué clavito clavó Pablito?",
+            "El cielo está enladrillado. ¿Quién lo desenladrillará? El desenladrillador que lo desenladrille, buen desenladrillador será.",
+            "Una araña tejía su tela, y tejiendo su tela, la tela tejía a la araña tejedora.",
+            "Erre con erre, guitarra; erre con erre, barril.",
+        ].randomElement()
     }
 
     /// Sorpresa 0.45.0: curiosidades de arañas, en la app y con «Oye Siri, cuéntame una curiosidad de Araña».

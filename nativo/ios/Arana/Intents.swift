@@ -70,6 +70,24 @@ struct CuriosidadArana: AppIntent {
     }
 }
 
+/// 0.47.0 (h7): «Oye Siri, pregunta a Wikipedia con Araña»: Siri pregunta qué y la araña lo contesta sin abrir la app ni gastar API.
+struct SabeArana: AppIntent {
+    static var title: LocalizedStringResource = "Qué es o quién es"
+    static var description = IntentDescription("La araña le cuenta qué es algo o quién es alguien, con Wikipedia, sin abrir la app.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Tema", requestValueDialog: "¿Qué quiere saber?")
+    var tema: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let limpio = tema.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        let t = limpio.lowercased().folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
+        var r = await Wiki.responder(t, original: limpio)
+        if r == nil, !limpio.isEmpty, let b = await Wiki.buscar(limpio) { r = b + " (Wikipedia)" }
+        return .result(dialog: IntentDialog(stringLiteral: r ?? "No lo encuentro en Wikipedia. Pruebe con otras palabras."))
+    }
+}
+
 struct AranaShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AskArana(),
@@ -92,5 +110,9 @@ struct AranaShortcuts: AppShortcutsProvider {
                     phrases: ["Cuéntame una curiosidad de \(.applicationName)", "Curiosidad de \(.applicationName)", "\(.applicationName), cuéntame algo curioso"],
                     shortTitle: "Una curiosidad",
                     systemImageName: "sparkles")
+        AppShortcut(intent: SabeArana(),
+                    phrases: ["Pregunta a Wikipedia con \(.applicationName)", "Qué es algo con \(.applicationName)", "\(.applicationName), qué es"],
+                    shortTitle: "Qué es o quién es",
+                    systemImageName: "book")
     }
 }

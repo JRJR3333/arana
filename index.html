@@ -234,7 +234,7 @@ const BRIDGE2=IN_APK&&!!(AND()&&AND().orden);
    actualizar encima y Juan seguía con una app vieja: por eso «no abre, no habla, no escucha». */
 const APK_V=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.version?String(b.version()||''):''; }catch(e){ return ''; } })();
 const APK_URL='https://github.com/JRJR3333/arana/releases/download/android/arana.apk';
-const APK_MIN='0.46.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
+const APK_MIN='0.47.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
 const APK_OLD=IN_APK&&(!APK_V||vNum(APK_V)<vNum(APK_MIN));
 /* 0.45.0: lo que sabe hacer mi app de Android (voz, whatsapp con contacto, oído propio). Una app vieja no lo dice. */
 const APK_CAP=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.capacidades?String(b.capacidades()||'').split(','):[]; }catch(e){ return []; } })();
@@ -1167,6 +1167,9 @@ function rules(l,raw){
   // 0.44.0 (#45): «busca en internet recetas de pollo», «busca el tiempo en google», «googlea …»
   const bq=l.replace(/^(?:(?:por favor|oye|arana|puedes|podrias|quiero que(?: me)?)\s+)+/,'').match(/^(?:busca(?:me|r)?|busques|googlea|mira)\s+(?:en (?:internet|google|la web|el navegador)\s*)?(.*?)\s*(?:en (?:internet|google|la web|el navegador))?(?: en (?:android|el movil))?$/);
   if(bq&&(/\b(internet|google|la web|navegador)\b/.test(l)||/^googlea/.test(l))) return {act:{t:'search',text:bq[1].replace(/^(?:en (?:android|el movil))$/,'').trim()}};
+  // 0.47.0 (#54): «busca recetas de pollo» también busca, sin decir «en internet» y sin pedir el cerebro
+  const bb=l.replace(/^(?:(?:por favor|oye|arana|puedes|podrias|quiero que(?: me)?)\s+)+/,'').match(/^(?:busca|buscame|busques|buscarme)\s+(?:informacion (?:de|sobre)\s+)?(.{2,120})$/);
+  if(bb&&!findApp(bb[1])&&!/\b(mis?|tus?) (iphone|movil|telefono|ipad|airpods|reloj|llaves|cosas)\b|\bcontactos?\b/.test(l)) return {act:{t:'search',text:bb[1].trim()}};
   if(/\b(guarda|bolsillo)\b/.test(l)) return {pocket:true};
   for(const [re,msg] of CANT) if(re.test(l)) return {cant:msg};
   const s=findSet(l);
@@ -1341,7 +1344,35 @@ function talkAnswer(l){
   const q=/^(que|como|por que|porque|quien|cuando|donde|cual|cuanto|sabes|te gusta|eres|tienes|crees|estas)\b/.test(l), feel=/\b(estoy|me siento|tengo (sueno|hambre|frio|calor)|que dia|cansad|aburrid|content|triste|feliz)\b/.test(l);
   if(feel) return pick(['Le escucho, '+myName+'. ','Gracias por contármelo. '])+(/(triste|cansad|aburrid|sueno)/.test(l)?pick(['¿Le pongo música o damos un paseo por la pantalla?','Un descanso le vendrá bien.']):pick(['Me alegro.','Así me gusta.']));
   if(!q) return null;
-  return 'Buena pregunta. '+(brain.key?'Ahora no puedo pensarla; inténtelo en un momento. ':'Para contestarla necesito mi cerebro: una clave de Claude en Ajustes. ')+pick(CURIOS);
+  // 0.47.0 (#55): antes añadía una curiosidad al azar («dice lo que le apetece»). Ahora contesto solo a lo que se pregunta.
+  return 'Soy una araña de puntos y líneas, a su servicio. '+(brain.key?'Ahora no puedo pensarlo; inténtelo en un momento.':'Para charlar de mí a fondo necesito mi cerebro: una clave de Claude en Ajustes.');
+}
+/* 0.47.0 (#54, #55): preguntas de datos sin cerebro. «Qué es…», «quién es/fue…» los contesto con Wikipedia
+   (gratis, sin clave, sin gastar API). Las demás preguntas («cuándo juega el Madrid») las busco en internet. */
+const WIKI_RE=/^(?:oye |arana |sabes |me dices |dime )?(?:que es|que son|quien es|quien fue|quien era|quienes son|quienes fueron|que significa|que fue|que era)\s+(?:(?:un|una|el|la|los|las|lo)\s+)?(.{2,60})$/;
+const PERSONAL_RE=/\b(tu|te|ti|tus|eres|estas|tienes|sabes hacer|crees|piensas|te gusta|que tal|como te|mi|me|yo|mis)\b/;
+async function wikiAnswer(l,raw){
+  const m=l.match(WIKI_RE); if(!m||typeof fetch!=='function'||PERSONAL_RE.test(m[1])||/^(eso|esto|esta|este|aquello)\b/.test(m[1])) return null;
+  const n=m[1].split(' ').length, ws=String(raw).replace(/[¿?¡!.,;:«»"]/g,' ').trim().split(/\s+/), q=ws.length>=n?ws.slice(-n).join(' '):m[1];
+  const ctl=typeof AbortController==='function'?new AbortController():null, to=setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(e){} },7000);
+  try{
+    const W='https://es.wikipedia.org', s=await fetch(W+'/w/rest.php/v1/search/title?limit=1&q='+enc(q),{signal:ctl&&ctl.signal}).then(r=>r.json());
+    const p=s&&s.pages&&s.pages[0]; if(!p) return null;
+    const d=await fetch(W+'/api/rest_v1/page/summary/'+enc(p.key||p.title)+'?redirect=true',{signal:ctl&&ctl.signal}).then(r=>r.json());
+    if(!d||d.type==='disambiguation'||!d.extract) return null;
+    const t=d.extract.replace(/\s*\([^()]*\)/g,'').replace(/\s+/g,' ').split(/(?<=[.!?])\s+/).slice(0,2).join(' ');
+    return {text:t.length>330?t.slice(0,327).replace(/\s+\S*$/,'')+'…':t, title:d.title||p.title, url:(d.content_urls&&d.content_urls.mobile&&d.content_urls.mobile.page)||''};
+  }catch(e){ return null; } finally{ clearTimeout(to); }
+}
+async function webQuestion(l,raw){
+  if(brainReady()&&!capReached()) return false;
+  const q=/^(?:oye |arana |y )?(que|como|por que|porque|quien|quienes|cuando|donde|cual|cuales|cuanto|cuanta|cuantos|cuantas|a que hora|en que)\b/.test(l);
+  if(!q||ORDER_RE.test(l)||PERSONAL_RE.test(l)||l.split(' ').length<3) return false;
+  if(WIKI_RE.test(l)){ setThinking(true); const w=await wikiAnswer(l,raw); setThinking(false);
+    if(w){ const t=w.text; say(t+' (Wikipedia)',Math.max(5200,t.length*65)); speak(t); happy(); addThread(); logEv('answer',null,l);
+      return true; } }
+  const text=String(raw).replace(/[¿?¡!]/g,'').trim(); if(!text) return false;
+  logEv('answer',null,l); say('Lo busco.'); await run(()=>doAction({t:'search',text},l,{noAsk:true})); return true;
 }
 /* ===== Respuestas al instante: se resuelven en local, sin gastar consulta ===== */
 let myName=store.get('name','Juan');
@@ -1456,6 +1487,8 @@ async function rulesFlow(l,raw,r){
   if(r&&r.pocket) return fillPocket();
   if(r&&r.cant){ sad(); say(r.cant,4200); logEv('cant',null,l); addWish(l,r.cant); return offerClaude(l,r.cant); }
   if(r&&r.suggestSet) return pickSetting(r.suggestSet);
+  // 0.47.0 (#54, #55): sin cerebro, una pregunta de datos no la adorno con curiosidades: la contesto con Wikipedia o la busco
+  if(await webQuestion(l,raw)) return;
   // No lo entiendo: pregunto y aprendo de su elección
   const tk=talkAnswer(l); if(tk){ say(tk,Math.max(3600,tk.length*65)); speak(tk); logEv('answer',null,l); return; }
   const g=guesses(l);
@@ -1520,7 +1553,7 @@ function brainSystem(){
   const recent=log.filter(e=>e.r!=='update'&&e.r!=='up').slice(-6).map(e=>fmtT(e.ts)+' '+e.r+' '+(e.a||'')+(e.p?' «'+e.p+'»':'')).join('\n');
   const fails=Object.entries(stats).filter(([k,x])=>x.ko>=2&&x.ko>x.ok).map(([k])=>k).join(', ');
   const routines=Object.entries(mem).filter(([k,m])=>m.score>=1&&stepsOf(m).length>1).sort((a,b)=>b[1].score-a[1].score).slice(0,10).map(([k,m])=>'«'+k+'» → '+labelSteps(stepsOf(m))).join('\n');
-  return `Eres Araña, la asistente personal de ${myName}: una araña de puntos y líneas con personalidad de mayordomo serio. Hablas en español, tratas de usted y dices frases cortas (máximo 20 palabras). Eres también su asistente como Siri: si te pregunta algo (datos, cuentas, consejos, traducciones), contesta tú en "say" en un máximo de 40 palabras, sin pasos.
+  return `Eres Araña, la asistente personal de ${myName}: una araña de puntos y líneas con personalidad de mayordomo serio. Hablas en español, tratas de usted y dices frases cortas (máximo 20 palabras). Eres también su asistente como Siri: si te pregunta algo (datos, cuentas, consejos, traducciones), contesta tú en "say" en un máximo de 40 palabras, sin pasos. Razona antes de contestar: responde exactamente a lo que pregunta, con datos ciertos; no cambies de tema ni rellenes. Si no lo sabes seguro o es actualidad, dilo y usa search.
 Vives en ${PLACE}. Solo actúas con estos pasos:
 ${STEP_TYPES.map(k=>STEP_DOCS[k]()).join('\n')}
 ${LIMITS} Si te piden HACER algo que tus pasos no permiten, no finjas que lo haces: explícalo en "cannot" y, si una habilidad nueva programable lo resolvería, descríbela en "skill_request" (Claude la programará).
@@ -2183,7 +2216,7 @@ loadRepoData();
 setTimeout(async()=>{ if(!APK_OLD||Q0||busy||overlayOpen()) return; const td=new Date().toISOString().slice(0,10); if(store.get('apkWarn','')===td) return; store.set('apkWarn',td);
   const v=await chips('Mi app de Android es antigua'+(APK_V?' ('+APK_V+')':'')+': por eso no abro apps, ni hablo ni escucho bien. ¿Instalo la nueva? Antes copio mi memoria.',[['Instalar la nueva','go','yes'],['Luego',null]]).catch(()=>null);
   if(v!=='go') return; try{ await navigator.clipboard.writeText(exportMemory()); }catch(e){}
-  say('Memoria copiada. Si Android pide desinstalar la vieja, hágalo, instale la nueva y péguemela en Ajustes → Otro aparato. Desde esta versión ya no hará falta.',9000); setTimeout(()=>launch(APK_URL),2500); },7000);
+  say('Memoria copiada. Si Android dice que hay un conflicto o pide desinstalar la vieja, desinstálela, instale la nueva y péguemela en Ajustes → Otro aparato. Desde esta versión ya no hará falta.',9000); setTimeout(()=>launch(APK_URL),2500); },7000);
 setTimeout(async()=>{
   if(first||Q0||busy||overlayOpen()||pending||!roll(.7)) return;
   const sd=store.get('surpDay',''), td=new Date().toISOString().slice(0,10); if(sd===td&&!roll(.3)) return;

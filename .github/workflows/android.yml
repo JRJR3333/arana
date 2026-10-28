@@ -18,22 +18,35 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: "8.10.2" }
       # 0.42.0: sin llave propia, cada compilación firmaba con una llave nueva y Android no dejaba
-      # actualizar encima (había que desinstalar). Ahora la llave de depuración se guarda en la caché
-      # de Actions (no en el repo) y todas las versiones salen con la misma.
+      # actualizar encima (había que desinstalar). La llave se guarda en la caché de Actions (no en el repo).
+      # 0.47.0 (#53): Gradle no dejaba la llave en ~/.android, así que la caché nunca se guardó y cada APK
+      # salía con otra llave («conflicto con un paquete existente»). Ahora la creamos nosotros en un sitio fijo.
       - name: Misma llave de depuración en cada versión
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
+          path: ~/.arana-firma/debug.jks
           key: arana-debug-keystore-v1
-      - name: Llave de firma (opcional, la pone Juan en Secrets)
-        env: { KS: "${{ secrets.ARANA_KEYSTORE_B64 }}" }
+      - name: Llave de firma (la de Secrets si Juan la pone; si no, la de la caché)
+        env: { KS: "${{ secrets.ARANA_KEYSTORE_B64 }}", KP: "${{ secrets.ARANA_KEYSTORE_PASS }}", KA: "${{ secrets.ARANA_KEY_ALIAS }}" }
         run: |
-          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/arana.jks"; echo "ARANA_KEYSTORE=$RUNNER_TEMP/arana.jks" >> "$GITHUB_ENV"; fi
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/arana.jks"
+            { echo "ARANA_KEYSTORE=$RUNNER_TEMP/arana.jks"; echo "ARANA_KEYSTORE_PASS=$KP"; echo "ARANA_KEY_ALIAS=$KA"; } >> "$GITHUB_ENV"
+          else
+            F="$HOME/.arana-firma/debug.jks"
+            if [ ! -f "$F" ]; then
+              mkdir -p "$(dirname "$F")"
+              keytool -genkeypair -v -keystore "$F" -storepass android -keypass android -alias androiddebugkey \
+                -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Arana Debug,O=Arana,C=ES"
+              echo "Llave nueva creada (solo pasa la primera vez)."
+            else
+              echo "Llave restaurada de la caché."
+            fi
+            { echo "ARANA_KEYSTORE=$F"; echo "ARANA_KEYSTORE_PASS=android"; echo "ARANA_KEY_ALIAS=androiddebugkey"; } >> "$GITHUB_ENV"
+          fi
+          keytool -list -v -keystore "$(grep ^ARANA_KEYSTORE= "$GITHUB_ENV" | tail -1 | cut -d= -f2)" -storepass "${KP:-android}" 2>/dev/null | grep -m1 SHA256 || true
       - name: Compilar
         working-directory: nativo/android
-        env:
-          ARANA_KEYSTORE_PASS: ${{ secrets.ARANA_KEYSTORE_PASS }}
-          ARANA_KEY_ALIAS: ${{ secrets.ARANA_KEY_ALIAS }}
         run: gradle --no-daemon assembleDebug
       - name: Publicar el APK
         env: { GH_TOKEN: "${{ github.token }}" }
