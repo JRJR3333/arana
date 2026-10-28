@@ -5,6 +5,9 @@ on:
     branches: [master]
     paths: ["nativo/android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
+  # 0.47.0: la caché de Actions borra lo que no se usa en 7 días; compilar cada 3 días mantiene viva la llave
+  schedule:
+    - cron: "17 4 */3 * *"
 permissions:
   contents: write
 jobs:
