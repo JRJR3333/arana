@@ -234,7 +234,7 @@ const BRIDGE2=IN_APK&&!!(AND()&&AND().orden);
    actualizar encima y Juan seguía con una app vieja: por eso «no abre, no habla, no escucha». */
 const APK_V=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.version?String(b.version()||''):''; }catch(e){ return ''; } })();
 const APK_URL='https://github.com/JRJR3333/arana/releases/download/android/arana.apk';
-const APK_MIN='0.47.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
+const APK_MIN='0.48.0', vNum=v=>String(v||'0').split('.').map(Number).reduce((a,x)=>a*1000+(x||0),0);
 const APK_OLD=IN_APK&&(!APK_V||vNum(APK_V)<vNum(APK_MIN));
 /* 0.45.0: lo que sabe hacer mi app de Android (voz, whatsapp con contacto, oído propio). Una app vieja no lo dice. */
 const APK_CAP=(()=>{ try{ const b=AND(); return IN_APK&&b&&b.capacidades?String(b.capacidades()||'').split(','):[]; }catch(e){ return []; } })();
@@ -243,7 +243,8 @@ const PLAT=IN_APK?'android':ON_IOS?'ios':'web';
 const CAPS={
   spider:true, open:IN_APK||ON_IOS, carry:IN_APK||ON_IOS, pocket:true, whatsapp:true,
   set:BRIDGE2||ON_IOS, call:IN_APK||ON_IOS||ON_ANDROID, message:IN_APK||ON_IOS||ON_ANDROID,
-  timer:IN_APK, alarm:IN_APK, music:BRIDGE2, event:BRIDGE2, float:IN_APK, exit:IN_APK, search:true
+  timer:IN_APK, alarm:IN_APK, music:BRIDGE2, event:BRIDGE2, float:IN_APK, exit:IN_APK, search:true,
+  remind:IN_APK&&apkCan('aviso')
 };
 const deviceName=()=>IN_APK?'Android, dentro de mi propia app':ON_ANDROID?'Android, en el navegador':ON_IOS?'su iPhone, en la web':'un ordenador';
 
@@ -450,7 +451,7 @@ const SETS=[
   {id:'datos',name:'Datos',sc:'datos',kind:'onoff',al:['datos moviles','datos']},
 ];
 const appById=id=>APPS.find(a=>a.id===id), setById=id=>SETS.find(s=>s.id===id);
-const actOK=a=>{ if(!a) return false; if(a.t==='spider') return !!MOVES[a.v]; if(a.t==='open'||a.t==='carry') return CAPS.open&&!!appById(a.id); if(a.t==='set') return CAPS.set&&!!setById(a.id); return a.t==='pocket'||a.t==='wa'||!!CAPS[{call:'call',msg:'message',timer:'timer',alarm:'alarm',music:'music',event:'event'}[a.t]]; };
+const actOK=a=>{ if(!a) return false; if(a.t==='spider') return !!MOVES[a.v]; if(a.t==='open'||a.t==='carry') return CAPS.open&&!!appById(a.id); if(a.t==='set') return CAPS.set&&!!setById(a.id); return a.t==='pocket'||a.t==='wa'||!!CAPS[{call:'call',msg:'message',timer:'timer',alarm:'alarm',music:'music',event:'event',remind:'remind'}[a.t]]; };
 const canOpen=a=>IN_APK||!!a.url;
 let APPS=[];
 // Su pantalla de antes (arana.home) ya no se dibuja; de ella solo uso las apps que añadió y los enlaces que cambió.
@@ -548,6 +549,7 @@ function label(a){
     case 'alarm': return 'Alarma a las '+a.h+':'+String(a.m).padStart(2,'0');
     case 'music': return {play:'Poner música',pause:'Pausar la música',next:'Siguiente canción',previous:'Canción anterior'}[a.v]||'Música';
     case 'event': return 'Cita: '+(a.text||'');
+    case 'remind': return 'Aviso: '+(a.text||'')+' ('+new Date(a.ms).toLocaleString('es-ES',{weekday:'short',hour:'2-digit',minute:'2-digit'})+')';
     case 'search': return a.text?'Buscar «'+a.text+'» en internet':'Abrir el buscador';
     case 'plan': return labelSteps(a.steps||[]);
     case 'spider': return MOVE_NAMES[a.v]||'Moverme';
@@ -1007,6 +1009,7 @@ function urlFor(a){
   if(a.t==='timer') return CAPS.timer?'arana://temporizador?min='+Math.floor(a.s/60)+'&seg='+(a.s%60)+'&texto='+enc(a.text||'Araña'):'';
   if(a.t==='alarm') return CAPS.alarm?'arana://alarma?hora='+a.h+'&min='+a.m+'&texto='+enc(a.text||'Araña'):'';
   if(a.t==='music') return CAPS.music?'arana://musica?accion='+a.v:'';
+  if(a.t==='remind') return CAPS.remind?'arana://aviso?texto='+enc(a.text||'Aviso')+'&en='+a.ms:'';
   if(a.t==='search') return searchURL(a.text);
   if(a.t==='event') return CAPS.event?'arana://evento?titulo='+enc(a.text||'Cita')+'&inicio='+a.ms+'&min='+(a.dur||60):'';
   return null;
@@ -1016,6 +1019,7 @@ function cantHere(a){
   const t=a&&a.t;
   if(t==='set') return IN_APK?'Actualice mi app de Android para cambiar ajustes desde aquí.':'Desde aquí no puedo cambiar ajustes. En mi app de Android, o con el atajo «Araña» en el iPhone, sí.';
   if(t==='timer'||t==='alarm') return 'Temporizadores y alarmas los pongo en mi app de Android o de iPhone.';
+  if(t==='remind') return IN_APK?'Actualice mi app de Android para que le avise con la app cerrada.':'Los avisos con la app cerrada los pongo en mi app de Android o de iPhone.';
   if(t==='music'||t==='event') return IN_APK?'Actualice mi app de Android para eso.':'Eso lo hago en mi app de Android o de iPhone.';
   if(t==='open'||t==='carry') return 'Desde un ordenador no puedo abrir apps.';
   return 'Eso no lo puedo hacer aquí.';
@@ -1147,7 +1151,39 @@ function waParse(raw){
   if(!m||/^(whats\w*|wasap|guasap|un|el|mi)$/i.test(m[1])) return null;
   const text=m[2].trim(); return text?{to:m[1].trim(),text:text[0].toUpperCase()+text.slice(1)}:null;
 }
+/* 0.48.0 (#23): «recuérdame / avísame + cuándo + qué». Cuándo: «en 20 minutos», «en media hora»,
+   «a las 6», «a las 18 30», «mañana a las 9 y media», «a las 8 de la tarde». Sin hora o sin qué, no es un aviso. */
+function remindWhen(l,now=new Date(),day=''){
+  let m=l.match(/\ben (\d{1,3}|un|una|media) (minutos?|min|horas?)\b/);
+  if(m){ const n=m[1]==='media'?.5:/^un/.test(m[1])?1:+m[1], h=/^h/.test(m[2]); const ms=n*(h||m[1]==='media'?3600e3:6e4); return ms>0?{ms:now.getTime()+ms,re:m[0]}:null; }
+  m=l.match(/\ba las? (\d{1,2})(?:(?: y | |h)(\d{2}|media|cuarto)| (menos cuarto))?(?: (?:de la )?(madrugada|tarde|noche))?\b/);
+  if(!m) return null;
+  let h=+m[1], mi=m[2]==='media'?30:m[2]==='cuarto'?15:+(m[2]||0); if(m[3]){ h=h-1; mi=45; }
+  if(h<0||h>23||mi>59) return null;
+  const per=m[4];
+  if((per==='tarde'||per==='noche')&&h<12) h+=12;
+  const d=new Date(now); d.setSeconds(0,0); d.setHours(h,mi);
+  if(day==='manana') d.setDate(d.getDate()+1); else if(day==='pasado manana') d.setDate(d.getDate()+2);
+  else if(d<=now){ const pm=new Date(d); pm.setHours(h+12); if(!per&&h<12&&pm>now) d.setHours(h+12); else d.setDate(d.getDate()+1); }
+  return d>now?{ms:d.getTime(),re:m[0]}:null;
+}
+function remindParse(l,raw,now=new Date()){
+  const t=l.match(/^(?:oye |arana )?(?:recuerdame|recuerdeme|avisame|aviseme|acuerdate de avisarme|no me dejes olvidar)\b ?(.*)$/);
+  if(!t) return null;
+  // «de la mañana» es la hora; «mañana» suelto, el día
+  let x=' '+t[1].replace(/\bde la manana\b/g,'de la madrugada')+' ', day='';
+  const dm=x.match(/ (pasado manana|manana) /); if(dm){ day=dm[1]; x=x.replace(dm[0],' '); }
+  const w=remindWhen(x.trim(),now,day); if(!w) return null;
+  let q=x.replace(' '+w.re+' ',' ').replace(/\s+/g,' ').trim().replace(/^(?:de que|que|de|a|para)\s+/,'').replace(/\s+(?:por favor|porfa)$/,'').trim();
+  if(q.length<2) return null;
+  // El texto con sus tildes, si lo encuentro tal cual en la frase original
+  const fold=[...String(raw||'')].map(c=>c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')||' ');
+  if(fold.every(c=>c.length===1)){ const k=fold.join('').indexOf(q); if(k>=0) q=[...raw].slice(k,k+[...q].length).join(''); }
+  return {t:'remind',text:q.charAt(0).toUpperCase()+q.slice(1),ms:w.ms};
+}
 function rules(l,raw){
+  // 0.48.0 (#23): «recuérdame a las 18:30 llamar a mamá» → aviso de mi app de Android, aunque esté cerrada
+  if(CAPS.remind){ const a=remindParse(l,raw); if(a) return {act:a}; }
   const OFF=/\b(apaga|apagar|desactiva|desactivar|quita|quitar|off|cierra|sin)\b/, ON=/\b(enciende|encender|activa|activar|pon|poner|on|con|abre)\b/;
   if(/\b(whatsapp|wasap|whats|guasap)\b/.test(l)&&/\b(envia|manda|escribe|mensaje|dile)\b/.test(l)){
     const w=waParse(raw); if(w) return {act:{t:'wa',text:w.text,to:w.to}};
@@ -1541,6 +1577,7 @@ const STEP_DOCS={
   timer:()=>'- timer: temporizador del reloj. minutes y/o seconds, text opcional.',
   alarm:()=>'- alarm: alarma del reloj. time = HH:MM, text opcional.',
   music:()=>'- music: controlar la música que suena. action = play|pause|next|previous.',
+  remind:()=>'- remind: aviso a una hora (notificación aunque la app esté cerrada): «recuérdame…», «avísame a las…». text = qué recordar; when = AAAA-MM-DDTHH:MM o minutes desde ahora.',
   event:()=>'- event: cita en el calendario. text, when = AAAA-MM-DDTHH:MM (o minutes desde ahora), duration en minutos.',
   search:()=>'- search: buscar en internet (abre el navegador). text = lo que buscar.'
 };
@@ -1579,10 +1616,10 @@ const PLAN_TOOL={name:'plan',description:'Lo que la araña dice y hace ante la o
     text:{type:'string'},
     ...(apkCan('whatsapp')||apkCan('contacto')?{to:{type:'string',description:'a quién: nombre del contacto (whatsapp'+(apkCan('contacto')?', message, call':'')+')'}}:{}),
     ...(CAPS.call||CAPS.message?{phone:{type:'string'}}:{}),
-    ...(CAPS.timer||CAPS.event?{minutes:{type:'integer'},seconds:{type:'integer'}}:{}),
+    ...(CAPS.timer||CAPS.event||CAPS.remind?{minutes:{type:'integer'},seconds:{type:'integer'}}:{}),
     ...(CAPS.alarm?{time:{type:'string',description:'HH:MM (alarm)'}}:{}),
     action:{type:'string',description:'music: '+(CAPS.music?'play|pause|next|previous':'—')+'; spider: '+Object.keys(MOVE_NAMES).join('|')},
-    ...(CAPS.event?{when:{type:'string',description:'AAAA-MM-DDTHH:MM (event)'},duration:{type:'integer'}}:{})},required:['type']}},
+    ...(CAPS.event||CAPS.remind?{when:{type:'string',description:'AAAA-MM-DDTHH:MM (event, remind)'},duration:{type:'integer'}}:{})},required:['type']}},
   confirm:{type:'boolean',description:'true si conviene preguntar antes de actuar'},
   remember:{type:'array',items:{type:'string'},description:'Datos duraderos nuevos. Vacío si nada.'},
   forget:{type:'array',items:{type:'string'},description:'Datos de la lista que ya no son ciertos, con el texto exacto.'},
@@ -1656,6 +1693,7 @@ function toActs(steps){
     else if(x.type==='alarm'&&CAPS.alarm){ const m=String(x.time||'').match(/(\d{1,2})(?:[:.h ](\d{2}))?/); if(m&&+m[1]<24&&+(m[2]||0)<60) acts.push({t:'alarm',h:+m[1],m:+(m[2]||0),text:x.text||''}); else bad.push('alarma'); }
     else if(x.type==='music'&&CAPS.music) acts.push({t:'music',v:['play','pause','next','previous'].includes(x.action)?x.action:'play'});
     else if(x.type==='event'&&CAPS.event){ const d=parseWhen(x.when)||(x.minutes?new Date(Date.now()+x.minutes*6e4):null); if(d) acts.push({t:'event',text:x.text||'Cita',ms:d.getTime(),dur:+x.duration||60}); else bad.push('cita'); }
+    else if(x.type==='remind'&&CAPS.remind){ const d=parseWhen(x.when)||(x.minutes?new Date(Date.now()+x.minutes*6e4):null); if(d&&d>Date.now()) acts.push({t:'remind',text:x.text||'Aviso',ms:d.getTime()}); else bad.push('aviso'); }
     else if(x.type==='search'&&CAPS.search) acts.push({t:'search',text:String(x.text||'').slice(0,200)});
     else bad.push(x.type);
   }
@@ -1949,7 +1987,7 @@ const navRow=(id,text,val)=>`<li><button type="button" class="go" id="${id}"><sp
 /* Qué puedo hacer en este aparato: la misma lista que leo yo para saber qué pasos tengo */
 const CAP_LIST=[
   ['spider','Moverme: caminar, bailar, seguirle el dedo, esconderme'],['open','Abrir sus apps'],['set','Ajustes: linterna, brillo, no molestar, Wi-Fi…'],['timer','Temporizadores'],['alarm','Alarmas'],
-  ['music','Música: poner, pausar, siguiente'],['event','Citas en el calendario'],['call','Llamar y preparar mensajes'],
+  ['music','Música: poner, pausar, siguiente'],['event','Citas en el calendario'],['remind','Avisos a su hora, con la app cerrada'],['call','Llamar y preparar mensajes'],
   ['whatsapp','Preparar un WhatsApp'],['carry','Llevar el bolsillo a otra app'],['search','Buscar en internet'],['float','Flotar sobre las demás apps'],['exit','Cerrarme cuando me lo pida']];
 function capsText(){ const ok=CAP_LIST.filter(([k])=>CAPS[k]).map(([,t])=>t.split(':')[0].toLowerCase());
   return ok.length?'Aquí sé '+(ok.length>1?ok.slice(0,-1).join(', ')+' y '+ok[ok.length-1]:ok[0])+'. Y contestar, pensar y recordar.':'Aquí contesto, pienso, recuerdo y guardo cosas en el bolsillo. Para hacer cosas en el móvil, use mi app.'; }
@@ -2250,7 +2288,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted&&!pending&&!busy) location.reload(); });
 // Para pruebas: window.__arana
-window.__arana={convo:(t)=>convoMsgs(t),chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),charla:()=>openCharla(),zero:()=>startOver(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent,perm:(t)=>permCmd(norm(t)),prefs:()=>prefs};
+window.__arana={convo:(t)=>convoMsgs(t),chess:(t)=>openChess(t),chessCmd:(t)=>chessCmd(norm(t)),device:()=>deviceName(),plat:PLAT,caps:CAPS,steps:STEP_TYPES,exportMemory,importMemory,closeSheet,settings:()=>openSettings(),evo:()=>openEvolution(),rate:()=>openRatings(),charla:()=>openCharla(),zero:()=>startOver(),multi:(t)=>multiRules(norm(t)),scMulti:(l)=>scMulti(l),quick:(t)=>quickAnswer(norm(t),t),rules:(t)=>rules(norm(t),t),remind:(t,now)=>remindParse(norm(t),t,now),norm,toActs,urlFor,label,interpret:(t)=>interpret(t),routineToSuggest,exportRoutines,cocina:(t)=>cocina(norm(t)),briefText,offerBrief,parseSteps,brainSystem,apps:()=>APPS,home:()=>home,say:()=>sayEl.textContent,perm:(t)=>permCmd(norm(t)),prefs:()=>prefs};
 })();
 </script>
 </body>

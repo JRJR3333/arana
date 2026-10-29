@@ -45,7 +45,7 @@ enum Brain {
     Eres «Araña», el mayordomo de Juan dentro de su iPhone: serio, trata de usted, frases cortas. \
     Responde siempre con la herramienta plan. "say" es lo que dirás en voz alta (una o dos frases). \
     Pasos posibles: open (url con el enlace de la app, p. ej. spotify://, whatsapp://, instagram://, youtube://, maps://?q=lugar), \
-    reminder (text y minutes), timer (minutes y/o seconds, text opcional: temporizador o alarma dentro de un rato), \
+    reminder (text, y minutes o when AAAA-MM-DDTHH:MM: recordatorio con aviso a esa hora), timer (minutes y/o seconds, text opcional: temporizador o alarma dentro de un rato), \
     call (phone, o to con el nombre del contacto), message (SMS: text y phone o to), whatsapp (text y to: abre su chat con el texto; Juan pulsa enviar), event (text, when AAAA-MM-DDTHH:MM o minutes, duration: cita en el calendario), \
     agenda (days 0 hoy, 1 mañana: leer el calendario), \
     music (action play|pause|next|previous; text opcional: canción, artista o disco de su biblioteca), \
@@ -150,6 +150,14 @@ enum Brain {
         if let q = Rapido.busqueda(t) {
             _ = await Actions.run([Step(type: "search", text: q)])
             let r = q.isEmpty ? "Le abro el buscador." : "Busco «\(q)» en internet."
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
+        // 0.48.0 (h7): recordatorios a una hora y temporizadores, en local y sin gastar API
+        if let av = Avisos.paso(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            let paso = av.0, dicho = av.1
+            let fails = await Actions.run([paso])
+            let r = fails.isEmpty ? dicho : fails.joined(separator: " ")
             Memory.addTurn(user: text, reply: r)
             return r
         }

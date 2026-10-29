@@ -425,7 +425,7 @@ class MainActivity : Activity() {
      * arana://abrir?app=WhatsApp&id=whatsapp · arana://ajuste?id=linterna&v=on · arana://temporizador?min=5&seg=30&texto=Pasta
      * arana://alarma?hora=7&min=30 · arana://musica?accion=pause · arana://evento?titulo=Médico&inicio=<ms>&min=30
      * arana://llamar?tel=600… · arana://mensaje?tel=600…&texto=… · arana://flotar · arana://escuchar · arana://salir
-     * arana://voz?accion=siguiente · arana://whatsapp?a=Pedro&texto=…
+     * arana://voz?accion=siguiente · arana://whatsapp?a=Pedro&texto=… · arana://aviso?texto=…&en=<ms>
      */
     private fun ejecutar(u: Uri): Res {
         val q = { k: String -> u.getQueryParameter(k).orEmpty() }
@@ -457,6 +457,19 @@ class MainActivity : Activity() {
                     .putExtra(CalendarContract.Events.TITLE, q("titulo").ifEmpty { "Cita" })
                     .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, ini)
                     .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, ini + dura * 60_000L), "No encuentro un calendario en este móvil.")
+            }
+            // 0.48.0 (#23): aviso a su hora aunque la app esté cerrada
+            "aviso" -> {
+                if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 10)
+                val en = q("en").toLongOrNull() ?: 0L
+                val que = q("texto").ifBlank { "Tiene un aviso." }
+                if (!Aviso.poner(this, que, en)) Res(false, "Esa hora ya ha pasado.")
+                else {
+                    val es = Locale("es", "ES")
+                    val hoy = java.text.SimpleDateFormat("yyyyMMdd", es).let { it.format(java.util.Date(en)) == it.format(java.util.Date()) }
+                    val cuando = java.text.SimpleDateFormat(if (hoy) "'hoy a las' HH:mm" else "EEEE d 'a las' HH:mm", es).format(java.util.Date(en))
+                    Res(true, "Le avisaré $cuando: ${que.trimEnd('.')}. Aunque cierre la app.")
+                }
             }
             "llamar", "mensaje" -> if (q("a").isNotBlank() && q("tel").isBlank()) aContacto(u) else ejecutarTel(u)
             else -> Res(false, "Aún no sé hacer eso en Android.")
@@ -502,6 +515,6 @@ class MainActivity : Activity() {
         const val FONDO = 0xFF090A14.toInt()
         const val HOST = "jrjr3333.github.io"
         const val SITE = "https://jrjr3333.github.io/arana/?app=android"
-        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar,apps,voz,whatsapp,oido,contacto,seguir"
+        const val CAPACIDADES = "abrir,ajuste,temporizador,alarma,musica,evento,llamar,mensaje,flotar,salir,escuchar,apps,voz,whatsapp,oido,contacto,seguir,aviso"
     }
 }

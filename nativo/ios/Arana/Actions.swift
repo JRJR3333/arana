@@ -18,7 +18,9 @@ enum Actions {
             case "call", "message", "whatsapp":
                 if let f = await aContacto(s) { fails.append(f) }
             case "reminder":
-                let ok = await addReminder(s.text ?? "Recordatorio", minutes: s.minutes ?? 0)
+                // 0.48.0 (h7): también a una hora («a las 18:30»), no solo dentro de unos minutos
+                let at = parseWhen(s.when) ?? ((s.minutes ?? 0) > 0 ? Date().addingTimeInterval(TimeInterval((s.minutes ?? 0) * 60)) : nil)
+                let ok = await addReminder(s.text ?? "Recordatorio", at: at)
                 if !ok { fails.append("No tengo permiso para Recordatorios.") }
             case "timer":
                 let secs = (s.minutes ?? 0) * 60 + (s.seconds ?? 0)
@@ -138,13 +140,12 @@ enum Actions {
         return "\(cuando) tiene: " + items.joined(separator: "; ") + mas + "."
     }
 
-    static func addReminder(_ title: String, minutes: Int) async -> Bool {
+    static func addReminder(_ title: String, at when: Date?) async -> Bool {
         guard (try? await store.requestFullAccessToReminders()) == true else { return false }
         let r = EKReminder(eventStore: store)
         r.title = title
         r.calendar = store.defaultCalendarForNewReminders()
-        if minutes > 0 {
-            let when = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        if let when {
             r.addAlarm(EKAlarm(absoluteDate: when))
             r.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: when)
         }

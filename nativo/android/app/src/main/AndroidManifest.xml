@@ -17,6 +17,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- 0.48.0 (#23): avisos a su hora con la app cerrada, también tras reiniciar el móvil -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:label="Araña"
         android:icon="@drawable/arana"
@@ -50,6 +54,20 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Las arañas siguen jugando al ajedrez con la pantalla apagada mientras el usuario lo pide." />
         </service>
+        <!-- 0.48.0 (#23): avisos con la app cerrada y widget de la pantalla de inicio -->
+        <receiver android:name=".Aviso" android:exported="false" />
+        <receiver android:name=".Arranque" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".Widget" android:exported="true" android:label="Araña">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info" />
+        </receiver>
     </application>
     <queries>
         <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>

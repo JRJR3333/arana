@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.48.0",
+  "fecha": "2026-10-29",
+  "mejoras": [
+   {
+    "id": "0.48.0-1",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Android: avisos a su hora con la app cerrada",
+    "detalle": "Petición #23. «Recuérdame a las 18:30 llamar a mamá», «recuérdame mañana a las 9 ir al médico», «recuérdame en 20 minutos sacar la ropa»: lo entiendo sin gastar consulta y mi app de Android le avisa con una notificación a esa hora, aunque esté cerrada y aunque reinicie el móvil. El cerebro también puede ponerlos. Dado: 0,551 / 0,929 → sin sorpresa y sin condición.",
+    "probar": "En Android, actualice la app y diga «recuérdame en 2 minutos mirar el horno». Cierre la app y espere."
+   },
+   {
+    "id": "0.48.0-2",
+    "tipo": "diseño",
+    "titulo": "Android: widget «Toque y hable»",
+    "detalle": "Petición #23. Un widget para la pantalla de inicio con la araña: un toque abre la app escuchando. Cuenta los avisos que quedan por sonar.",
+    "probar": "Mantenga pulsado el fondo de la pantalla de inicio → Widgets → Araña, y tóquelo."
+   },
+   {
+    "id": "0.48.0-3",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "App de iPhone: recordatorios a una hora y temporizadores sin gastar API",
+    "detalle": "«Recuérdame a las 6 llamar a mamá» (si son las tres de la tarde, entiendo las 18:00), «recuérdame mañana a las 9 y media ir al médico» o «pon un temporizador de 10 minutos»: lo resuelvo en local y lo apunto en Recordatorios con su alarma. Antes solo sabía «dentro de unos minutos» y siempre con el cerebro.",
+    "probar": "Instale la 0.48.0 desde el Mac y diga «recuérdame a las 8 de la tarde regar las plantas». Mire Recordatorios."
+   }
+  ]
+ },
+ {
   "v": "0.47.0",
   "fecha": "2026-10-28",
   "mejoras": [

@@ -25,19 +25,22 @@ En Android no hace falta cuenta de desarrollador ni pagar nada.
   - temporizadores y alarmas del reloj (`temporizador`, `alarma`),
   - música: poner, pausar, siguiente y anterior en la app que esté sonando (`musica`),
   - citas en el calendario (`evento`), llamar (`llamar`) y mensajes (`mensaje`),
-  - oír con el micro de Android, hablar con su voz, flotar sobre las demás apps (`flotar`) y cerrarse (`salir`).
+  - oír con el micro de Android, hablar con su voz, flotar sobre las demás apps (`flotar`) y cerrarse (`salir`),
+  - avisos a su hora con la app cerrada, también tras reiniciar el móvil (`aviso`: «recuérdame a las 18:30 llamar a mamá»),
+  - un widget para la pantalla de inicio: «Toque y hable» abre la araña escuchando (mantenga pulsado el fondo de la pantalla → Widgets → Araña).
 
 ## Permisos que pide una sola vez
 
 - **Brillo de todo el móvil:** «Modificar ajustes del sistema» para la Araña. Sin él, cambia solo el brillo de la araña.
 - **No molestar:** acceso a «No molestar» para la Araña.
 - **Flotar:** «Mostrar sobre otras apps».
+- **Avisos:** «Notificaciones» para la Araña (lo pide la primera vez que le pide un aviso).
 
 La araña abre la pantalla de Android donde se concede; después, vuelva a pedírselo.
 
 ## Qué falta
 
-- Avisos con la app cerrada y widget de Android.
+- Nada de lo pedido en #23. Si quiere algo más, pídaselo a la araña.
 
 ## Actualizar
 
