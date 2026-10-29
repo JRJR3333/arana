@@ -154,7 +154,7 @@ enum Brain {
             return r
         }
         // 0.48.0 (h7): recordatorios a una hora y temporizadores, en local y sin gastar API
-        if let av = Avisos.paso(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+        if let av = Recordar.paso(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
             let paso = av.0, dicho = av.1
             let fails = await Actions.run([paso])
             let r = fails.isEmpty ? dicho : fails.joined(separator: " ")

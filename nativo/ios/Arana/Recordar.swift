@@ -3,7 +3,7 @@ import Foundation
 /// 0.48.0 (h7): «recuérdame a las 18:30 llamar a mamá», «recuérdame mañana a las 9 ir al médico»,
 /// «recuérdame en 20 minutos sacar la ropa» y «pon un temporizador de 10 minutos»: lo entiendo en local,
 /// sin gastar API. El recordatorio va a Recordatorios con su alarma a esa hora; el temporizador, como siempre.
-enum Avisos {
+enum Recordar {
     /// El paso que hay que hacer y lo que digo si sale bien.
     static func paso(_ t: String, original: String, ahora: Date = Date()) -> (Step, String)? {
         if let p = temporizador(t) { return p }
