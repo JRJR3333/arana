@@ -88,6 +88,17 @@ struct SabeArana: AppIntent {
     }
 }
 
+/// 0.49.0 (h7, de noche): «Oye Siri, buenas noches, Araña»: le dice lo que tiene mañana sin abrir la app ni gastar API.
+struct BuenasNochesArana: AppIntent {
+    static var title: LocalizedStringResource = "Buenas noches"
+    static var description = IntentDescription("La araña le dice lo que tiene mañana en el calendario y se despide, sin abrir la app.")
+    static var openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        .result(dialog: IntentDialog(stringLiteral: await Rapido.buenasNoches()))
+    }
+}
+
 struct AranaShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AskArana(),
@@ -114,5 +125,9 @@ struct AranaShortcuts: AppShortcutsProvider {
                     phrases: ["Pregunta a Wikipedia con \(.applicationName)", "Qué es algo con \(.applicationName)", "\(.applicationName), qué es"],
                     shortTitle: "Qué es o quién es",
                     systemImageName: "book")
+        AppShortcut(intent: BuenasNochesArana(),
+                    phrases: ["Buenas noches, \(.applicationName)", "Buenas noches con \(.applicationName)", "Me voy a dormir con \(.applicationName)"],
+                    shortTitle: "Buenas noches",
+                    systemImageName: "moon.stars")
     }
 }

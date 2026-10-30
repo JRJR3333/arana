@@ -147,6 +147,17 @@ enum Brain {
             Memory.addTurn(user: text, reply: r)
             return r
         }
+        // 0.49.0 (asistente, de noche): la linterna, en local
+        if let r = Linterna.quick(t) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
+        // 0.49.0 (h7, de noche): «buenas noches» repasa lo de mañana, en local
+        if ["buenas noches", "me voy a dormir", "me voy a la cama", "hasta manana", "a dormir"].contains(t) {
+            let r = await Rapido.buenasNoches()
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         if let q = Rapido.busqueda(t) {
             _ = await Actions.run([Step(type: "search", text: q)])
             let r = q.isEmpty ? "Le abro el buscador." : "Busco «\(q)» en internet."

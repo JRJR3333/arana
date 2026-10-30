@@ -22,6 +22,14 @@ enum Rapido {
         return nil
     }
 
+    /// 0.49.0 (h7, de noche): lo que tiene mañana y una despedida. En local, sin API.
+    static func buenasNoches(ahora: Date = Date()) async -> String {
+        let h = Calendar.current.component(.hour, from: ahora)
+        let manana = await Actions.agenda(days: h < 5 ? 0 : 1)
+        let cierre = ["Que descanse.", "Descanse, yo vigilo la tela.", "Hasta mañana. Apago la luz de la tela."].randomElement()!
+        return manana + " " + cierre
+    }
+
     /// «cuánto es 23 por 4», «12,5 más 3», «20 % de 80», «raíz de 81».
     static func cuenta(_ t: String) -> String? {
         var s = t

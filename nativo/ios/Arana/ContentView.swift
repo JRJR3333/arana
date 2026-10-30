@@ -29,6 +29,8 @@ struct ContentView: View {
     // 0.31.0: accesibilidad (letra grande, VoiceOver lee lo que digo) y la sorpresa del latido
     @AppStorage("arana.letraGrande") private var letraGrande = false
     @AppStorage("arana.latido") private var latido = true
+    // 0.49.0 (de noche): de 22:00 a 7:00 la pantalla se oscurece y se vuelve cálida, para no deslumbrar
+    @AppStorage("arana.noche") private var modoNoche = true
     @State private var off: CGSize = .zero
     @State private var dragStart: CGSize?
     @State private var heading: Double = -Double.pi / 2
@@ -101,6 +103,16 @@ struct ContentView: View {
             }
             .onAppear { area = geo.size }
             .onChange(of: geo.size) { _, s in area = s }
+        }
+        .overlay {
+            if modoNoche {
+                TimelineView(.everyMinute) { ctx in
+                    if Self.esDeNoche(ctx.date) {
+                        Color(red: 0.12, green: 0.04, blue: 0).opacity(0.38).ignoresSafeArea()
+                    }
+                }
+                .allowsHitTesting(false).accessibilityHidden(true)
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: typing)
         .sheet(isPresented: $showSettings) { settings }
@@ -226,6 +238,7 @@ struct ContentView: View {
                     Toggle("Hacerle preguntas de vez en cuando", isOn: $preguntar)
                     Toggle("Letra grande en el bocadillo", isOn: $letraGrande)
                     Toggle("Latir en su mano cuando termino de pensar", isOn: $latido)
+                    Toggle("Luz de noche (de 22:00 a 7:00)", isOn: $modoNoche)
                     Text("Tóqueme para hablar. Dos toques: salto. Tres: bailo. Mantenga pulsado: mi menú. Arrástreme para cambiarme de sitio.").font(.footnote)
                 }
                 // 0.42.0 (h7): las frases de Siri, ya en español, y el atajo a la app Atajos para verlas
@@ -303,6 +316,12 @@ struct ContentView: View {
             return r.hasPrefix("de ") || r.hasPrefix("que ") ? nil : r
         }
         return n == "aprende" || n == "aprende algo" ? "" : nil
+    }
+
+    /// 0.49.0: de 22:00 a 7:00.
+    static func esDeNoche(_ d: Date = Date()) -> Bool {
+        let h = Calendar.current.component(.hour, from: d)
+        return h >= 22 || h < 7
     }
 
     static func normal(_ t: String) -> String {

@@ -88,6 +88,8 @@ body.kb #bar{padding-bottom:8px}
 @keyframes nod{40%{transform:rotate(-4deg)}}
 
 /* ===== Ajustes: una hoja como la de iOS (Form agrupado) ===== */
+#noche{position:fixed; inset:0; z-index:25; pointer-events:none; background:rgba(31,10,0,.38); display:none}
+#noche.on{display:block}
 #sheet{position:fixed; left:0; right:0; top:var(--vt,0px); height:var(--vh,100%); z-index:30; background:rgba(0,0,0,.4); display:flex; align-items:flex-end; justify-content:center}
 #sheet .wrap{width:100%; max-width:700px; height:calc(100% - env(safe-area-inset-top,0px) - 14px); background:var(--sheet); color:var(--fg);
   border-radius:12px 12px 0 0; display:flex; flex-direction:column; animation:up .28s ease-out; -webkit-user-select:text; user-select:text}
@@ -184,7 +186,7 @@ textarea{min-height:110px; resize:vertical; border:0}
 </style>
 </head>
 <body>
-<div id="wall" aria-hidden="true"></div>
+<div id="wall" aria-hidden="true"></div><div id="noche" aria-hidden="true"></div>
 <canvas id="tela" aria-hidden="true"></canvas>
 <main id="app">
   <div class="top"><button id="chessBtn" type="button" aria-label="Ajedrez"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h10"/><path d="M8 18h8"/><path d="M9 18c0-3 1-5 2.5-7L9 12l-1.5-2L11 5.5V3l2 1.5c3 1 5 4 5 8.5 0 2-.5 3.7-1 5"/><circle cx="12.2" cy="7.6" r=".5" fill="currentColor"/></svg></button><button id="gear" type="button" aria-label="Ajustes"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
@@ -642,6 +644,9 @@ function resize(){
 }
 /* Teclado: en iPhone el teclado tapa la pantalla sin encogerla. Ajusto #app a lo que se ve y lo compacto todo. */
 let kbOpen=false, baseH=innerHeight;
+// 0.49.0 (de noche, igual que la app de iPhone): de 22:00 a 7:00 la pantalla se oscurece y se vuelve cálida
+function noche(){ const h=new Date().getHours(), el=document.getElementById('noche'); if(el) el.classList.toggle('on',prefs.noche!==false&&(h>=22||h<7)); }
+noche(); setInterval(noche,60000);
 function fitViewport(){
   const vv=window.visualViewport, h=vv?vv.height:innerHeight, top=vv?vv.offsetTop:0;
   const typing=!!document.activeElement&&/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
@@ -2037,6 +2042,7 @@ function openSettings(){
       <ul class="cells"><li><span>Hablar en voz alta</span>${sw('vozOn',prefs.voice!==false)}</li>
         <li><span>Pasear por la pantalla cuando no hago nada</span>${sw('roamOn',prefs.roam!==false)}</li>
         <li><span>Hacerle preguntas de vez en cuando</span>${sw('askOn',prefs.preguntas!==false)}</li>
+        <li><span>Luz de noche<small>De 22:00 a 7:00 oscurezco la pantalla y la vuelvo cálida</small></span>${sw('nocheOn',prefs.noche!==false)}</li>
         <li><span>Abrir en nuestra charla<small>Al entrar, le enseño la conversación entera</small></span>${sw('chatOn',!!prefs.chat)}</li></ul>
       <p class="note" style="margin-top:6px">Tóqueme para hablar. Dos toques: salto. Tres: bailo. Mantenga pulsado: mi menú. Arrástreme para cambiarme de sitio.</p>
       <span class="lbl" style="margin-top:12px">Pedir permiso</span>${seg('perm',[['siempre','Siempre'],['aprendido','Según lo aprendido'],['nunca','Nunca']],prefs.perm)}
@@ -2057,6 +2063,7 @@ function openSettings(){
   $('#vozOn').onchange=e=>{ prefs.voice=e.target.checked; saveAll(); if(prefs.voice) speak('A su servicio.'); };
   $('#brOn').onchange=e=>{ brain.on=e.target.checked; saveBrain(); };
   $('#roamOn').onchange=e=>{ prefs.roam=e.target.checked; saveAll(); if(!prefs.roam) goHome(); };
+  $('#nocheOn').onchange=e=>{ prefs.noche=e.target.checked; saveAll(); noche(); };
   $('#askOn').onchange=e=>{ prefs.preguntas=e.target.checked; saveAll(); };
   $('#chatOn').onchange=e=>{ prefs.chat=e.target.checked; saveAll(); };
   $('#nCharla').onclick=openCharla;
