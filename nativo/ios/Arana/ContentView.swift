@@ -139,8 +139,15 @@ struct ContentView: View {
             // h8: el control del Centro de control abre la app escuchando.
             if Escuchar.pendiente(), !ear.listening, !thinking { toggleEar() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: Escuchar.avisoLuz)) { _ in
+            // 0.50.0 (h8): el control «Luz suave».
+            if Escuchar.luzPendiente() { bubble = Linterna.alternarSuave() }
+        }
         .onAppear {
             if Escuchar.pendiente(), !ear.listening, !thinking { toggleEar() }
+            if Escuchar.luzPendiente() { bubble = Linterna.alternarSuave() }
+            // Sorpresa 0.50.0: los días señalados la araña lo dice al abrir (una vez al día). Ver Senalados.swift.
+            else if let f = Senalados.saludoDeHoy() { bubble = f }
         }
         // Sorpresa 0.42.0: agítela y se marea (gira y lo dice). Ver Mareo.swift.
         .onReceive(NotificationCenter.default.publisher(for: Mareo.aviso)) { _ in

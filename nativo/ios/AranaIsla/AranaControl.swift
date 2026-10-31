@@ -15,3 +15,17 @@ struct AranaControl: ControlWidget {
         .description("Un toque y la araña le escucha.")
     }
 }
+
+/// h8 (0.50.0): la luz suave a un toque, sin hablar. Útil de noche.
+@available(iOS 18.0, *)
+struct LuzControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.jrjr3333.arana.luz") {
+            ControlWidgetButton(action: LuzSuaveIntent()) {
+                Label("Luz suave", systemImage: "flashlight.on.fill")
+            }
+        }
+        .displayName("Luz suave")
+        .description("La araña enciende la linterna flojita, o la apaga.")
+    }
+}

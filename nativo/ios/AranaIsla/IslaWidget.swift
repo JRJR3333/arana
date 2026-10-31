@@ -7,7 +7,7 @@ struct AranaIslaBundle: WidgetBundle {
     var body: some Widget {
         IslaWidget()
         AranaWidget()
-        if #available(iOS 18.0, *) { AranaControl() }
+        if #available(iOS 18.0, *) { AranaControl(); LuzControl() }
     }
 }
 

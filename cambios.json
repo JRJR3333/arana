@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.50.0",
+  "fecha": "2026-10-31",
+  "mejoras": [
+   {
+    "id": "0.50.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "«Luz suave» en el Centro de control",
+    "detalle": "Un control nuevo de la araña para el Centro de control, la pantalla bloqueada o el botón de Acción (iOS 18): un toque y enciendo la linterna flojita; otro toque, la apago. También con «Oye Siri, luz suave con Araña». Dado: 0,486 / 0,647 → sorpresa sí, sin condición.",
+    "probar": "Actualice, ábrame una vez, mantenga pulsado el Centro de control → Añadir un control → Araña → «Luz suave», y tóquelo."
+   },
+   {
+    "id": "0.50.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "iPhone: convertir unidades",
+    "detalle": "Kilómetros y millas, metros y pies, centímetros y pulgadas, kilos y libras, gramos y onzas, litros y galones, grados Celsius y Fahrenheit. En local, sin gastar consultas.",
+    "probar": "En la app de iPhone diga «cuántas millas son 10 km» o «convierte 30 grados celsius a fahrenheit»."
+   },
+   {
+    "id": "0.50.0-3",
+    "tipo": "sorpresa",
+    "titulo": "Días señalados",
+    "detalle": "En Halloween, Navidad, Nochevieja, Año Nuevo, Reyes, San Valentín, Todos los Santos y el Día del libro, al abrir la app de iPhone le digo algo propio del día (una vez ese día). Se quita sin romper nada.",
+    "probar": "Abra la app hoy, 31 de octubre: le felicito Halloween."
+   }
+  ]
+ },
+ {
   "v": "0.49.0",
   "fecha": "2026-10-30",
   "mejoras": [

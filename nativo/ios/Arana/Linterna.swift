@@ -28,6 +28,12 @@ enum Linterna {
         }
     }
 
+    /// 0.50.0 (h8): el control «Luz suave». Si está encendida la apaga; si no, la pone flojita.
+    static func alternarSuave() -> String {
+        if let d = AVCaptureDevice.default(for: .video), d.hasTorch, d.torchMode == .on { return quick("apaga la linterna") ?? "" }
+        return quick("luz suave") ?? ""
+    }
+
     /// «al 30», «al 30 por ciento», «a la mitad».
     static func porcentaje(_ t: String) -> Float? {
         if t.contains("mitad") { return 0.5 }

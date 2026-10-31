@@ -129,5 +129,9 @@ struct AranaShortcuts: AppShortcutsProvider {
                     phrases: ["Buenas noches, \(.applicationName)", "Buenas noches con \(.applicationName)", "Me voy a dormir con \(.applicationName)"],
                     shortTitle: "Buenas noches",
                     systemImageName: "moon.stars")
+        // 0.50.0 (h8): «Oye Siri, luz suave con Araña»
+        AppShortcut(intent: LuzSuaveIntent(),
+                    phrases: ["Luz suave con \(.applicationName)", "\(.applicationName), luz suave", "Linterna flojita con \(.applicationName)"],
+                    shortTitle: "Luz suave", systemImageName: "flashlight.on.fill")
     }
 }

@@ -19,6 +19,7 @@ enum Rapido {
         }
         if let r = cuenta(t) { return r }
         if let r = faltan(t, ahora: ahora) { return r }
+        if let r = convertir(t) { return r }
         return nil
     }
 
@@ -72,6 +73,41 @@ enum Rapido {
             r = a / b
         }
         return "Son \(fmt(r))."
+    }
+
+    /// 0.50.0 (asistente): «cuántas millas son 10 km», «convierte 30 grados a fahrenheit», «5 libras en kilos». En local.
+    static func convertir(_ t: String) -> String? {
+        let u: [(String, String, Double)] = [   // palabra, nombre, valor en la unidad base de su grupo
+            ("kilometros", "km", 1000), ("km", "km", 1000), ("millas", "millas", 1609.344), ("milla", "millas", 1609.344),
+            ("metros", "metros", 1), ("metro", "metros", 1), ("pies", "pies", 0.3048), ("pie", "pies", 0.3048),
+            ("centimetros", "cm", 0.01), ("cm", "cm", 0.01), ("pulgadas", "pulgadas", 0.0254), ("pulgada", "pulgadas", 0.0254),
+            ("kilos", "kilos", 1000), ("kilogramos", "kilos", 1000), ("kg", "kilos", 1000), ("libras", "libras", 453.59237), ("libra", "libras", 453.59237),
+            ("gramos", "gramos", 1), ("onzas", "onzas", 28.349523), ("onza", "onzas", 28.349523),
+            ("litros", "litros", 1), ("litro", "litros", 1), ("galones", "galones", 3.785411784), ("galon", "galones", 3.785411784),
+            ("celsius", "°C", .nan), ("centigrados", "°C", .nan), ("fahrenheit", "°F", .nan)
+        ]
+        let grupo: [String: Int] = ["km": 0, "millas": 0, "metros": 0, "pies": 0, "cm": 0, "pulgadas": 0,
+                                    "kilos": 1, "libras": 1, "gramos": 1, "onzas": 1, "litros": 2, "galones": 2, "°C": 3, "°F": 3]
+        let alt = u.map { $0.0 }.joined(separator: "|")
+        let num = "(-?\\d+(?:[.,]\\d+)?)"
+        var s = t
+        for p in ["convierte ", "pasa ", "cuanto son ", "cuantos son ", "cuanto es "] where s.hasPrefix(p) { s = String(s.dropFirst(p.count)) }
+        var a: Double?, de: String?, a2: String?
+        // «10 km a millas», «10 km en millas», «30 grados celsius a fahrenheit»
+        if let m = s.firstMatch(of: try! Regex("^\(num) (?:grados )?(\(alt)) (?:a|en|son en) (?:grados )?(\(alt))$")) {
+            a = Double(String(m.output[1].substring ?? "").replacingOccurrences(of: ",", with: "."))
+            de = String(m.output[2].substring ?? ""); a2 = String(m.output[3].substring ?? "")
+        // «cuantas millas son 10 km», «cuantos grados fahrenheit son 30 celsius»
+        } else if let m = t.firstMatch(of: try! Regex("^cuant[oa]s (?:grados )?(\(alt)) (?:son|hay en|tiene|tienen) \(num) (?:grados )?(\(alt))$")) {
+            a2 = String(m.output[1].substring ?? ""); de = String(m.output[3].substring ?? "")
+            a = Double(String(m.output[2].substring ?? "").replacingOccurrences(of: ",", with: "."))
+        }
+        guard let x = a, let d = u.first(where: { $0.0 == de }), let h = u.first(where: { $0.0 == a2 }),
+              d.1 != h.1, grupo[d.1] == grupo[h.1] else { return nil }
+        let r: Double
+        if d.1 == "°C" { r = x * 9 / 5 + 32 } else if d.1 == "°F" { r = (x - 32) * 5 / 9 } else { r = x * d.2 / h.2 }
+        let y = (r * 100).rounded() / 100
+        return "\(fmt(x)) \(d.1) son \(fmt(y)) \(h.1)."
     }
 
     /// 0.44.0 (#45): «busca en internet recetas de pollo», «busca el tiempo en google», «googlea …». Devuelve lo que hay que buscar.
