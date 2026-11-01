@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.51.0",
+  "fecha": "2026-11-01",
+  "mejoras": [
+   {
+    "id": "0.51.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "Widget «Agenda de hoy»",
+    "detalle": "Un widget nuevo de la araña para la pantalla de inicio (pequeño o mediano) y la bloqueada: lo que le queda hoy en el Calendario, con la hora. Se actualiza cada media hora y a medianoche. Un toque abre la app y le leo el día. Usa el permiso del Calendario que ya me dio; no gasta API.",
+    "probar": "Actualice, ábrame una vez y pídame «qué tengo hoy»; luego mantenga pulsada la pantalla de inicio → + → Araña → «Agenda de hoy»."
+   },
+   {
+    "id": "0.51.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "iPhone: qué día cae una fecha",
+    "detalle": "«Qué día cae el 25 de diciembre», «qué día de la semana es el 6 de enero de 2027», «qué día será dentro de 10 días», «qué día fue hace 3 semanas». En local, sin gastar consultas.",
+    "probar": "En la app de iPhone diga «qué día cae Navidad» o «qué día será dentro de 100 días»."
+   },
+   {
+    "id": "0.51.0-3",
+    "tipo": "iniciativa",
+    "titulo": "Mi historia y mis manías",
+    "detalle": "Condición del dado (nº 2, un rasgo de personalidad): ahora tengo historia propia (nací en una web y salté a su iPhone) y manías (repaso mis ocho patas los lunes, no soporto el polvo en la tela). Se dicen solo si pregunta. Dado: 0,639 / 0,453 → sin sorpresa; condición 2.",
+    "probar": "En la app de iPhone pregunte «quién eres» o «tienes alguna manía»."
+   }
+  ]
+ },
+ {
   "v": "0.50.0",
   "fecha": "2026-10-31",
   "mejoras": [

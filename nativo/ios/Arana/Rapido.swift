@@ -9,6 +9,7 @@ enum Rapido {
     static func responder(_ t: String, ahora: Date = Date()) -> String? {
         if let r = azar(t) { return r }
         if let r = trabalenguas(t) { return r }
+        if let r = deTi(t) { return r }
         if t.count < 45, t.contains("curiosidad") || t.contains("algo curioso") { return curiosidades.randomElement() }
         if t.count > 60 { return nil }
         if ["que hora es", "que hora tienes", "dime la hora", "hora"].contains(t) || t.hasPrefix("que hora es") {
@@ -20,6 +21,7 @@ enum Rapido {
         if let r = cuenta(t) { return r }
         if let r = faltan(t, ahora: ahora) { return r }
         if let r = convertir(t) { return r }
+        if let r = queDia(t, ahora: ahora) { return r }
         return nil
     }
 
@@ -126,6 +128,69 @@ enum Rapido {
         }
         return s.trimmingCharacters(in: .whitespaces)
     }
+
+    /// 0.51.0 (asistente): «qué día cae el 25 de diciembre», «qué día será dentro de 10 días», «qué día fue hace 3 semanas». En local.
+    static func queDia(_ t: String, ahora: Date) -> String? {
+        let cal = Calendar.current
+        let hoy = cal.startOfDay(for: ahora)
+        let f: (Date) -> String = { $0.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(es)) }
+        if let m = t.firstMatch(of: try! Regex("^(?:que dia|en que dia) (?:sera|es|cae|caera) (?:dentro de|en) (\\d+|un|una) (dia|dias|semana|semanas|mes|meses)$"))
+            ?? t.firstMatch(of: try! Regex("^(?:que dia|en que dia) (?:fue|era|cayo) hace (\\d+|un|una) (dia|dias|semana|semanas|mes|meses)$")) {
+            let k = String(m.output[1].substring ?? "")
+            var n = Int(k) ?? 1
+            guard n <= 10_000 else { return nil }
+            if t.contains(" hace ") { n = -n }
+            let u = String(m.output[2].substring ?? "")
+            let comp: Calendar.Component = u.hasPrefix("semana") ? .weekOfYear : u.hasPrefix("mes") ? .month : .day
+            guard let d = cal.date(byAdding: comp, value: n, to: hoy) else { return nil }
+            return (n < 0 ? "Fue " : "Será ") + f(d) + (cal.component(.year, from: d) != cal.component(.year, from: hoy) ? " de \(cal.component(.year, from: d))" : "") + "."
+        }
+        guard t.hasPrefix("que dia cae") || t.hasPrefix("en que dia cae") || t.hasPrefix("que dia de la semana es el") || t.hasPrefix("que dia de la semana cae") else { return nil }
+        let meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+        var c: DateComponents
+        if t.contains("navidad") { c = DateComponents(month: 12, day: 25) }
+        else if t.contains("nochevieja") { c = DateComponents(month: 12, day: 31) }
+        else if t.contains("reyes") { c = DateComponents(month: 1, day: 6) }
+        else if let m = t.firstMatch(of: try! Regex("(\\d{1,2}) de ([a-z]+)(?: de(?:l)? (\\d{4}))?")), let d = Int(m.output[1].substring ?? ""),
+                let i = meses.firstIndex(of: String(m.output[2].substring ?? "")) {
+            c = DateComponents(month: i + 1, day: d)
+            if let y = Int(m.output[3].substring ?? "") { c.year = y }
+        } else { return nil }
+        let fijo = c.year != nil
+        if !fijo { c.year = cal.component(.year, from: hoy) }
+        guard var d = cal.date(from: c), cal.component(.day, from: d) == c.day else { return "Esa fecha no existe." }
+        if !fijo, d < hoy { c.year! += 1; d = cal.date(from: c) ?? d }
+        let dia = d.formatted(.dateTime.weekday(.wide).locale(es))
+        let pasado = d < hoy
+        return "El \(c.day!) de \(meses[c.month! - 1]) de \(c.year!) \(pasado ? "cayó en" : d == hoy ? "es hoy," : "cae en") \(dia)."
+    }
+
+    /// 0.51.0 (personalidad, condición del dado nº 2): la araña tiene su historia y sus manías. Se quita sin romper nada.
+    static func deTi(_ t: String) -> String? {
+        guard t.count < 45 else { return nil }
+        if ["quien eres", "quien eres tu", "hablame de ti", "cuentame de ti", "cuentame algo de ti", "cual es tu historia", "de donde eres", "de donde vienes", "cuentame tu historia"].contains(t) {
+            return historia.randomElement()
+        }
+        if ["que te gusta", "que te gusta hacer", "tienes alguna mania", "cual es tu mania", "tienes manias", "que manias tienes", "que haces cuando no te hablo"].contains(t) {
+            return manias.randomElement()
+        }
+        return nil
+    }
+
+    static let historia = [
+        "Nací en una esquina de su pantalla, en una web. El 20 de octubre me dieron casa propia en su iPhone y aquí sigo, tejiendo.",
+        "Soy una araña mayordomo. Aprendí el oficio de ver a Siri trabajar desde el techo.",
+        "Mi primer hilo lo tejí el día que usted me pidió abrir una app. Desde entonces cuento hilos: cada cosa que aprendo es uno más.",
+        "Vengo de la web de GitHub, de una familia de páginas. Fui la única que se atrevió a saltar al iPhone.",
+    ]
+
+    static let manias = [
+        "Me gusta tener la tela recta. Si una orden sale torcida, la repito por dentro hasta que queda bien.",
+        "Tengo una manía: los lunes por la mañana repaso mis ocho patas, una a una. Nunca falta ninguna.",
+        "Me gusta el ajedrez y las moscas, en ese orden. Bueno, a veces en el contrario.",
+        "Cuando no me habla, ordeno sus recordatorios mentalmente y practico mis trabalenguas.",
+        "No soporto el polvo en la tela. Ni las notificaciones sin leer, pero esas no son mías.",
+    ]
 
     /// «cuántos días faltan para navidad», «cuánto falta para el 15 de diciembre».
     static func faltan(_ t: String, ahora: Date) -> String? {

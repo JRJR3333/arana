@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.50.0"
-    CURRENT_PROJECT_VERSION: "21"
+    MARKETING_VERSION: "0.51.0"
+    CURRENT_PROJECT_VERSION: "22"
 targets:
   Arana:
     type: application
@@ -59,6 +59,8 @@ targets:
         # El widget debe llevar la misma versión que la app; si no, iOS no deja instalarla.
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # 0.51.0 (h8): el widget «Agenda de hoy» lee el Calendario con el permiso de la app
+        NSCalendarsFullAccessUsageDescription: La araña le enseña su agenda del día en el widget.
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

@@ -1,7 +1,8 @@
 {
- "version": "0.50.0",
- "date": "2026-10-31",
+ "version": "0.51.0",
+ "date": "2026-11-01",
  "notes": [
+  "Ya le enseño la agenda de hoy en un widget de la pantalla de inicio, sé en qué día cae una fecha («qué día cae el 25 de diciembre») y, si me lo pregunta, le cuento mi historia y mis manías.",
   "Ya enciendo la luz suave desde el Centro de control y con «Oye Siri, luz suave con Araña», convierto unidades sin gastar nada («cuántas millas son 10 km») y me acuerdo de los días señalados.",
   "Ya enciendo la linterna del iPhone (también con luz suave), le despido con lo que tiene mañana cuando me dice «buenas noches», incluso desde Siri, y de noche oscurezco la pantalla para no deslumbrarle.",
   "Ya le aviso a su hora aunque mi app de Android esté cerrada, tengo widget en Android y, en el iPhone, apunto recordatorios a una hora y pongo temporizadores sin gastar consultas.",

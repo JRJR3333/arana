@@ -134,6 +134,8 @@ struct ContentView: View {
         .onOpenURL { u in
             // h8: el widget abre la app escuchando (arana://escuchar).
             if u.host == "escuchar", !ear.listening, !thinking { toggleEar() }
+            // 0.51.0 (h8): el widget «Agenda de hoy» abre la app y la araña le lee el día.
+            if u.host == "agenda" { Task { bubble = await Actions.agenda(days: 0) } }
         }
         .onReceive(NotificationCenter.default.publisher(for: Escuchar.aviso)) { _ in
             // h8: el control del Centro de control abre la app escuchando.
