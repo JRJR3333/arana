@@ -26,6 +26,7 @@ enum Actions {
                 let secs = (s.minutes ?? 0) * 60 + (s.seconds ?? 0)
                 if secs <= 0 { fails.append("¿Para cuánto tiempo?") }
                 else if !(await addTimer(s.text ?? "Su temporizador", seconds: secs)) { fails.append("No tengo permiso para avisarle. Actívelo en Ajustes → Araña → Notificaciones.") }
+                else { Isla.temporizador(s.text ?? "Su temporizador", segundos: secs) }
             case "event":
                 fails.append(await addEvent(s.text ?? "Cita", when: s.when, minutes: s.minutes, duration: s.duration ?? 60))
             case "music":

@@ -20,5 +20,7 @@ final class Avisos: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound, .list])
+        // 0.52.0 (h8): el temporizador ha sonado; fuera de la Isla
+        if notification.request.identifier.hasPrefix("timer-") { Task { @MainActor in Isla.limpiar() } }
     }
 }

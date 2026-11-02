@@ -146,6 +146,7 @@ struct ContentView: View {
             if Escuchar.luzPendiente() { bubble = Linterna.alternarSuave() }
         }
         .onAppear {
+            Isla.limpiar()   // 0.52.0: temporizadores ya cumplidos fuera de la Isla
             if Escuchar.pendiente(), !ear.listening, !thinking { toggleEar() }
             if Escuchar.luzPendiente() { bubble = Linterna.alternarSuave() }
             // Sorpresa 0.50.0: los días señalados la araña lo dice al abrir (una vez al día). Ver Senalados.swift.

@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.51.0"
-    CURRENT_PROJECT_VERSION: "22"
+    MARKETING_VERSION: "0.52.0"
+    CURRENT_PROJECT_VERSION: "23"
 targets:
   Arana:
     type: application

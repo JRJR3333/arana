@@ -68,7 +68,7 @@
       "nombre": "La araña en la Isla Dinámica",
       "pts": 30,
       "estado": "en_curso",
-      "desc": "Live Activity en la app nativa: la araña aparece en la Isla Dinámica y en la pantalla bloqueada mientras piensa, y marca ✓ al terminar. Desde la 0.20.0 también hay widget (inicio y pantalla bloqueada) que abre la app escuchando. Programado y compilado; falta instalar la app (firma) para verlo. Después: control del Centro de control."
+      "desc": "Live Activity en la app nativa: la araña aparece en la Isla Dinámica y en la pantalla bloqueada mientras piensa, y marca ✓ al terminar. Desde la 0.20.0 también hay widget (inicio y pantalla bloqueada) que abre la app escuchando. Programado y compilado; falta instalar la app (firma) para verlo. Hay controles del Centro de control («Araña» y «Luz suave»), widget «Agenda de hoy» y, desde la 0.52.0, la cuenta atrás de los temporizadores en la Isla."
     }
   ]
 }

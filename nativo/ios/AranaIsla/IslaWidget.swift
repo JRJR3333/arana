@@ -22,10 +22,15 @@ struct IslaWidget: Widget {
             HStack(spacing: 12) {
                 MiniArana(paso: ctx.state.paso, color: Self.cian).frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(ctx.state.estado).font(.headline)
+                    Text(ctx.isStale && ctx.state.fin != nil ? "¡Tiempo!" : ctx.state.estado).font(.headline)
                     if !ctx.attributes.orden.isEmpty { Text("«\(ctx.attributes.orden)»").font(.caption).foregroundStyle(.secondary) }
                 }
                 Spacer()
+                // 0.52.0 (h8): la cuenta atrás del temporizador
+                if let r = Self.rango(ctx.state) {
+                    Text(timerInterval: r, countsDown: true).font(.title.monospacedDigit().bold())
+                        .foregroundStyle(Self.cian).frame(maxWidth: 110, alignment: .trailing)
+                }
             }
             .padding()
             .activityBackgroundTint(Color(red: 0.04, green: 0.05, blue: 0.09))
@@ -33,18 +38,39 @@ struct IslaWidget: Widget {
         } dynamicIsland: { ctx in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) { MiniArana(paso: ctx.state.paso, color: Self.cian).frame(width: 34, height: 34) }
-                DynamicIslandExpandedRegion(.trailing) { Text(ctx.state.estado).font(.caption.bold()).foregroundStyle(Self.cian) }
+                DynamicIslandExpandedRegion(.trailing) {
+                    if let r = Self.rango(ctx.state) {
+                        Text(timerInterval: r, countsDown: true).font(.title2.monospacedDigit().bold())
+                            .foregroundStyle(Self.cian).frame(maxWidth: 90, alignment: .trailing)
+                    } else {
+                        Text(ctx.state.estado).font(.caption.bold()).foregroundStyle(Self.cian)
+                    }
+                }
                 DynamicIslandExpandedRegion(.bottom) {
                     if !ctx.attributes.orden.isEmpty { Text("«\(ctx.attributes.orden)»").font(.caption).lineLimit(1) }
+                    else if ctx.state.fin != nil { Text(ctx.state.estado).font(.caption).lineLimit(1) }
                 }
             } compactLeading: {
                 MiniArana(paso: ctx.state.paso, color: Self.rosa).frame(width: 18, height: 18)
             } compactTrailing: {
-                Text(ctx.state.estado == "Hecho" ? "✓" : "…").font(.caption.bold()).foregroundStyle(Self.cian)
+                if let r = Self.rango(ctx.state) {
+                    Text(timerInterval: r, countsDown: true).font(.caption.monospacedDigit().bold())
+                        .foregroundStyle(Self.cian).frame(maxWidth: 44)
+                } else {
+                    Text(ctx.state.estado == "Hecho" ? "✓" : "…").font(.caption.bold()).foregroundStyle(Self.cian)
+                }
             } minimal: {
                 MiniArana(paso: ctx.state.paso, color: Self.rosa).frame(width: 16, height: 16)
             }
         }
+    }
+}
+
+extension IslaWidget {
+    /// El tramo de la cuenta atrás, si la actividad es un temporizador.
+    static func rango(_ e: AranaAttributes.ContentState) -> ClosedRange<Date>? {
+        guard let i = e.inicio, let f = e.fin, i < f else { return nil }
+        return i...f
     }
 }
 

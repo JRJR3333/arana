@@ -1,5 +1,27 @@
 [
  {
+  "v": "0.52.0",
+  "fecha": "2026-11-02",
+  "mejoras": [
+   {
+    "id": "0.52.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "Temporizador en la Isla Dinámica",
+    "detalle": "Cuando le pongo un temporizador en la app de iPhone, la cuenta atrás aparece en la Isla Dinámica (y en la pantalla bloqueada) con la araña al lado. Al cumplirse dice «¡Tiempo!» y suena el aviso de siempre; se quita sola al abrir la app o al sonar. Dado: 0,749 / 0,919 → sin sorpresa y sin condición.",
+    "probar": "En la app de iPhone diga «pon un temporizador de 2 minutos» y vaya a la pantalla de inicio: mire la Isla (o bloquee el iPhone)."
+   },
+   {
+    "id": "0.52.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Cuánto le queda al temporizador",
+    "detalle": "«Cuánto le queda al temporizador», «qué temporizadores tengo», «cuánto falta» (si hay alguno en marcha) y «cancela el temporizador». En local, sin gastar consultas; cancelar quita también el aviso y la cuenta atrás de la Isla.",
+    "probar": "Ponga un temporizador de 5 minutos, pregunte «cuánto queda» y después diga «cancela el temporizador»."
+   }
+  ]
+ },
+ {
   "v": "0.51.0",
   "fecha": "2026-11-01",
   "mejoras": [
