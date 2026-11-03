@@ -12,6 +12,7 @@ enum Actions {
     static func run(_ steps: [Step]) async -> [String] {
         var fails: [String] = []
         for s in steps {
+            Isla.haciendo(haciendo[s.type] ?? "Trabajando…")   // 0.53.0 (h8): la Isla dice qué hace
             switch s.type {
             case "open":
                 if let u = s.url.flatMap(URL.init(string:)) { _ = await UIApplication.shared.open(u) } else { fails.append("No sé abrir eso.") }
@@ -42,6 +43,11 @@ enum Actions {
         }
         return fails
     }
+
+    /// 0.53.0 (h8): lo que enseña la Isla mientras la araña camina por ella.
+    static let haciendo = ["open": "Abriendo…", "call": "Llamando…", "message": "Escribiendo…", "whatsapp": "Escribiendo…",
+                           "reminder": "Apuntando…", "timer": "Poniendo el temporizador…", "event": "Apuntando la cita…",
+                           "music": "Poniendo música…", "agenda": "Mirando su agenda…", "search": "Buscando…"]
 
     /// 0.46.0 (h7): llamar, SMS y WhatsApp, con el número o con el nombre del contacto (lo busca en Contactos).
     /// Devuelve lo que hay que decir si algo no salió; enviar lo pulsa Juan (iOS no deja que nadie más lo pulse).

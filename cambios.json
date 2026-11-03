@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.53.0",
+  "fecha": "2026-11-03",
+  "mejoras": [
+   {
+    "id": "0.53.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "La araña camina por la Isla mientras piensa",
+    "detalle": "Cuando le pide algo que tiene que pensar, la araña de la Isla Dinámica cambia de paso y se balancea, como si caminara, y dice lo que está haciendo en cada momento: «Pensando…», «Abriendo…», «Apuntando…», «Buscando…». Al terminar dice «Hecho» y se va.",
+    "probar": "En la app de iPhone pida algo que no sea inmediato, por ejemplo «apunta una cita mañana a las 10 con el dentista», y mire la Isla (o bloquee el iPhone) mientras responde."
+   },
+   {
+    "id": "0.53.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Alarmas a una hora",
+    "detalle": "«Despiértame a las 7», «pon una alarma mañana a las 8 y media», «qué alarmas tengo» y «quita las alarmas». En local, sin gastar consultas. Suena con un aviso aunque la app esté cerrada y, si no la quita, insiste a los cinco minutos.",
+    "probar": "En la app de iPhone diga «pon una alarma a las» y una hora dos minutos por delante; luego pregunte «qué alarmas tengo»."
+   },
+   {
+    "id": "0.53.0-3",
+    "tipo": "grafica",
+    "titulo": "Gráfica: lo que aprendo en cada versión",
+    "detalle": "En Evolución (web y Android), una gráfica de barras con las mejoras de las últimas 12 versiones: hacia el objetivo, de asistente y otras. Sale de cambios.json, sin datos nuevos. Dado: 0,888 / 0,377 → sin sorpresa; condición 3 (una gráfica nueva en Evolución con datos que ya existen).",
+    "probar": "Abra Ajustes → Evolución y baje hasta «Lo que aprendo en cada versión»."
+   }
+  ]
+ },
+ {
   "v": "0.52.0",
   "fecha": "2026-11-02",
   "mejoras": [

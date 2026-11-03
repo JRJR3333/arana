@@ -80,8 +80,10 @@ struct MiniArana: View {
     var color: Color
     var body: some View {
         Canvas { g, size in
-            let c = CGPoint(x: size.width / 2, y: size.height / 2)
             let r = min(size.width, size.height) / 2
+            // 0.53.0 (h8): con cada paso se balancea a un lado y a otro, como si caminara
+            let vaiven: [CGFloat] = [0, 0.06, 0, -0.06]
+            let c = CGPoint(x: size.width / 2 + vaiven[abs(paso) % 4] * r, y: size.height / 2)
             let alt: CGFloat = paso % 2 == 0 ? 0.12 : -0.12
             var patas = Path()
             for i in 0..<8 {

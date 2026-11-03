@@ -2163,6 +2163,19 @@ function chartSVG(){
     if(i%2===(days-1)%2) s+=`<text x="${x+w/2}" y="${Hc-3}" text-anchor="middle">${r.d.getDate()}</text>`; });
   return s+'</svg>';
 }
+/* 0.53.0 (condición 3 del dado): mejoras de cada versión, con lo que ya hay en cambios.json */
+function versionsChartSVG(){
+  const vs=CHANGES.slice(0,12).reverse(); if(!vs.length) return '<p class="note">Aún no hay versiones que contar.</p>';
+  const rows=vs.map(v=>{ const r={v:v.v,h:0,a:0,o:0}; for(const m of v.mejoras||[]){ if(/^h\d/.test(m.hito||'')) r.h++; else if(m.hito==='asistente') r.a++; else r.o++; } return r; });
+  const max=Math.max(3,...rows.map(r=>r.h+r.a+r.o)), Wc=320, Hc=96, top=8, bot=16, bw=Wc/rows.length, h=Hc-top-bot;
+  let s=`<svg class="chart" viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Mejoras de las últimas versiones">`;
+  for(const g of [0,.5,1]){ const y=top+h*(1-g); s+=`<line x1="0" x2="${Wc}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`; }
+  s+=`<text x="${Wc-2}" y="${top-1}" text-anchor="end">${max}</text>`;
+  rows.forEach((r,i)=>{ const x=i*bw+bw*.2, w=bw*.6; let y=top+h;
+    for(const [k,c] of [['h','var(--app-1)'],['a','var(--app-3)'],['o','var(--ring)']]){ if(!r[k]) continue; const hh=h*r[k]/max; y-=hh; s+=`<rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="2" fill="${c}"/>`; }
+    s+=`<text x="${x+w/2}" y="${Hc-3}" text-anchor="middle">${escapeHTML(String(r.v).split('.').slice(1,2).join(''))}</text>`; });
+  return s+'</svg>';
+}
 function openEvolution(){
   closeMenus(); here=openEvolution;
   const x=xpNow(), L=levelOf(x), st={ok:log.filter(e=>e.r==='ok').length,ko:log.filter(e=>e.r==='ko').length};
@@ -2188,6 +2201,8 @@ function openEvolution(){
     <div class="kpis"><div><b>${tot}</b><small>tareas valoradas</small></div><div><b>${pct}</b><small>aciertos</small></div><div><b>${learned}</b><small>frases aprendidas</small></div></div>
     <div><span class="lbl">Últimos 14 días</span>${chartSVG()}
       <div class="legend"><span><i style="background:var(--app-3)"></i>Bien</span><span><i style="background:var(--app-4)"></i>Mal</span></div></div>
+    <div><span class="lbl">Lo que aprendo en cada versión</span>${versionsChartSVG()}
+      <div class="legend"><span><i style="background:var(--app-1)"></i>Hacia el objetivo</span><span><i style="background:var(--app-3)"></i>Asistente</span><span><i style="background:var(--ring)"></i>Otras</span></div></div>
     <div><span class="lbl">Lo último</span>${ev.length?`<ul class="events">${ev.map(e=>{ const t=TAG[e.r]||[e.r,'']; const tx=e.r==='fact'?e.name:e.r==='up'?'Ahora es '+e.name:e.r==='update'?'Versión '+e.v:(e.a||'')+(e.p?(e.a?' · ':'')+'«'+e.p+'»':''); return `<li><span class="tag ${t[1]}">${t[0]}</span><span class="tx">${escapeHTML(tx)}</span><time>${fmtT(e.ts)}</time></li>`; }).join('')}</ul>`:'<p class="note">Aún no hay nada. Pídale una tarea y valórela al volver.</p>'}</div>
     <div><span class="lbl">Lo que sé de usted</span>${facts.length?`<ul class="learned">${facts.slice().reverse().map(f=>`<li><div class="ph"><b style="white-space:normal">${escapeHTML(f.t)}</b><small>${fmtT(f.ts)}</small></div><button type="button" data-fact="${escapeHTML(f.t)}" aria-label="Olvidar">×</button></li>`).join('')}</ul>`:'<p class="note">Nada aún. Cuénteme cosas de usted y las recordaré (necesito el cerebro activado).</p>'}</div>
     <div><span class="lbl">Lo que aún no sé hacer</span>${ws.length?`<ul class="learned wish">${ws.map(([k,w])=>`<li><div class="ph"><b>«${escapeHTML(k)}»</b><small>${w.n} ${w.n===1?'vez':'veces'}</small></div><button type="button" data-ask="${escapeHTML(k)}" class="${w.sent?'sent':''}">${w.sent?'Pedido':'Pedir a Claude'}</button></li>`).join('')}</ul>`:'<p class="note">Nada pendiente.</p>'}

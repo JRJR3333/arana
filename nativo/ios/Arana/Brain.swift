@@ -164,6 +164,11 @@ enum Brain {
             Memory.addTurn(user: text, reply: r)
             return r
         }
+        // 0.53.0 (asistente): alarmas a una hora («despiértame a las 7»), en local
+        if let r = await Alarmas.quick(t) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         // 0.48.0 (h7): recordatorios a una hora y temporizadores, en local y sin gastar API
         if let av = Recordar.paso(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
             let paso = av.0, dicho = av.1
