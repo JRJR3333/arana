@@ -97,6 +97,8 @@ enum Actions {
         n.title = "Araña"
         n.body = title
         n.sound = .default
+        // 0.54.0 (h8): cuándo acaba, para que el botón «Parar» de la Isla sepa cuál es
+        n.userInfo = ["fin": Date().addingTimeInterval(TimeInterval(seconds)).timeIntervalSince1970]
         let t = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(seconds), repeats: false)
         do { try await c.add(UNNotificationRequest(identifier: "timer-\(UUID().uuidString)", content: n, trigger: t)); return true }
         catch { return false }

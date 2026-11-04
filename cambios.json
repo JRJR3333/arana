@@ -1,5 +1,27 @@
 [
  {
+  "v": "0.54.0",
+  "fecha": "2026-11-04",
+  "mejoras": [
+   {
+    "id": "0.54.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "Botón «Parar» del temporizador en la Isla",
+    "detalle": "La cuenta atrás de la Isla Dinámica y de la pantalla bloqueada lleva un botón «Parar»: cancela ese temporizador y lo quita de la Isla sin abrir la app. Dado: 0,754 / 0,863 → sin sorpresa y sin condición.",
+    "probar": "En la app de iPhone diga «pon un temporizador de 2 minutos», bloquee el iPhone (o mantenga pulsada la Isla) y pulse «Parar». No debe sonar."
+   },
+   {
+    "id": "0.54.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Alarmas que se repiten",
+    "detalle": "«Despiértame los días laborables a las 7», «alarma todos los días a las 8», «pon una alarma los sábados a las 10». Suenan cada semana aunque la app esté cerrada e insisten a los cinco minutos. «Qué alarmas tengo» las cuenta como una sola y «quita las alarmas» las quita. En local, sin gastar consultas.",
+    "probar": "En la app de iPhone diga «despiértame de lunes a viernes a las 7» y luego «qué alarmas tengo»; debe decir «entre semana a las 7:00»."
+   }
+  ]
+ },
+ {
   "v": "0.53.0",
   "fecha": "2026-11-03",
   "mejoras": [

@@ -28,8 +28,11 @@ struct IslaWidget: Widget {
                 Spacer()
                 // 0.52.0 (h8): la cuenta atrás del temporizador
                 if let r = Self.rango(ctx.state) {
-                    Text(timerInterval: r, countsDown: true).font(.title.monospacedDigit().bold())
-                        .foregroundStyle(Self.cian).frame(maxWidth: 110, alignment: .trailing)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(timerInterval: r, countsDown: true).font(.title.monospacedDigit().bold())
+                            .foregroundStyle(Self.cian).frame(maxWidth: 110, alignment: .trailing)
+                        if !ctx.isStale { Self.parar(r.upperBound) }
+                    }
                 }
             }
             .padding()
@@ -48,7 +51,13 @@ struct IslaWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     if !ctx.attributes.orden.isEmpty { Text("«\(ctx.attributes.orden)»").font(.caption).lineLimit(1) }
-                    else if ctx.state.fin != nil { Text(ctx.state.estado).font(.caption).lineLimit(1) }
+                    else if let r = Self.rango(ctx.state) {
+                        HStack {
+                            Text(ctx.state.estado).font(.caption).lineLimit(1)
+                            Spacer()
+                            if !ctx.isStale { Self.parar(r.upperBound) }
+                        }
+                    }
                 }
             } compactLeading: {
                 MiniArana(paso: ctx.state.paso, color: Self.rosa).frame(width: 18, height: 18)
@@ -71,6 +80,15 @@ extension IslaWidget {
     static func rango(_ e: AranaAttributes.ContentState) -> ClosedRange<Date>? {
         guard let i = e.inicio, let f = e.fin, i < f else { return nil }
         return i...f
+    }
+
+    /// 0.54.0 (h8): «Parar» cancela ese temporizador sin abrir la app.
+    static func parar(_ fin: Date) -> some View {
+        Button(intent: PararTemporizadorIntent(fin: fin)) {
+            Label("Parar", systemImage: "stop.fill").font(.caption.bold())
+        }
+        .tint(rosa)
+        .buttonStyle(.borderedProminent)
     }
 }
 
