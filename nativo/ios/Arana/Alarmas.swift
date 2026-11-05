@@ -44,6 +44,7 @@ enum Alarmas {
         let primera = String(t.split(separator: " ").first ?? "")
         if Temporizadores.cancelar.contains(primera) || primera == "desactiva" {
             guard !todas.isEmpty else { return "No tiene ninguna alarma puesta." }
+            if let r = quitarUna(t, todas: todas, ahora: ahora, c: c) { return r }
             c.removePendingNotificationRequests(withIdentifiers: todas.map { $0.identifier })
             let n = Set(todas.map { $0.content.threadIdentifier }).count
             return n <= 1 ? "Alarma quitada." : "Quitadas sus \(n) alarmas."
@@ -125,5 +126,30 @@ enum Alarmas {
             }
         }
         return "Alarma puesta \(dicho) a las \(hora). Si no la quita, le insisto a los cinco minutos."
+    }
+
+    /// 0.55.0 (asistente): «quita la alarma de las 7» quita solo esa (y su insistencia, y sus días si se repite).
+    /// Sin hora, devuelve nil y se quitan todas como antes.
+    static func quitarUna(_ t: String, todas: [UNNotificationRequest], ahora: Date, c: UNUserNotificationCenter) -> String? {
+        guard let r = Recordar.grupos(#"\b(?:de|a) (las? \d.*)$"#, t),
+              let w = Recordar.cuando("a " + r[1], ahora: ahora, dia: "") else { return nil }
+        let cal = Calendar.current
+        let h = cal.component(.hour, from: w.0), m = cal.component(.minute, from: w.0)
+        var horas: [String: (Int, Int)] = [:]
+        for q in todas where q.identifier.hasSuffix("-a") {
+            guard let d = (q.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() else { continue }
+            horas[q.content.threadIdentifier] = (cal.component(.hour, from: d), cal.component(.minute, from: d))
+        }
+        var hilos = Set(horas.filter { $0.value == (h, m) }.keys)
+        // «la de las 7» sin decir mañana o tarde: vale la de las 7 o la de las 19
+        if hilos.isEmpty { hilos = Set(horas.filter { $0.value.0 % 12 == h % 12 && $0.value.1 == m }.keys) }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "H:mm"
+        guard !hilos.isEmpty else { return "No tiene ninguna alarma a las \(f.string(from: w.0)). Pregúnteme qué alarmas tiene." }
+        c.removePendingNotificationRequests(withIdentifiers: todas.filter { hilos.contains($0.content.threadIdentifier) }.map { $0.identifier })
+        let hm = hilos.first.flatMap { horas[$0] } ?? (h, m)
+        let dicha = String(format: "%d:%02d", hm.0, hm.1)
+        return hilos.count == 1 ? "Quitada la alarma de las \(dicha). Las demás siguen puestas." : "Quitadas \(hilos.count) alarmas a esa hora."
     }
 }

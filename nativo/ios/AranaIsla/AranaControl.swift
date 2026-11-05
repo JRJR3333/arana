@@ -29,3 +29,17 @@ struct LuzControl: ControlWidget {
         .description("La araña enciende la linterna flojita, o la apaga.")
     }
 }
+
+/// h8 (0.55.0): un temporizador de 5 minutos a un toque (té, pasta, una pausa). Se ve en la Isla con su botón «Parar».
+@available(iOS 18.0, *)
+struct TemporizadorControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.jrjr3333.arana.temporizador") {
+            ControlWidgetButton(action: TemporizadorRapidoIntent()) {
+                Label("5 minutos", systemImage: "timer")
+            }
+        }
+        .displayName("Temporizador 5 min")
+        .description("La araña pone un temporizador de 5 minutos.")
+    }
+}

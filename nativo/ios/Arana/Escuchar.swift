@@ -57,3 +57,31 @@ extension Escuchar {
         return true
     }
 }
+
+/// 0.55.0 (h8): «Temporizador 5 min» en el Centro de control, la pantalla bloqueada y el botón de Acción.
+/// Abre la araña y pone el temporizador como si usted se lo dijera (en local, con su cuenta atrás en la Isla).
+struct TemporizadorRapidoIntent: AppIntent {
+    static var title: LocalizedStringResource = "Temporizador de 5 minutos"
+    static var description = IntentDescription("Abre la araña y pone un temporizador de 5 minutos.")
+    static var openAppWhenRun: Bool = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        UserDefaults.standard.set("pon un temporizador de 5 minutos", forKey: Escuchar.claveOrden)
+        NotificationCenter.default.post(name: Escuchar.avisoOrden, object: nil)
+        return .result()
+    }
+}
+
+extension Escuchar {
+    static let claveOrden = "arana.ordenYa"
+    static let avisoOrden = Notification.Name("arana.orden")
+
+    /// La orden que dejó un control al abrir la app, una sola vez.
+    static func ordenPendiente() -> String? {
+        let d = UserDefaults.standard
+        guard let o = d.string(forKey: claveOrden), !o.isEmpty else { return nil }
+        d.removeObject(forKey: claveOrden)
+        return o
+    }
+}

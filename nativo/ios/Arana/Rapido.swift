@@ -9,6 +9,7 @@ enum Rapido {
     static func responder(_ t: String, ahora: Date = Date()) -> String? {
         if let r = azar(t) { return r }
         if let r = trabalenguas(t) { return r }
+        if let r = refran(t, ahora: ahora) { return r }
         if let r = deTi(t) { return r }
         if t.count < 45, t.contains("curiosidad") || t.contains("algo curioso") { return curiosidades.randomElement() }
         if t.count > 60 { return nil }
@@ -228,6 +229,26 @@ enum Rapido {
             return "El \(Int.random(in: a...b))."
         }
         return nil
+    }
+
+    /// Sorpresa 0.55.0: «dime un refrán» (uno al azar) y «el refrán de hoy» (el mismo todo el día). Se quita sin romper nada.
+    static let refranes = [
+        "A quien madruga, Dios le ayuda.", "Más vale tarde que nunca.", "No por mucho madrugar amanece más temprano.",
+        "En casa del herrero, cuchillo de palo.", "Quien mucho abarca, poco aprieta.", "A buen entendedor, pocas palabras bastan.",
+        "Más vale pájaro en mano que ciento volando.", "Cría fama y échate a dormir.", "Camarón que se duerme se lo lleva la corriente.",
+        "Del dicho al hecho hay mucho trecho.", "Ojos que no ven, corazón que no siente.", "Poco a poco hila la vieja el copo.",
+        "Hasta el cuarenta de mayo no te quites el sayo.", "Agua que no has de beber, déjala correr.", "Al mal tiempo, buena cara.",
+        "Quien siembra vientos recoge tempestades.", "Dime con quién andas y te diré quién eres.", "No hay mal que cien años dure.",
+        "El que la sigue la consigue.", "Por la boca muere el pez.", "Hilo a hilo se teje la tela.",
+    ]
+
+    static func refran(_ t: String, ahora: Date = Date()) -> String? {
+        guard t.count < 40, t.contains("refran") else { return nil }
+        if t.contains("hoy") || t.contains("del dia") {
+            let d = Calendar.current.ordinality(of: .day, in: .era, for: ahora) ?? 0
+            return "El de hoy: " + refranes[d % refranes.count]
+        }
+        return refranes.randomElement()! + (Int.random(in: 0..<4) == 0 ? " Este me lo enseñó mi abuela tejedora." : "")
     }
 
     /// Sorpresa 0.47.0: «dime un trabalenguas». Se quita sin romper nada.

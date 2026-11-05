@@ -145,10 +145,15 @@ struct ContentView: View {
             // 0.50.0 (h8): el control «Luz suave».
             if Escuchar.luzPendiente() { bubble = Linterna.alternarSuave() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: Escuchar.avisoOrden)) { _ in
+            // 0.55.0 (h8): el control «Temporizador 5 min» deja su orden y la hago como si me la dijera.
+            if !thinking, let o = Escuchar.ordenPendiente() { input = o; send() }
+        }
         .onAppear {
             Isla.limpiar()   // 0.52.0: temporizadores ya cumplidos fuera de la Isla
             if Escuchar.pendiente(), !ear.listening, !thinking { toggleEar() }
-            if Escuchar.luzPendiente() { bubble = Linterna.alternarSuave() }
+            if let o = Escuchar.ordenPendiente() { input = o; send() }
+            else if Escuchar.luzPendiente() { bubble = Linterna.alternarSuave() }
             // Sorpresa 0.50.0: los días señalados la araña lo dice al abrir (una vez al día). Ver Senalados.swift.
             else if let f = Senalados.saludoDeHoy() { bubble = f }
         }

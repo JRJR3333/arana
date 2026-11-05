@@ -1,5 +1,34 @@
 [
  {
+  "v": "0.55.0",
+  "fecha": "2026-11-05",
+  "mejoras": [
+   {
+    "id": "0.55.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "Temporizador de 5 minutos en el Centro de control",
+    "detalle": "Nuevo control «Temporizador 5 min» para el Centro de control, la pantalla bloqueada y el botón de Acción (iOS 18): abre la araña y pone el temporizador en local, con su cuenta atrás y su botón «Parar» en la Isla. Dado: 0,239 / 0,974 → sorpresa sí, sin condición.",
+    "probar": "Centro de control → «+» → Añadir un control → busque «Araña» → «Temporizador 5 min». Tóquelo: la araña se abre, dice «Temporizador de 5 minutos» y aparece la cuenta atrás en la Isla."
+   },
+   {
+    "id": "0.55.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Quitar una sola alarma por su hora",
+    "detalle": "«Quita la alarma de las 7» quita solo esa (con su insistencia y, si se repite, todos sus días); las demás siguen puestas. Si no dice mañana o tarde, vale la de las 7 o la de las 19. «Quita las alarmas» sigue quitándolas todas. En local, sin gastar consultas.",
+    "probar": "En la app de iPhone ponga «despiértame a las 7» y «despiértame a las 8», diga «quita la alarma de las 7» y luego «qué alarmas tengo»: solo debe quedar la de las 8."
+   },
+   {
+    "id": "0.55.0-3",
+    "tipo": "sorpresa",
+    "titulo": "Refranes",
+    "detalle": "«Dime un refrán» y la araña le dice uno al azar; «el refrán de hoy» da el mismo todo el día. Algunos los aprendió de su abuela tejedora. Se quita sin romper nada.",
+    "probar": "En la app de iPhone diga «dime un refrán» y luego «cuál es el refrán de hoy» dos veces: el segundo debe repetirse."
+   }
+  ]
+ },
+ {
   "v": "0.54.0",
   "fecha": "2026-11-04",
   "mejoras": [
