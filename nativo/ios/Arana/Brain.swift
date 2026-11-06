@@ -143,6 +143,11 @@ enum Brain {
             Memory.olvidarHilo()
             return "De acuerdo. Hablemos de otra cosa."
         }
+        // 0.56.0 (iniciativa): «sí» o «no» a la alarma que le propuse en «buenas noches»
+        if let r = await Alarmas.contestar(t) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         if let r = Recuerdo.responder(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
             Memory.addTurn(user: text, reply: r)
             return r
@@ -154,7 +159,8 @@ enum Brain {
         }
         // 0.49.0 (h7, de noche): «buenas noches» repasa lo de mañana, en local
         if ["buenas noches", "me voy a dormir", "me voy a la cama", "hasta manana", "a dormir"].contains(t) {
-            let r = await Rapido.buenasNoches()
+            var r = await Rapido.buenasNoches()
+            if let p = await Alarmas.propuesta() { r += " " + p }
             Memory.addTurn(user: text, reply: r)
             return r
         }

@@ -99,6 +99,19 @@ struct BuenasNochesArana: AppIntent {
     }
 }
 
+/// 0.56.0 (h7): «Oye Siri, qué alarmas tengo en Araña»: las dice sin abrir la app ni gastar API.
+struct AlarmasArana: AppIntent {
+    static var title: LocalizedStringResource = "Mis alarmas"
+    static var description = IntentDescription("La araña le dice qué alarmas tiene puestas, sin abrir la app.")
+    static var openAppWhenRun: Bool = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let r = await Alarmas.quick("que alarmas tengo") ?? "No tiene ninguna alarma puesta."
+        return .result(dialog: IntentDialog(stringLiteral: r))
+    }
+}
+
 struct AranaShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AskArana(),
@@ -133,5 +146,9 @@ struct AranaShortcuts: AppShortcutsProvider {
         AppShortcut(intent: LuzSuaveIntent(),
                     phrases: ["Luz suave con \(.applicationName)", "\(.applicationName), luz suave", "Linterna flojita con \(.applicationName)"],
                     shortTitle: "Luz suave", systemImageName: "flashlight.on.fill")
+        // 0.56.0 (h7): «Oye Siri, qué alarmas tengo en Araña»
+        AppShortcut(intent: AlarmasArana(),
+                    phrases: ["Qué alarmas tengo en \(.applicationName)", "Mis alarmas de \(.applicationName)", "\(.applicationName), qué alarmas tengo"],
+                    shortTitle: "Mis alarmas", systemImageName: "alarm")
     }
 }

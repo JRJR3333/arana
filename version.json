@@ -1,7 +1,8 @@
 {
- "version": "0.55.0",
- "date": "2026-11-05",
+ "version": "0.56.0",
+ "date": "2026-11-06",
  "notes": [
+  "Ya le digo sus alarmas por Siri («qué alarmas tengo en Araña»), la alarma se pospone o se apaga desde el aviso, en «buenas noches» le pregunto si le despierto como la última vez y sé en qué fase está la luna.",
   "Ya pongo un temporizador de 5 minutos desde el Centro de control, quito una sola alarma por su hora («quita la alarma de las 7») y me sé unos cuantos refranes.",
   "Ya paro el temporizador desde la Isla Dinámica con un botón, y le pongo alarmas que se repiten: «despiértame los días laborables a las 7».",
   "Ya le despierto: «despiértame a las 7» o «pon una alarma mañana a las 8» en la app de iPhone; le insisto a los cinco minutos y le digo qué alarmas tiene o las quito.",

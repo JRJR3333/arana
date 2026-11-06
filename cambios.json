@@ -1,5 +1,41 @@
 [
  {
+  "v": "0.56.0",
+  "fecha": "2026-11-06",
+  "mejoras": [
+   {
+    "id": "0.56.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "«Oye Siri, qué alarmas tengo en Araña»",
+    "detalle": "Nueva frase de Siri: le dice las alarmas que tiene puestas (las que se repiten cuentan como una) sin abrir la app ni gastar consultas. Dado: 0,219 / 0,521 → sorpresa sí; condición 8 (una iniciativa que la araña propone, siempre preguntando).",
+    "probar": "Ponga «despiértame a las 7» en la app y luego diga «Oye Siri, qué alarmas tengo en Araña»: debe contestar «Tiene una alarma mañana a las 7:00»."
+   },
+   {
+    "id": "0.56.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Posponer o apagar la alarma desde el aviso",
+    "detalle": "El aviso de la alarma lleva dos botones: «Posponer 10 min» (vuelve a sonar a los diez minutos) y «Apagar». Los dos quitan la insistencia de los cinco minutos. Sirve para las alarmas puestas desde esta versión.",
+    "probar": "Diga «pon una alarma a las …» para dentro de dos minutos. Cuando suene, mantenga pulsado el aviso y toque «Posponer 10 min»: debe volver a sonar a los diez minutos, y no a los cinco."
+   },
+   {
+    "id": "0.56.0-3",
+    "tipo": "iniciativa",
+    "titulo": "Le propongo la alarma de mañana",
+    "detalle": "Condición 8 del dado: al decirle «buenas noches», si no tiene alarma para mañana, la araña le pregunta si le despierta a la hora de la última vez. Solo pone la alarma si usted dice «sí»; con «no» lo deja estar. La pregunta vale diez minutos.",
+    "probar": "Ponga y quite una alarma («despiértame a las 7:30», «quita las alarmas»). Diga «buenas noches»: debe preguntarle si le despierta a las 7:30. Conteste «sí» y luego «qué alarmas tengo»."
+   },
+   {
+    "id": "0.56.0-4",
+    "tipo": "sorpresa",
+    "titulo": "La luna",
+    "detalle": "«Qué luna hay hoy» o «cuándo es la luna llena»: le digo la fase, cuánto se ilumina y cuántos días faltan para la llena. Calculado en el teléfono, sin internet. Se quita sin romper nada.",
+    "probar": "En la app de iPhone diga «qué luna hay hoy»: debe decir la fase, el porcentaje y los días que faltan para la llena."
+   }
+  ]
+ },
+ {
   "v": "0.55.0",
   "fecha": "2026-11-05",
   "mejoras": [

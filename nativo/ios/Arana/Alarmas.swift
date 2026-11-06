@@ -33,11 +33,14 @@ enum Alarmas {
                 n.body = texto
                 n.sound = .default
                 n.threadIdentifier = id
+                n.categoryIdentifier = categoria
                 let comp = cal.dateComponents([.year, .month, .day, .hour, .minute], from: w.0.addingTimeInterval(extra))
                 do { try await c.add(UNNotificationRequest(identifier: "\(id)-\(k)", content: n,
                                                            trigger: UNCalendarNotificationTrigger(dateMatching: comp, repeats: false))) }
                 catch { return "No he podido poner la alarma." }
             }
+            // 0.56.0: me acuerdo de la última hora de despertarse, para proponerla en «buenas noches»
+            if cal.component(.hour, from: w.0) < 12 { UserDefaults.standard.set(f.string(from: w.0), forKey: ultimaKey) }
             return "Alarma puesta para \(Recordar.dicho(w.0, ahora: ahora)). Si no la quita, le insisto a los cinco minutos."
         }
         let todas = await c.pendingNotificationRequests().filter { $0.identifier.hasPrefix("alarm-") }
@@ -113,6 +116,7 @@ enum Alarmas {
                 n.body = texto
                 n.sound = .default
                 n.threadIdentifier = id
+                n.categoryIdentifier = categoria
                 n.userInfo = ["dias": dicho]
                 // cinco minutos después; si pasa de medianoche, es ya el día siguiente
                 let total = h * 60 + m + extra
@@ -151,5 +155,65 @@ enum Alarmas {
         let hm = hilos.first.flatMap { horas[$0] } ?? (h, m)
         let dicha = String(format: "%d:%02d", hm.0, hm.1)
         return hilos.count == 1 ? "Quitada la alarma de las \(dicha). Las demás siguen puestas." : "Quitadas \(hilos.count) alarmas a esa hora."
+    }
+
+    // MARK: 0.56.0
+
+    static let categoria = "arana.alarma"
+    static let ultimaKey = "arana.alarma.ultima", propKey = "arana.alarma.propuesta"
+
+    /// Los botones del aviso de la alarma: «Posponer 10 min» y «Apagar».
+    static func registrarBotones() {
+        let pos = UNNotificationAction(identifier: "posponer", title: "Posponer 10 min", options: [])
+        let apa = UNNotificationAction(identifier: "apagar", title: "Apagar", options: [.destructive])
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(identifier: categoria, actions: [pos, apa], intentIdentifiers: [], options: [])
+        ])
+    }
+
+    /// 0.56.0 (asistente): lo que hace cada botón del aviso, sin abrir la app.
+    /// Apagar o posponer quita la insistencia de los cinco minutos (en las que se repiten, la semana sigue igual).
+    static func boton(_ accion: String, id: String, hilo: String) async {
+        guard id.hasPrefix("alarm-"), accion == "posponer" || accion == "apagar" else { return }
+        let c = UNUserNotificationCenter.current()
+        c.removePendingNotificationRequests(withIdentifiers: [hilo + "-b"])
+        c.removeDeliveredNotifications(withIdentifiers: [id])
+        guard accion == "posponer" else { return }
+        let n = UNMutableNotificationContent()
+        n.title = "Araña · alarma"
+        n.body = "Ya han pasado diez minutos. Arriba."
+        n.sound = .default
+        n.threadIdentifier = hilo
+        n.categoryIdentifier = categoria
+        try? await c.add(UNNotificationRequest(identifier: "\(hilo)-p\(Int(Date().timeIntervalSince1970))", content: n,
+                                               trigger: UNTimeIntervalNotificationTrigger(timeInterval: 600, repeats: false)))
+    }
+
+    /// 0.56.0 (iniciativa): en «buenas noches», si no tiene alarma para mañana, le propongo la de la última vez.
+    /// Solo pregunto: no pongo nada hasta que diga «sí».
+    static func propuesta(ahora: Date = Date()) async -> String? {
+        let d = UserDefaults.standard
+        guard let hora = d.string(forKey: ultimaKey) else { return nil }
+        let limite = ahora.addingTimeInterval(16 * 3600)
+        let hay = await UNUserNotificationCenter.current().pendingNotificationRequests().contains { r in
+            guard r.identifier.hasPrefix("alarm-"), let t = (r.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() else { return false }
+            return t < limite
+        }
+        guard !hay else { return nil }
+        d.set(["hora": hora, "t": ahora.timeIntervalSince1970], forKey: propKey)
+        return "No tiene alarma para mañana. ¿Le despierto a las \(hora), como la última vez? Dígame «sí» o «no»."
+    }
+
+    /// La respuesta a esa pregunta, durante los diez minutos siguientes.
+    static func contestar(_ t: String, ahora: Date = Date()) async -> String? {
+        let d = UserDefaults.standard
+        guard let p = d.dictionary(forKey: propKey), let hora = p["hora"] as? String, let ts = p["t"] as? Double else { return nil }
+        guard ahora.timeIntervalSince1970 - ts < 600 else { d.removeObject(forKey: propKey); return nil }
+        let si = ["si", "vale", "si por favor", "si gracias", "de acuerdo", "venga", "claro", "por favor", "ponla"]
+        let no = ["no", "no gracias", "mejor no", "ahora no", "no hace falta"]
+        guard si.contains(t) || no.contains(t) else { return nil }
+        d.removeObject(forKey: propKey)
+        if no.contains(t) { return "Como usted diga. Mañana sin alarma." }
+        return await quick("despiertame a las \(hora)", ahora: ahora) ?? "No he podido poner la alarma."
     }
 }

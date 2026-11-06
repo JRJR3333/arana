@@ -11,6 +11,7 @@ enum Rapido {
         if let r = trabalenguas(t) { return r }
         if let r = refran(t, ahora: ahora) { return r }
         if let r = deTi(t) { return r }
+        if let r = luna(t, ahora: ahora) { return r }
         if t.count < 45, t.contains("curiosidad") || t.contains("algo curioso") { return curiosidades.randomElement() }
         if t.count > 60 { return nil }
         if ["que hora es", "que hora tienes", "dime la hora", "hora"].contains(t) || t.hasPrefix("que hora es") {
@@ -24,6 +25,34 @@ enum Rapido {
         if let r = convertir(t) { return r }
         if let r = queDia(t, ahora: ahora) { return r }
         return nil
+    }
+
+    /// 0.56.0 (sorpresa): «qué luna hay hoy», «cuándo es la luna llena». Calculada en local, sin internet.
+    static func luna(_ t: String, ahora: Date = Date()) -> String? {
+        guard t.count < 45, t.contains("luna"), !t.contains("lunar"),
+              ["que", "como", "cual", "cuando", "fase", "hay", "esta", "hoy"].contains(where: { t.contains($0) }) else { return nil }
+        let sin = 29.530588853
+        let ref = 947182440.0 // luna nueva del 6 de enero de 2000, 18:14 UTC
+        var edad = ((ahora.timeIntervalSince1970 - ref) / 86400).truncatingRemainder(dividingBy: sin)
+        if edad < 0 { edad += sin }
+        let luz = Int(((1 - cos(2 * Double.pi * edad / sin)) / 2 * 100).rounded())
+        let fase: String
+        switch edad {
+        case ..<1, (sin - 1)...: fase = "luna nueva"
+        case ..<6.4: fase = "luna creciente"
+        case ..<8.4: fase = "cuarto creciente"
+        case ..<13.8: fase = "luna creciente, casi llena"
+        case ..<15.8: fase = "luna llena"
+        case ..<21.2: fase = "luna menguante"
+        case ..<23.2: fase = "cuarto menguante"
+        default: fase = "luna menguante, casi nueva"
+        }
+        var faltan = Int((14.765 - edad).rounded())
+        if faltan < 0 { faltan = Int((14.765 + sin - edad).rounded()) }
+        var r = "Hoy hay \(fase), iluminada al \(luz) %."
+        if fase == "luna llena" { r += " Buena noche para tejer: se ve cada hilo." }
+        else { r += faltan <= 1 ? " Mañana es luna llena." : " Faltan \(faltan) días para la llena." }
+        return r
     }
 
     /// 0.49.0 (h7, de noche): lo que tiene mañana y una despedida. En local, sin API.
