@@ -1,5 +1,27 @@
 [
  {
+  "v": "0.57.0",
+  "fecha": "2026-11-07",
+  "mejoras": [
+   {
+    "id": "0.57.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "«Oye Siri, pon un temporizador con Araña»",
+    "detalle": "Nueva frase de Siri: pregunta «¿De cuántos minutos?» y pone el temporizador sin abrir la app, con su cuenta atrás y el botón «Parar» en la Isla Dinámica. Es la décima frase de Siri, el máximo que permite iOS. Dado: 0,707 / 0,631 → sin sorpresa y sin condición.",
+    "probar": "Diga «Oye Siri, pon un temporizador con Araña», conteste «2»: debe decir «Temporizador de 2 minutos» y verse la cuenta atrás en la Isla."
+   },
+   {
+    "id": "0.57.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Alargar el temporizador",
+    "detalle": "«Añade 5 minutos al temporizador», «5 minutos más» o «dame otros 10 minutos» alargan el temporizador que antes acaba, en local y sin gastar consultas; la Isla se pone al día.",
+    "probar": "Ponga «pon un temporizador de 2 minutos» y luego diga «5 minutos más»: debe contestar «Hecho: 5 minutos más. Ahora quedan 6 minutos y …»."
+   }
+  ]
+ },
+ {
   "v": "0.56.0",
   "fecha": "2026-11-06",
   "mejoras": [

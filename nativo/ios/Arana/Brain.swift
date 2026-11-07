@@ -175,6 +175,11 @@ enum Brain {
             Memory.addTurn(user: text, reply: r)
             return r
         }
+        // 0.57.0 (asistente): «añade 5 minutos al temporizador», «5 minutos más», en local
+        if let r = await Temporizadores.alargar(t) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         // 0.48.0 (h7): recordatorios a una hora y temporizadores, en local y sin gastar API
         if let av = Recordar.paso(t, original: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
             let paso = av.0, dicho = av.1

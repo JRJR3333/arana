@@ -112,6 +112,29 @@ struct AlarmasArana: AppIntent {
     }
 }
 
+/// 0.57.0 (h7): «Oye Siri, pon un temporizador con Araña»: pregunta cuántos minutos y lo pone sin abrir la app,
+/// con su cuenta atrás en la Isla. Es LiveActivityIntent para que iOS deje encender la Isla desde Siri.
+/// Ojo: con este ya hay 10 frases de Siri, el máximo que permite iOS.
+struct TemporizadorArana: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Poner un temporizador"
+    static var description = IntentDescription("La araña pone un temporizador de los minutos que usted diga, sin abrir la app.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Minutos", requestValueDialog: IntentDialog("¿De cuántos minutos?"))
+    var minutos: Int
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let m = max(1, min(600, minutos))
+        guard await Actions.addTimer("Su temporizador", seconds: m * 60) else {
+            return .result(dialog: IntentDialog(stringLiteral: "No tengo permiso para avisarle. Actívelo en Ajustes → Araña → Notificaciones."))
+        }
+        Isla.temporizador("Su temporizador", segundos: m * 60)
+        let dicho = m % 60 == 0 ? "\(m / 60) hora\(m == 60 ? "" : "s")" : "\(m) minuto\(m == 1 ? "" : "s")"
+        return .result(dialog: IntentDialog(stringLiteral: "Temporizador de \(dicho). Le aviso al terminar."))
+    }
+}
+
 struct AranaShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AskArana(),
@@ -150,5 +173,9 @@ struct AranaShortcuts: AppShortcutsProvider {
         AppShortcut(intent: AlarmasArana(),
                     phrases: ["Qué alarmas tengo en \(.applicationName)", "Mis alarmas de \(.applicationName)", "\(.applicationName), qué alarmas tengo"],
                     shortTitle: "Mis alarmas", systemImageName: "alarm")
+        // 0.57.0 (h7): «Oye Siri, pon un temporizador con Araña» (la décima: no caben más)
+        AppShortcut(intent: TemporizadorArana(),
+                    phrases: ["Pon un temporizador con \(.applicationName)", "Temporizador con \(.applicationName)", "\(.applicationName), pon un temporizador"],
+                    shortTitle: "Temporizador", systemImageName: "timer")
     }
 }
