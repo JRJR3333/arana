@@ -8,7 +8,7 @@ struct AranaIslaBundle: WidgetBundle {
         IslaWidget()
         AranaWidget()
         AgendaWidget()
-        if #available(iOS 18.0, *) { AranaControl(); LuzControl(); TemporizadorControl() }
+        if #available(iOS 18.0, *) { AranaControl(); LuzControl(); TemporizadorControl(); AlarmaControl() }
     }
 }
 

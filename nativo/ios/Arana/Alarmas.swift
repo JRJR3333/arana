@@ -9,6 +9,8 @@ enum Alarmas {
     static func quick(_ t: String, ahora: Date = Date()) async -> String? {
         guard t.contains("alarma") || t.hasPrefix("despiertame") || t.hasPrefix("despierteme") else { return nil }
         let c = UNUserNotificationCenter.current()
+        if let r = await deSiempre(t, ahora: ahora) { return r }
+        if let r = await cuantoFalta(t, ahora: ahora, c: c) { return r }
         if let r = await repetida(t, ahora: ahora, c: c) { return r }
         if let r = Recordar.grupos(#"^(?:pon(?:me)? |programa |crea )?(?:una )?alarma(?: para)?(?: (manana|pasado manana))? (a las? .+)$|^despiert[ae]me(?: (manana|pasado manana))? (a las? .+)$"#, t) {
             let dia = [r[1], r[3]].first { !$0.isEmpty } ?? ""
@@ -22,9 +24,7 @@ enum Alarmas {
             guard (try? await c.requestAuthorization(options: [.alert, .sound])) == true else {
                 return "No tengo permiso para avisarle. Actívelo en Ajustes → Araña → Notificaciones."
             }
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "es_ES")
-            f.dateFormat = "H:mm"
+            let f = hm
             let id = "alarm-\(UUID().uuidString)"
             let cal = Calendar.current
             for (k, extra, texto) in [("a", 0.0, "Arriba. Son las \(f.string(from: w.0))."), ("b", 300.0, "Sigo aquí. Ya son las \(f.string(from: w.0.addingTimeInterval(300))).")] {
@@ -63,9 +63,7 @@ enum Alarmas {
         }
         let horas = porHilo.values.sorted { $0.0 < $1.0 }
         guard !horas.isEmpty else { return "No tiene ninguna alarma puesta." }
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.dateFormat = "H:mm"
+        let f = hm
         let lista = horas.prefix(4).map { h in h.1.map { "\($0) a las \(f.string(from: h.0))" } ?? Recordar.dicho(h.0, ahora: ahora) }
         return horas.count == 1 ? "Tiene una alarma \(lista[0])." : "Tiene \(horas.count) alarmas: " + lista.joined(separator: ", ") + "."
     }
@@ -104,9 +102,7 @@ enum Alarmas {
         }
         let cal = Calendar.current
         let h = cal.component(.hour, from: w.0), m = cal.component(.minute, from: w.0)
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.dateFormat = "H:mm"
+        let f = hm
         let id = "alarm-\(UUID().uuidString)"
         let hora = f.string(from: w.0), insiste = f.string(from: w.0.addingTimeInterval(300))
         for d in dias {
@@ -147,14 +143,55 @@ enum Alarmas {
         var hilos = Set(horas.filter { $0.value == (h, m) }.keys)
         // «la de las 7» sin decir mañana o tarde: vale la de las 7 o la de las 19
         if hilos.isEmpty { hilos = Set(horas.filter { $0.value.0 % 12 == h % 12 && $0.value.1 == m }.keys) }
+        let f = hm
+        guard !hilos.isEmpty else { return "No tiene ninguna alarma a las \(f.string(from: w.0)). Pregúnteme qué alarmas tiene." }
+        c.removePendingNotificationRequests(withIdentifiers: todas.filter { hilos.contains($0.content.threadIdentifier) }.map { $0.identifier })
+        let par = hilos.first.flatMap { horas[$0] } ?? (h, m)
+        let dicha = String(format: "%d:%02d", par.0, par.1)
+        return hilos.count == 1 ? "Quitada la alarma de las \(dicha). Las demás siguen puestas." : "Quitadas \(hilos.count) alarmas a esa hora."
+    }
+
+    // MARK: 0.58.0
+
+    /// 0.58.0 (resta, condición nº 4): un solo formato «7:05» para todas las alarmas, en vez de uno en cada función.
+    static let hm: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "es_ES")
         f.dateFormat = "H:mm"
-        guard !hilos.isEmpty else { return "No tiene ninguna alarma a las \(f.string(from: w.0)). Pregúnteme qué alarmas tiene." }
-        c.removePendingNotificationRequests(withIdentifiers: todas.filter { hilos.contains($0.content.threadIdentifier) }.map { $0.identifier })
-        let hm = hilos.first.flatMap { horas[$0] } ?? (h, m)
-        let dicha = String(format: "%d:%02d", hm.0, hm.1)
-        return hilos.count == 1 ? "Quitada la alarma de las \(dicha). Las demás siguen puestas." : "Quitadas \(hilos.count) alarmas a esa hora."
+        return f
+    }()
+
+    /// 0.58.0 (asistente): «despiértame como siempre», «pon la alarma de siempre» (también el control del Centro de control).
+    /// Usa la última hora de despertarse que me dijo; si no la sé, se la pregunto.
+    static let siempre = ["despiertame como siempre", "despierteme como siempre", "despiertame a la hora de siempre",
+                          "pon la alarma de siempre", "ponme la alarma de siempre", "la alarma de siempre", "alarma de siempre",
+                          "pon la alarma como siempre", "alarma como siempre"]
+
+    static func deSiempre(_ t: String, ahora: Date) async -> String? {
+        guard siempre.contains(t) else { return nil }
+        guard let hora = UserDefaults.standard.string(forKey: ultimaKey) else {
+            return "Aún no sé a qué hora se levanta. Dígame «despiértame a las 7» y me la aprendo."
+        }
+        return await quick("despiertame a las \(hora)", ahora: ahora)
+    }
+
+    /// 0.58.0 (asistente): «cuánto falta para mi alarma», «cuándo suena la alarma». La próxima, sea cual sea.
+    static func cuantoFalta(_ t: String, ahora: Date, c: UNUserNotificationCenter) async -> String? {
+        guard ["cuanto falta", "cuanto queda", "cuanto me queda", "cuando suena", "cuando me despiertas", "cuando sonara"]
+                .contains(where: { t.hasPrefix($0) }) else { return nil }
+        let proxima = await c.pendingNotificationRequests()
+            .filter { $0.identifier.hasPrefix("alarm-") && !$0.identifier.hasSuffix("-b") }
+            .compactMap { r -> Date? in
+                if let k = r.trigger as? UNCalendarNotificationTrigger { return k.nextTriggerDate() }
+                return (r.trigger as? UNTimeIntervalNotificationTrigger)?.nextTriggerDate()
+            }
+            .filter { $0 > ahora }
+            .min()
+        guard let d = proxima else { return "No tiene ninguna alarma puesta." }
+        let s = d.timeIntervalSince(ahora)
+        let falta = s < 60 ? "menos de un minuto" : Temporizadores.resto((s / 60).rounded(.up) * 60)
+        let verbo = falta.hasPrefix("1 ") || falta.hasPrefix("menos") ? "Falta" : "Faltan"
+        return "\(verbo) \(falta) para su alarma \(Recordar.dicho(d, ahora: ahora))."
     }
 
     // MARK: 0.56.0

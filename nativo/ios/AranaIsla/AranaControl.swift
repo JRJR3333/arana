@@ -43,3 +43,17 @@ struct TemporizadorControl: ControlWidget {
         .description("La araña pone un temporizador de 5 minutos.")
     }
 }
+
+/// h8 (0.58.0): la alarma de siempre a un toque, antes de dormir. Sin hablar.
+@available(iOS 18.0, *)
+struct AlarmaControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.jrjr3333.arana.alarma") {
+            ControlWidgetButton(action: AlarmaSiempreIntent()) {
+                Label("Alarma de siempre", systemImage: "alarm")
+            }
+        }
+        .displayName("Alarma de siempre")
+        .description("La araña le pone la alarma a la hora de la última vez.")
+    }
+}

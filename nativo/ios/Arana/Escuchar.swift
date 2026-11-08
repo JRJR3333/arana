@@ -85,3 +85,18 @@ extension Escuchar {
         return o
     }
 }
+
+/// 0.58.0 (h8): «Alarma de siempre» en el Centro de control, la pantalla bloqueada y el botón de Acción.
+/// Abre la araña y le pone la alarma a la hora de la última vez (o le pregunta la hora si aún no la sabe).
+struct AlarmaSiempreIntent: AppIntent {
+    static var title: LocalizedStringResource = "Alarma de siempre"
+    static var description = IntentDescription("Abre la araña y pone la alarma a la hora de siempre.")
+    static var openAppWhenRun: Bool = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        UserDefaults.standard.set("pon la alarma de siempre", forKey: Escuchar.claveOrden)
+        NotificationCenter.default.post(name: Escuchar.avisoOrden, object: nil)
+        return .result()
+    }
+}

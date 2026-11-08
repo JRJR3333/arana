@@ -1,5 +1,41 @@
 [
  {
+  "v": "0.58.0",
+  "fecha": "2026-11-08",
+  "mejoras": [
+   {
+    "id": "0.58.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "Control «Alarma de siempre»",
+    "detalle": "Nuevo control para el Centro de control, la pantalla bloqueada o el botón de Acción: un toque abre la araña y pone la alarma a la hora de la última vez que usted se despertó con ella (si aún no la sabe, le pide la hora). Dado: 0,471 / 0,499 → sorpresa sí; condición 4 (quitar o simplificar algo que sobre).",
+    "probar": "Centro de control → «+» → Añadir un control → Araña → «Alarma de siempre». Tóquelo: debe decir «Alarma puesta para mañana a las …»."
+   },
+   {
+    "id": "0.58.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "«Cuánto falta para mi alarma» y «despiértame como siempre»",
+    "detalle": "«Cuánto falta para mi alarma» o «cuándo suena la alarma» dicen el tiempo que queda hasta la próxima (también las que se repiten o las pospuestas). «Despiértame como siempre» o «pon la alarma de siempre» la ponen a su hora de siempre. En local, sin gastar consultas.",
+    "probar": "Diga «despiértame a las 7» y luego «cuánto falta para mi alarma»: debe contestar «Faltan … para su alarma mañana a las 7:00»."
+   },
+   {
+    "id": "0.58.0-3",
+    "tipo": "arreglo",
+    "titulo": "Menos repetición en las alarmas y versión al día",
+    "detalle": "Condición del dado nº 4 (restar): las alarmas usaban cuatro formatos de hora iguales, uno por función; ahora es uno solo. Además la app decía que era la 0.55.0 en las peticiones que envía: ya dice su versión de verdad.",
+    "probar": "Diga «qué alarmas tengo»: debe contestar igual que antes, con la hora en formato 7:00."
+   },
+   {
+    "id": "0.58.0-4",
+    "tipo": "sorpresa",
+    "titulo": "A qué hora sale el sol",
+    "detalle": "«A qué hora sale el sol», «cuándo se pone el sol mañana» o «cuántas horas de luz hay hoy»: la araña lo calcula para Madrid en el iPhone, sin internet. Se quita sin romper nada.",
+    "probar": "Diga «a qué hora sale el sol»: debe contestar «En Madrid, hoy sale el sol a las … y se pone a las …»."
+   }
+  ]
+ },
+ {
   "v": "0.57.0",
   "fecha": "2026-11-07",
   "mejoras": [

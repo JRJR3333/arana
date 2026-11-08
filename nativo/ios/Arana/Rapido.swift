@@ -12,6 +12,7 @@ enum Rapido {
         if let r = refran(t, ahora: ahora) { return r }
         if let r = deTi(t) { return r }
         if let r = luna(t, ahora: ahora) { return r }
+        if let r = sol(t, ahora: ahora) { return r }
         if t.count < 45, t.contains("curiosidad") || t.contains("algo curioso") { return curiosidades.randomElement() }
         if t.count > 60 { return nil }
         if ["que hora es", "que hora tienes", "dime la hora", "hora"].contains(t) || t.hasPrefix("que hora es") {
@@ -242,6 +243,41 @@ enum Rapido {
         if meta < hoy { c.year! += 1; meta = cal.date(from: c) ?? meta }
         let n = cal.dateComponents([.day], from: hoy, to: meta).day ?? 0
         return n == 0 ? "Es hoy." : n == 1 ? "Falta un día para \(nombre)." : "Faltan \(n) días para \(nombre)."
+    }
+
+    /// Sorpresa 0.58.0: «a qué hora sale el sol», «cuándo se pone el sol», «cuántas horas de luz hay hoy».
+    /// Calculado en local para Madrid (ecuación del amanecer), sin internet ni ubicación. Se quita sin romper nada.
+    static func sol(_ t: String, ahora: Date = Date()) -> String? {
+        guard t.count < 50, t.contains("el sol") && (t.contains("sale") || t.contains("pone") || t.contains("amanece") || t.contains("atardece"))
+                || t.contains("horas de luz") || t.hasPrefix("a que hora amanece") || t.hasPrefix("a que hora anochece") else { return nil }
+        let manana = t.contains("manana") && !t.contains("de la manana")
+        let cal = Calendar.current
+        guard let dia = cal.date(byAdding: .day, value: manana ? 1 : 0, to: ahora) else { return nil }
+        let c = cal.dateComponents([.year, .month, .day], from: dia)
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        guard let medianoche = utc.date(from: c) else { return nil }
+        let lat = 40.4168, lon = -3.7038
+        let r = Double.pi / 180
+        let n = (medianoche.timeIntervalSince1970 / 86400 + 2440587.5 - 2451545 + 0.0008).rounded(.up)
+        let j = n - lon / 360
+        let m = (357.5291 + 0.98560028 * j).truncatingRemainder(dividingBy: 360)
+        let cc = 1.9148 * sin(m * r) + 0.02 * sin(2 * m * r) + 0.0003 * sin(3 * m * r)
+        let l = (m + cc + 180 + 102.9372).truncatingRemainder(dividingBy: 360)
+        let transito = 2451545 + j + 0.0053 * sin(m * r) - 0.0069 * sin(2 * l * r)
+        let sd = sin(l * r) * sin(23.4397 * r)
+        let cw = (sin(-0.833 * r) - sin(lat * r) * sd) / (cos(lat * r) * cos(asin(sd)))
+        guard abs(cw) <= 1 else { return nil }
+        let w = acos(cw) / r / 360
+        let fecha = { (x: Double) in Date(timeIntervalSince1970: (x - 2440587.5) * 86400) }
+        let sale = fecha(transito - w), pone = fecha(transito + w)
+        let f = DateFormatter()
+        f.locale = es
+        f.timeZone = TimeZone(identifier: "Europe/Madrid")
+        f.dateFormat = "H:mm"
+        let luz = Int((pone.timeIntervalSince(sale) / 60).rounded())
+        let cuando = manana ? "mañana" : "hoy"
+        return "En Madrid, \(cuando) sale el sol a las \(f.string(from: sale)) y se pone a las \(f.string(from: pone)): \(luz / 60) horas y \(luz % 60) minutos de luz."
     }
 
     /// Sorpresa 0.21.0: el azar de la araña. «tira un dado», «cara o cruz», «un número del 1 al 50».
