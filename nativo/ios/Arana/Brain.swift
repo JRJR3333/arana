@@ -157,6 +157,11 @@ enum Brain {
             Memory.addTurn(user: text, reply: r)
             return r
         }
+        // 0.59.0 (h7, de noche): sonido para dormir («pon ruido para dormir», «quita el ruido»), en local
+        if let r = Ruido.shared.quick(t) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         // 0.49.0 (h7, de noche): «buenas noches» repasa lo de mañana, en local
         if ["buenas noches", "me voy a dormir", "me voy a la cama", "hasta manana", "a dormir"].contains(t) {
             var r = await Rapido.buenasNoches()

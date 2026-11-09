@@ -1,5 +1,27 @@
 [
  {
+  "v": "0.59.0",
+  "fecha": "2026-11-09",
+  "mejoras": [
+   {
+    "id": "0.59.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h7",
+    "titulo": "Sonido para dormir",
+    "detalle": "«Pon ruido para dormir», «sonido de lluvia 20 minutos» o «ruido blanco una hora»: la araña genera el sonido en el propio iPhone (sin archivos ni internet), entra suave y al final se apaga sola bajando poco a poco. Si no dice cuánto, 30 minutos. Sigue con la pantalla bloqueada. «Quita el ruido» lo para. Dado: 0,628 / 0,018 → sin sorpresa; condición 10 (usar la araña de noche o a oscuras).",
+    "probar": "Diga «pon ruido para dormir 2 minutos» y bloquee el iPhone: debe oír lluvia suave que se apaga sola a los 2 minutos."
+   },
+   {
+    "id": "0.59.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "Voz de noche",
+    "detalle": "De 23:00 a 7:00 la araña habla más bajo, un poco más despacio y más grave, para no despertar a nadie. De día, como siempre. Condición del dado nº 10 (de noche).",
+    "probar": "Después de las 23:00 pregúntele «qué hora es»: debe contestar notablemente más bajo que de día."
+   }
+  ]
+ },
+ {
   "v": "0.58.0",
   "fecha": "2026-11-08",
   "mejoras": [

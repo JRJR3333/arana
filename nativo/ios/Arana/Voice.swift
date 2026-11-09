@@ -33,7 +33,18 @@ final class Voice {
         let u = AVSpeechUtterance(string: text)
         u.voice = voz
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 1.03
+        // 0.59.0 (asistente, de noche): de 23:00 a 7:00 habla más bajo y un poco más despacio
+        if Self.deNoche() {
+            u.volume = 0.55
+            u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
+            u.pitchMultiplier = 0.95
+        }
         synth.speak(u)
+    }
+
+    static func deNoche(_ ahora: Date = Date()) -> Bool {
+        let h = Calendar.current.component(.hour, from: ahora)
+        return h >= 23 || h < 7
     }
 
     /// «otra voz»: la siguiente voz en español, y se queda con ella.
