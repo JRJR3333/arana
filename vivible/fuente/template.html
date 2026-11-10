@@ -78,7 +78,7 @@ footer{font-size:12px;color:var(--mute);margin-top:28px;line-height:1.6}
 <header>
   <span class="badge">Madrid capital · gratis</span>
   <h1>¿Se vive bien en <span>ese piso</span>?</h1>
-  <p>Mete los datos del anuncio y te decimos si está bien de precio, cómo es la distribución y qué tal se vive en la zona. Antes de ir a verlo.</p>
+  <p>Para comprar, alquilar un piso o una habitación. Mete los datos del anuncio y te decimos si está bien de precio, cómo es y qué tal se vive en la zona. Antes de ir a verlo.</p>
 </header>
 
 <section class="card">
@@ -94,34 +94,42 @@ footer{font-size:12px;color:var(--mute);margin-top:28px;line-height:1.6}
 </section>
 
 <section class="card">
-  <h2><span class="step">2</span>¿Comprar o alquilar?</h2>
-  <div class="seg" id="op"><button data-v="venta" class="on">Comprar</button><button data-v="alquiler">Alquilar</button></div>
+  <h2><span class="step">2</span>¿Qué buscas?</h2>
+  <div class="seg" id="op"><button data-v="venta" class="on">Comprar</button><button data-v="alquiler">Alquilar piso</button><button data-v="habitacion">Habitación</button></div>
   <label for="precio" id="precioLbl">Precio que piden (€)</label>
   <input id="precio" type="number" inputmode="numeric" placeholder="p. ej. 320000">
 </section>
 
 <section class="card">
-  <h2><span class="step">3</span>El piso</h2>
-  <div class="grid">
-    <div><label for="m2">Metros construidos</label><input id="m2" type="number" inputmode="numeric" placeholder="75"></div>
-    <div><label for="hab">Habitaciones</label><select id="hab"><option value="0">Estudio</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option value="5">5 o más</option></select></div>
-    <div><label for="ban">Baños</label><select id="ban"><option>1</option><option>2</option><option value="3">3 o más</option></select></div>
+  <h2><span class="step">3</span><span id="t3">El piso</span></h2>
+  <div id="roomFields" style="display:none"><div class="grid">
+    <div><label for="rm2">m² de la habitación</label><input id="rm2" type="number" inputmode="numeric" placeholder="10"></div>
+    <div><label for="pers">Personas en el piso (contigo)</label><select id="pers"><option>2</option><option selected>3</option><option>4</option><option>5</option><option value="6">6 o más</option></select></div>
+    <div><label for="rban">Baño</label><select id="rban"><option value="priv">Privado</option><option value="1" selected>Compartido (1 baño)</option><option value="2">Compartido (2 baños)</option></select></div>
+    <div><label for="gastos">Gastos (luz, agua, internet)</label><select id="gastos"><option value="inc">Incluidos</option><option value="no" selected>Aparte</option></select></div>
+    <div><label for="vent">Ventana</label><select id="vent"><option value="calle">A la calle</option><option value="patio">A un patio</option><option value="no">Sin ventana</option></select></div>
+    <div><label for="cama">Cama</label><select id="cama"><option value="ind">Individual</option><option value="doble" selected>Doble</option></select></div>
+  </div></div>
+  <div class="grid" id="pisoGrid">
+    <div class="po"><label for="m2">Metros construidos</label><input id="m2" type="number" inputmode="numeric" placeholder="75"></div>
+    <div class="po"><label for="hab">Habitaciones</label><select id="hab"><option value="0">Estudio</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option value="5">5 o más</option></select></div>
+    <div class="po"><label for="ban">Baños</label><select id="ban"><option>1</option><option>2</option><option value="3">3 o más</option></select></div>
     <div><label for="planta">Planta</label><select id="planta"><option value="-1">Semisótano</option><option value="0">Bajo</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option value="6">6 o más</option><option value="99">Ático</option></select></div>
-    <div><label for="estado">Estado</label><select id="estado"><option value="reformar">A reformar</option><option value="bueno" selected>Buen estado</option><option value="reformado">Reformado</option><option value="nuevo">Obra nueva</option></select></div>
-    <div><label for="anio">Año del edificio</label><select id="anio"><option value="1940">Antes de 1950</option><option value="1960">1950–1969</option><option value="1975" selected>1970–1979</option><option value="1990">1980–1999</option><option value="2005">2000–2014</option><option value="2020">2015 o después</option></select></div>
-    <div><label for="ori">Orientación</label><select id="ori"><option value="?">No lo sé</option><option value="S">Sur</option><option value="E">Este</option><option value="O">Oeste</option><option value="N">Norte</option></select></div>
+    <div class="po"><label for="estado">Estado</label><select id="estado"><option value="reformar">A reformar</option><option value="bueno" selected>Buen estado</option><option value="reformado">Reformado</option><option value="nuevo">Obra nueva</option></select></div>
+    <div class="po"><label for="anio">Año del edificio</label><select id="anio"><option value="1940">Antes de 1950</option><option value="1960">1950–1969</option><option value="1975" selected>1970–1979</option><option value="1990">1980–1999</option><option value="2005">2000–2014</option><option value="2020">2015 o después</option></select></div>
+    <div class="po"><label for="ori">Orientación</label><select id="ori"><option value="?">No lo sé</option><option value="S">Sur</option><option value="E">Este</option><option value="O">Oeste</option><option value="N">Norte</option></select></div>
     <div><label for="cal">Calefacción</label><select id="cal"><option value="ind">Individual</option><option value="cen">Central</option><option value="no">No tiene</option></select></div>
     <div><label for="calle">La calle es…</label><select id="calle"><option value="tranq">Tranquila</option><option value="normal" selected>Normal</option><option value="ruido">Avenida / ruidosa</option><option value="peat">Peatonal</option></select></div>
-    <div><label for="com">Comunidad (€/mes)</label><input id="com" type="number" inputmode="numeric" placeholder="60"></div>
+    <div class="po"><label for="com">Comunidad (€/mes)</label><input id="com" type="number" inputmode="numeric" placeholder="60"></div>
   </div>
   <label>Tiene…</label>
   <div class="chips" id="extras">
     <button class="chip on" data-k="asc">Ascensor</button>
-    <button class="chip on" data-k="ext">Exterior</button>
-    <button class="chip" data-k="ter">Terraza/balcón</button>
+    <button class="chip on po" data-k="ext">Exterior</button>
+    <button class="chip" data-k="ter">Terraza/balcón</button><button class="chip ro" data-k="lav" style="display:none">Lavavajillas</button><button class="chip ro" data-k="cer" style="display:none">Cerradura en la habitación</button>
     <button class="chip" data-k="aa">Aire acondicionado</button>
-    <button class="chip" data-k="gar">Garaje</button>
-    <button class="chip" data-k="tra">Trastero</button>
+    <button class="chip po" data-k="gar">Garaje</button>
+    <button class="chip po" data-k="tra">Trastero</button>
   </div>
 </section>
 
@@ -135,7 +143,7 @@ footer{font-size:12px;color:var(--mute);margin-top:28px;line-height:1.6}
 <div id="res"></div>
 
 <footer>
-  <b>Cómo calculamos.</b> Precios medios por distrito de idealista (octubre 2026) ajustados por planta, estado, ascensor, orientación y extras. Estaciones de metro y metro ligero del Consorcio Regional de Transportes; direcciones con OpenStreetMap (Nominatim); límites de barrios del Ayuntamiento de Madrid (vía Code for Germany). Parques y hospitales con ubicación aproximada. Los tiempos son estimaciones a pie y en transporte público.<br>
+  <b>Cómo calculamos.</b> Precios medios por distrito de idealista (octubre 2026) y precio medio de una habitación en Madrid (idealista, 2º trimestre 2026) ajustados por planta, estado, ascensor, orientación y extras. Estaciones de metro y metro ligero del Consorcio Regional de Transportes; direcciones con OpenStreetMap (Nominatim); límites de barrios del Ayuntamiento de Madrid (vía Code for Germany). Parques y hospitales con ubicación aproximada. Los tiempos son estimaciones a pie y en transporte público.<br>
   Es una orientación, no una tasación oficial: antes de comprar, pide siempre una tasación homologada.
 </footer>
 </div>
@@ -148,6 +156,8 @@ const PRICE = { // idealista, octubre 2026: venta €/m², alquiler €/m²/mes
  "Latina":[4023,19.3],"Moncloa-Aravaca":[6384,21.6],"Moratalaz":[4515,17.9],"Puente de Vallecas":[3570,19.3],"Retiro":[8274,23.7],
  "San Blas-Canillejas":[4183,17.9],"Tetuán":[6169,23.0],"Usera":[3652,20.1],"Vicálvaro":[4091,17.7],"Villa de Vallecas":[3846,17.3],"Villaverde":[3389,18.3]};
 const CITY=[6427,23.4];
+const ROOM=550; // idealista: precio medio de una habitación en Madrid, 2º trimestre de 2026
+const roomBase=d=>Math.round(ROOM*Math.pow(PRICE[d][1]/CITY[1],.8)/5)*5;
 const PARKS=[["Parque del Retiro",40.4153,-3.6845],["Casa de Campo",40.4197,-3.7357],["Madrid Río (Matadero)",40.3930,-3.6990],["Madrid Río (Puente de Segovia)",40.4130,-3.7210],["Parque del Oeste",40.4280,-3.7230],["Parque Juan Carlos I",40.4630,-3.6080],["Dehesa de la Villa",40.4610,-3.7160],["Parque Tierno Galván",40.3900,-3.6830],["Parque Lineal del Manzanares",40.3730,-3.6880],["Quinta de la Fuente del Berro",40.4240,-3.6650],["Parque de Berlín",40.4500,-3.6750],["Parque Juan Pablo II",40.4660,-3.6440],["Parque Felipe VI (Valdebebas)",40.4800,-3.6200],["El Capricho",40.4560,-3.5990],["Parque de Pradolongo",40.3800,-3.7050],["Cuña Verde de Latina",40.3920,-3.7600],["Parque Emperatriz María de Austria",40.3810,-3.7310],["Parque Forestal de Valdebernardo",40.4000,-3.6200],["Cerro del Tío Pío",40.3980,-3.6520],["Parque Lineal de Palomeras",40.3870,-3.6460],["Cuña Verde de O'Donnell",40.4170,-3.6430],["Parque de Breogán",40.4380,-3.6390],["Parque de Santander",40.4420,-3.7080],["Parque de la Ventilla",40.4680,-3.7000]];
 const HOSP=[["Hospital La Paz",40.4810,-3.6870],["Hospital Ramón y Cajal",40.4880,-3.6940],["Hospital Gregorio Marañón",40.4190,-3.6720],["Hospital 12 de Octubre",40.3750,-3.6990],["Hospital Clínico San Carlos",40.4400,-3.7190],["Hospital de La Princesa",40.4320,-3.6730],["Hospital Niño Jesús",40.4180,-3.6770],["Hospital Infanta Leonor",40.3830,-3.6260],["Fundación Jiménez Díaz",40.4370,-3.7210],["Hospital Gómez Ulla",40.3910,-3.7260]];
 const CERC=new Set(["Sol","Atocha-renfe","Nuevos Ministerios","Chamartin","Principe Pio","Mendez Alvaro","Embajadores","Piramides","Laguna","Aluche","Vicalvaro","Villaverde Alto","Villaverde Bajo-cruce","Pitis","Aeropuerto T4","Cuatro Vientos","Paco de Lucia"]);
@@ -189,7 +199,9 @@ const byD={};B.forEach((b,i)=>(byD[b.d]=byD[b.d]||[]).push(i));
 function fillSel(sel,first){sel.innerHTML=`<option value="-1">${first}</option>`+Object.keys(byD).sort((a,b)=>a.localeCompare(b,"es")).map(d=>`<optgroup label="${d}">`+byD[d].sort((a,b)=>B[a].n.localeCompare(B[b].n,"es")).map(i=>`<option value="${i}">${B[i].n}</option>`).join("")+"</optgroup>").join("");}
 fillSel($("#barrio"),"Elige barrio…");fillSel($("#trabajo"),"No indicar");
 $("#barrio").onchange=e=>{const i=+e.target.value;if(i>=0)setLoc(i,B[i].c[0],B[i].c[1]);};
-$("#op").onclick=e=>{const v=e.target.dataset.v;if(!v)return;state.op=v;[...$("#op").children].forEach(b=>b.classList.toggle("on",b.dataset.v===v));$("#precioLbl").textContent=v==="venta"?"Precio que piden (€)":"Alquiler que piden (€/mes)";$("#precio").placeholder=v==="venta"?"p. ej. 320000":"p. ej. 1400";};
+$("#op").onclick=e=>{const v=e.target.dataset.v;if(!v)return;state.op=v;[...$("#op").children].forEach(b=>b.classList.toggle("on",b.dataset.v===v));$("#precioLbl").textContent={venta:"Precio que piden (€)",alquiler:"Alquiler que piden (€/mes)",habitacion:"Precio de la habitación (€/mes)"}[v];$("#precio").placeholder={venta:"p. ej. 320000",alquiler:"p. ej. 1400",habitacion:"p. ej. 550"}[v];
+  const room=v==="habitacion";$("#roomFields").style.display=room?"":"none";$("#t3").textContent=room?"La habitación y el piso":"El piso";
+  document.querySelectorAll(".po").forEach(e=>e.style.display=room?"none":"");document.querySelectorAll(".ro").forEach(e=>e.style.display=room?"":"none");};
 $("#extras").onclick=e=>{const k=e.target.dataset.k;if(!k)return;state.ex[k]=state.ex[k]?0:1;e.target.classList.toggle("on",!!state.ex[k]);};
 
 // ---------- model
@@ -217,6 +229,7 @@ function analyze(){
   const err=$("#err");err.textContent="";
   if(state.i<0){err.textContent="Elige dónde está el piso (paso 1).";return;}
   const f={op:state.op,precio:+$("#precio").value||0,m2:+$("#m2").value||0,hab:+$("#hab").value,ban:+$("#ban").value,planta:+$("#planta").value,estado:$("#estado").value,anio:+$("#anio").value,ori:$("#ori").value,cal:$("#cal").value,calle:$("#calle").value,com:+$("#com").value||0,ex:{...state.ex}};
+  if(f.op==="habitacion")return analyzeRoom(f);
   if(f.m2<15||f.m2>600){err.textContent="Indica los metros del piso (paso 3).";return;}
   const b=B[state.i],pt=state.pt,d=b.d;
   // transport
@@ -281,6 +294,105 @@ function analyze(){
   else{chk.push("Por ley (Ley 12/2023), los honorarios de la inmobiliaria los paga el propietario, no tú.","La fianza legal es 1 mes; como garantía adicional te pueden pedir como máximo 2 meses más.","Haz fotos y un inventario el día de la entrega y adjúntalo al contrato.","Pide el certificado energético y confirma quién paga la comunidad y el IBI.");}
   render({f,b,d,near,lines10,cerc,solMin,work,park,hosp,v,est,dev,ver,cls,parts,tot,pros,cons,info,chk});
 }
+function common(pt,f,d){
+  const st=DATA.stations.map(s=>({...s,km:hav(pt,[s.y,s.x])})).sort((a,b)=>a.km-b.km);
+  const near=st.slice(0,4),w0=walkMin(near[0].km),lines10=new Set();
+  st.filter(s=>walkMin(s.km)<=10).forEach(s=>s.l.forEach(l=>lines10.add(s.t+l)));
+  const cerc=st.find(s=>CERC.has(s.n)&&walkMin(s.km)<=15);
+  let tr=w0<=5?10:w0<=8?8.5:w0<=12?7:w0<=18?5:3;tr+=Math.min(1.5,(lines10.size-1)*.5);
+  const solKm=hav(pt,SOL),solMin=Math.round(Math.min(w0,15)+4+solKm*2.7+(solKm>4?5:0)+5);
+  let work=null;const wi=+$("#trabajo").value;
+  if(wi>=0){const wp=[B[wi].c[1],B[wi].c[0]],km=hav(pt,wp);work={n:B[wi].n,km,min:wi===state.i?walkMin(km):Math.round(Math.min(w0,15)+4+km*2.7+(km>4?5:0)+6)};if(work.min>45)tr-=1.5;else if(work.min<=25)tr+=.5;}
+  const park=PARKS.map(p=>({n:p[0],km:hav(pt,[p[1],p[2]])})).sort((a,b)=>a.km-b.km)[0];
+  const hosp=HOSP.map(p=>({n:p[0],km:hav(pt,[p[1],p[2]])})).sort((a,b)=>a.km-b.km)[0];
+  let ent=park.km<.6?9.5:park.km<1.2?8:park.km<2?6.5:5;if(hosp.km<2)ent+=.5;
+  return {near,lines10,cerc,solMin,work,park,hosp,tr:score(tr),ent:score(ent)};
+}
+function analyzeRoom(f){
+  const err=$("#err");
+  const r={rm2:+$("#rm2").value||0,pers:+$("#pers").value,ban:$("#rban").value,gastos:$("#gastos").value,vent:$("#vent").value,cama:$("#cama").value};
+  if(r.rm2<4||r.rm2>40){err.textContent="Indica los m² de la habitación (paso 3).";return;}
+  const b=B[state.i],d=b.d,c=common(state.pt,f,d);
+  // estimación
+  let k=1;const why=[];const add=(v,t)=>{if(v){k*=1+v;why.push([t,v]);}};
+  if(r.rm2<8)add(-.12,"Habitación pequeña");else if(r.rm2>=14)add(.08,"Habitación grande");
+  if(r.ban==="priv")add(.18,"Baño privado");
+  if(r.pers>=5)add(-.06,r.pers>=6?"Piso de 6 o más":"Piso de 5 personas");else if(r.pers===2)add(.05,"Solo 2 personas");
+  if(r.vent==="no")add(-.2,"Sin ventana");else if(r.vent==="patio")add(-.05,"Ventana a patio");
+  if(r.cama==="ind")add(-.04,"Cama individual");
+  if(r.gastos==="inc")add(.09,"Gastos incluidos");
+  if(state.ex.aa)add(.03,"Aire acondicionado");
+  if(state.ex.ter)add(.02,"Terraza o balcón");
+  if(!state.ex.asc&&f.planta>=3)add(-.05,"Sin ascensor");
+  k=Math.min(1.5,Math.max(.6,k));
+  const base=roomBase(d),est=base*k;
+  let dev=null,pr=6.5,ver="Sin precio",cls="pw";
+  if(f.precio>0){dev=(f.precio-est)/est;pr=dev<-.2?6.5:score(7-dev*20);
+    if(dev>.15){ver="Cara";cls="pb";}else if(dev>.06){ver="Algo cara";cls="pw";}else if(dev>=-.06){ver="En precio de mercado";cls="pg";}else if(dev>=-.2){ver="Buen precio";cls="pg";}else{ver="Muy barata: revisa por qué";cls="pw";}}
+  // convivencia
+  const pros=[],cons=[],info=[];
+  const perBath=r.ban==="priv"?1:r.pers/(+r.ban);
+  let cv=7;
+  if(r.ban==="priv"){cv+=2;pros.push("Baño privado: la mayor ventaja en un piso compartido.");}
+  else if(perBath>=4){cv-=2.5;cons.push(`${r.pers} personas para ${r.ban} baño${r.ban==="1"?"":"s"}: habrá colas por las mañanas.`);}
+  else if(perBath>=3){cv-=1;cons.push(`${r.pers} personas para un baño: justo.`);}
+  else pros.push(`Buena proporción de baños: ${r.pers} personas para ${r.ban} baño${r.ban==="1"?"":"s"}.`);
+  if(r.pers>=5){cv-=1;cons.push("Piso con muchas personas: más ruido, cocina y nevera más llenas.");}
+  else if(r.pers<=3)pros.push("Pocos compañeros: más fácil convivir y organizarse.");
+  if(r.rm2<7){cv-=2;cons.push(`Habitación muy pequeña (${r.rm2} m²): comprueba que entran cama, armario y mesa.`);}
+  else if(r.rm2<9){cv-=.5;info.push(`Habitación justa (${r.rm2} m²): mira si tiene armario empotrado.`);}
+  else if(r.rm2>=12)pros.push(`Habitación amplia (${r.rm2} m²).`);
+  if(r.vent==="no"){cv-=3;cons.push("Sin ventana: sin luz ni ventilación. Muchas veces ni siquiera cuenta legalmente como dormitorio; mejor evitarla.");}
+  else if(r.vent==="patio"){cv-=.5;info.push("Ventana a patio: más tranquila pero con menos luz.");}
+  else pros.push("Ventana a la calle: luz natural.");
+  if(r.cama==="doble")pros.push("Cama doble.");
+  if(r.gastos==="inc")pros.push("Gastos incluidos: sabes lo que pagas cada mes. Pregunta si hay un tope de luz.");
+  else info.push(`Gastos aparte: suma unos 40–70 € al mes (luz, agua, gas e internet a repartir).`);
+  if(state.ex.cer)pros.push("Cerradura en la habitación.");
+  if(state.ex.lav)pros.push("Lavavajillas: menos discusiones por la cocina.");
+  cv=score(cv);
+  // confort y tranquilidad
+  let cf=6.5;
+  if(!state.ex.asc&&f.planta>=2){cf-=1.5;cons.push(`Sin ascensor en un ${f.planta===99?"ático":f.planta+"º"}.`);}
+  if(f.cal==="no"){cf-=2;cons.push("Sin calefacción: pregunta qué hay para el invierno (radiador eléctrico = factura más alta).");}
+  if(state.ex.aa){cf+=1.5;pros.push("Aire acondicionado.");}else{cf-=1;info.push("Sin aire acondicionado: en verano las habitaciones pequeñas se calientan mucho.");}
+  cf=score(cf);
+  let q={tranq:8.5,normal:6.5,ruido:3.5,peat:7.5}[f.calle];if(r.vent==="patio")q+=1.5;if(f.planta>=4)q+=1;if(f.planta<=0)q-=1;if(d==="Centro")q-=1;if(r.pers>=5)q-=1;q=score(q);
+  const parts=[["Transporte",c.tr,.25],["Precio",pr,.25],["Convivencia",cv,.2],["Tranquilidad",q,.1],["Confort",cf,.1],["Zonas verdes",c.ent,.1]];
+  const tot=parts.reduce((s,p)=>s+p[1]*p[2],0);
+  const chk=["Pide contrato por escrito, aunque sea una habitación: precio, fianza, duración, preaviso y qué gastos se pagan.",
+    "Pregunta si te puedes empadronar: lo necesitas para la tarjeta sanitaria y muchos trámites.",
+    "La fianza de una habitación se pacta (lo normal es 1 mes): que conste en el contrato y paga siempre por transferencia.",
+    "Si quien alquila es otro inquilino y no el dueño, pide ver la autorización por escrito del propietario para subarrendar.",
+    "Conoce a tus compañeros antes de decidir: horarios, si trabajan o estudian, visitas, mascotas, tabaco.",
+    "Pregunta las normas de la casa: limpieza (¿hay turnos o limpiadora?), espacio en la nevera, visitas que se quedan a dormir.",
+    "Mira el estado de la cocina y el baño compartidos: es lo que más vas a usar.",
+    "Haz fotos de la habitación y de los muebles el día que entres y mándalas por correo o mensaje al casero."];
+  renderRoom({f,r,b,d,c,est,base,why,dev,ver,cls,parts,tot,pros,cons,info,chk});
+}
+function renderRoom(x){
+  const {f,r,b,d,c}=x;
+  const tv=x.tot>=7.5?"Buena habitación 👍":x.tot>=6?"Está bien, con matices":"Piénsatelo dos veces";
+  let h=`<section class="card"><div class="score">${ring(x.tot,barCol(x.tot))}<div><p class="verdict">${tv}</p><div style="color:var(--mute);font-size:14px">Habitación de ${r.rm2} m² · piso de ${r.pers} personas · ${b.n}, ${d}</div>${x.dev!==null?`<div style="margin-top:8px"><span class="pill ${x.cls}">${x.ver}</span></div>`:""}</div></div><div class="bars">`+
+  x.parts.map(p=>`<div class="bar"><span>${p[0]}</span><div class="t"><b style="width:${p[1]*10}%;background:${barCol(p[1])}"></b></div><span>${p[1].toFixed(1).replace(".",",")}</span></div>`).join("")+`</div></section>`;
+  const rent=f.precio||x.est,gm=r.gastos==="inc"?0:55;
+  h+=`<section class="card"><h2>💶 ¿Cuánto debería costar?</h2><p class="hint">Estimación a partir del precio medio de una habitación en Madrid (550 €/mes, idealista) ajustado al distrito y a lo que ofrece.</p>
+  <div class="row2"><div class="box"><div class="l">Precio razonable</div><div class="big">${eur(x.est)}/mes</div><div class="l">Horquilla: ${eur(x.est*.9)} – ${eur(x.est*1.1)}</div></div>
+  <div class="box"><div class="l">Lo que piden</div><div class="big">${f.precio?eur(f.precio)+"/mes":"—"}</div>${x.dev!==null?`<div class="l">${x.dev>=0?"+":""}${(x.dev*100).toFixed(0)} % frente a la estimación</div>`:'<div class="l">Pon el precio para compararlo</div>'}</div></div>
+  <div class="kv" style="margin-top:12px"><div>Habitación media en ${d}</div><div>${eur(x.base)}/mes</div><div>Media de Madrid</div><div>${eur(ROOM)}/mes</div></div>`;
+  if(x.why.length)h+=`<ul class="pc">`+x.why.map(w=>`<li class="${w[1]>0?"p":"c"}">${w[0]}: ${w[1]>0?"+":""}${Math.round(w[1]*100)} %</li>`).join("")+`</ul>`;
+  if(x.dev!==null&&x.dev<-.2)h+=`<p class="note">⚠️ Mucho más barata que lo normal: desconfía si te piden pagar la fianza antes de ver la habitación o sin contrato. Es la estafa más común.</p>`;
+  h+=`<h2 style="margin-top:16px">🧾 Al entrar</h2><div class="kv"><div>Primer mes</div><div>${eur(rent)}</div><div>Fianza habitual (1 mes)</div><div>${eur(rent)}</div><div><b>Para entrar necesitas</b></div><div>${eur(rent*2)}</div><div>Coste real al mes${gm?" (con unos 55 € de gastos)":""}</div><div>${eur(rent+gm)}</div><div>Ingresos netos recomendados (≤ 33 %)</div><div>${eur((rent+gm)/.33)}/mes</div></div></section>`;
+  h+=transportCard(c);
+  h+=`<section class="card"><h2>🏠 Convivencia y confort</h2><ul class="pc">`+x.pros.map(t=>`<li class="p">${t}</li>`).join("")+x.cons.map(t=>`<li class="c">${t}</li>`).join("")+x.info.map(t=>`<li class="i">${t}</li>`).join("")+`</ul></section>`;
+  h+=areaCard(c,d);
+  h+=`<section class="card"><h2>📋 Antes de decir que sí</h2><ul class="pc">`+x.chk.map(t=>`<li class="q">${t}</li>`).join("")+`</ul></section>`;
+  const res=$("#res");res.innerHTML=h;res.style.display="block";res.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function transportCard(r){return `<section class="card"><h2>🚇 Transporte</h2><p class="hint">Distancia caminando (estimada) a las estaciones más cercanas.</p>`+
+  r.near.map(s=>`<div class="st"><span>${nice(s.n)} ${s.l.map(l=>`<span class="ln" style="background:${s.t==="ML"?"#5b8db8":(LCOL[l]||"#555")}">${s.t==="ML"?"ML"+l:l}</span>`).join("")}${s.a?" ♿":""}</span><b>${walkMin(s.km)} min</b></div>`).join("")+
+  `<div class="kv" style="margin-top:10px"><div>Líneas a menos de 10 min andando</div><div>${r.lines10.size}</div>${r.cerc?`<div>Cercanías más cercano</div><div>${nice(r.cerc.n)} · ${walkMin(r.cerc.km)} min</div>`:""}<div>A la Puerta del Sol</div><div>≈ ${r.solMin} min</div>${r.work?`<div>Al trabajo (${r.work.n})</div><div>≈ ${r.work.min} min</div>`:""}</div><p class="note">Los tiempos de viaje son aproximados (andando + espera + trayecto + transbordos).</p></section>`;}
+function areaCard(r,d){return `<section class="card"><h2>🌳 La zona</h2><div class="kv"><div>Parque grande más cercano</div><div>${r.park.n} · ${r.park.km<1?Math.round(r.park.km*10)*100+" m":r.park.km.toFixed(1).replace(".",",")+" km"}</div><div>Hospital público más cercano</div><div>${r.hosp.n} · ${r.hosp.km.toFixed(1).replace(".",",")} km</div><div>Precio en el distrito</div><div>${PRICE[d][0]>CITY[0]?"Por encima":"Por debajo"} de la media de Madrid</div></div><p class="note">Ubicaciones de parques y hospitales aproximadas.</p></section>`;}
 function ring(v,c){return `<div class="ring" style="--p:${v*10};--c:${c}"><div>${v.toFixed(1).replace(".",",")}<small>sobre 10</small></div></div>`;}
 function barCol(v){return v>=7.5?"#1f7a4d":v>=5.5?"#d39b3a":"#b23b3b";}
 function render(r){
