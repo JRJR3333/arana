@@ -16,10 +16,6 @@ Araña es la app personal de Juan para iPhone. Desde el 2026-10-20 el objetivo e
   - La app de Android hace sus órdenes con `AranaAndroid.orden(id, 'arana://…')` y contesta en `window.__aranaRes`. `BRIDGE2` distingue la app 0.22.0 de la anterior.
 - **Prioridad:** lo nuevo va primero a Android si Android lo permite. Juan pidió que Android tenga más que nadie.
 
-## Carpeta `vivible/`
-
-- `vivible/` es otro proyecto de Juan (Vivible Madrid), sin relación con la araña. La tarea diaria de la araña no la toca, ni la añade a `sw.js` ni a `version.json`.
-
 ## Peticiones
 
 - Llegan como *issues* con la etiqueta `nueva-habilidad`. Las crea la propia app cuando no sabe hacer algo.
