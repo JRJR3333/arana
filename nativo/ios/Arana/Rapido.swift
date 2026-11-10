@@ -15,6 +15,7 @@ enum Rapido {
         if let r = sol(t, ahora: ahora) { return r }
         if t.count < 45, t.contains("curiosidad") || t.contains("algo curioso") { return curiosidades.randomElement() }
         if t.count > 60 { return nil }
+        if let r = horaEn(t, ahora: ahora) { return r }
         if ["que hora es", "que hora tienes", "dime la hora", "hora"].contains(t) || t.hasPrefix("que hora es") {
             return "Son las \(ahora.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(es)))."
         }
@@ -278,6 +279,69 @@ enum Rapido {
         let luz = Int((pone.timeIntervalSince(sale) / 60).rounded())
         let cuando = manana ? "mañana" : "hoy"
         return "En Madrid, \(cuando) sale el sol a las \(f.string(from: sale)) y se pone a las \(f.string(from: pone)): \(luz / 60) horas y \(luz % 60) minutos de luz."
+    }
+
+    /// 0.60.0 (asistente): la hora en otras ciudades, en local. «qué hora es en Nueva York», «hora en Tokio»,
+    /// «diferencia horaria con México». El reloj del iPhone sabe los husos y el horario de verano.
+    static let husos: [(String, String, String)] = [
+        ("nueva york", "Nueva York", "America/New_York"), ("new york", "Nueva York", "America/New_York"),
+        ("miami", "Miami", "America/New_York"), ("washington", "Washington", "America/New_York"),
+        ("chicago", "Chicago", "America/Chicago"), ("los angeles", "Los Ángeles", "America/Los_Angeles"),
+        ("san francisco", "San Francisco", "America/Los_Angeles"), ("mexico", "Ciudad de México", "America/Mexico_City"),
+        ("bogota", "Bogotá", "America/Bogota"), ("colombia", "Colombia", "America/Bogota"), ("lima", "Lima", "America/Lima"),
+        ("caracas", "Caracas", "America/Caracas"), ("buenos aires", "Buenos Aires", "America/Argentina/Buenos_Aires"),
+        ("argentina", "Argentina", "America/Argentina/Buenos_Aires"), ("chile", "Chile", "America/Santiago"),
+        ("sao paulo", "São Paulo", "America/Sao_Paulo"), ("brasil", "Brasil", "America/Sao_Paulo"),
+        ("canarias", "Canarias", "Atlantic/Canary"), ("tenerife", "Canarias", "Atlantic/Canary"), ("las palmas", "Canarias", "Atlantic/Canary"),
+        ("londres", "Londres", "Europe/London"), ("lisboa", "Lisboa", "Europe/Lisbon"), ("portugal", "Portugal", "Europe/Lisbon"),
+        ("paris", "París", "Europe/Paris"), ("berlin", "Berlín", "Europe/Berlin"), ("roma", "Roma", "Europe/Rome"),
+        ("madrid", "Madrid", "Europe/Madrid"), ("espana", "España", "Europe/Madrid"), ("atenas", "Atenas", "Europe/Athens"),
+        ("moscu", "Moscú", "Europe/Moscow"), ("estambul", "Estambul", "Europe/Istanbul"), ("dubai", "Dubái", "Asia/Dubai"),
+        ("india", "la India", "Asia/Kolkata"), ("delhi", "Nueva Delhi", "Asia/Kolkata"), ("pekin", "Pekín", "Asia/Shanghai"),
+        ("china", "China", "Asia/Shanghai"), ("tokio", "Tokio", "Asia/Tokyo"), ("japon", "Japón", "Asia/Tokyo"),
+        ("sidney", "Sídney", "Australia/Sydney"), ("sydney", "Sídney", "Australia/Sydney"), ("nueva zelanda", "Nueva Zelanda", "Pacific/Auckland"),
+    ]
+
+    static func horaEn(_ t: String, ahora: Date = Date()) -> String? {
+        guard t.contains("hora"), !t.contains("alarma"), !t.contains("despierta"), !t.contains("recuerda") else { return nil }
+        guard let hu = husos.first(where: { t.contains(" en " + $0.0) || t.contains(" con " + $0.0) || t.contains(" de " + $0.0) }),
+              t.contains("hora es") || t.contains("hora en") || t.contains("horaria") || t.contains("hora sera") || t.contains("hora tienen"),
+              let tz = TimeZone(identifier: hu.2) else { return nil }
+        let nombre = hu.1
+        var c = Calendar(identifier: .gregorian); c.locale = es; c.timeZone = tz
+        let f = DateFormatter(); f.locale = es; f.timeZone = tz; f.dateFormat = "HH:mm"
+        let dif = (tz.secondsFromGMT(for: ahora) - TimeZone.current.secondsFromGMT(for: ahora)) / 60
+        var r = "En \(nombre) son las \(f.string(from: ahora))"
+        // ¿Es otro día allí?
+        let aqui = Calendar.current.component(.day, from: ahora), alli = c.component(.day, from: ahora)
+        if aqui != alli {
+            let d = DateFormatter(); d.locale = es; d.timeZone = tz; d.dateFormat = "EEEE"
+            r += " del \(d.string(from: ahora))"
+        }
+        if dif == 0 { return r + ", la misma hora que aquí." }
+        let hh = abs(dif) / 60, mm = abs(dif) % 60
+        var cuanto = hh == 1 ? "una hora" : "\(hh) horas"
+        if mm > 0 { cuanto = hh == 0 ? "\(mm) minutos" : cuanto + " y \(mm) minutos" }
+        return r + ": \(cuanto) \(dif > 0 ? "más" : "menos") que aquí."
+    }
+
+    /// Sorpresa 0.60.0: «elige entre pizza o pasta», «decide por mí: cine o paseo». La araña elige una. Se quita sin romper nada.
+    static func elegir(_ original: String) -> String? {
+        let o = original.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)).lowercased()
+        let f = o.folding(options: .diacriticInsensitive, locale: es)
+        guard o.count == f.count, o.count < 90 else { return nil }
+        let pre = ["ayudame a elegir entre ", "ayudame a decidir entre ", "elige por mi entre ", "decide por mi entre ",
+                   "elige por mi ", "decide por mi ", "elige entre ", "decide entre ", "que elijo ", "que prefieres "]
+        guard let p = pre.first(where: { f.hasPrefix($0) }) else { return nil }
+        var resto = String(o.dropFirst(p.count))
+        resto = resto.trimmingCharacters(in: CharacterSet(charactersIn: ":, ").union(.whitespaces))
+        let partes = resto.replacingOccurrences(of: ", ", with: " o ").replacingOccurrences(of: " y ", with: " o ")
+            .components(separatedBy: " o ").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard partes.count >= 2, partes.count <= 6 else { return nil }
+        let e = partes.randomElement()!
+        return "Elijo \(e). " + ["Sin dudarlo.", "Me lo ha dicho la tercera pata de la izquierda.",
+                                 "Lo he echado a suertes entre mis ocho ojos.", "Y no se hable más.",
+                                 "Si no le convence, pídamelo otra vez: no me ofendo."].randomElement()!
     }
 
     /// Sorpresa 0.21.0: el azar de la araña. «tira un dado», «cara o cruz», «un número del 1 al 50».

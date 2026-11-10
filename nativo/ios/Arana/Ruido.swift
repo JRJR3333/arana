@@ -5,11 +5,21 @@ import AVFoundation
 /// Ruido marrón (suave, como lluvia) o blanco; se apaga solo bajando poco a poco (30 min si no se dice).
 /// Sigue con la pantalla bloqueada gracias al modo de fondo «audio» que ya tenía la sala de ajedrez.
 @MainActor
-final class Ruido {
+final class Ruido: ObservableObject {
     static let shared = Ruido()
+    // 0.60.0 (condición 1, visual atrevida): mientras suena, llueve (o nieva estática) en la pantalla
+    @Published private(set) var suena = false
+    @Published private(set) var esBlanco = false
     private var engine: AVAudioEngine?
     private var fin: Task<Void, Never>?
     private let estado = Estado()
+
+    private init() {
+        // 0.60.0 (h8): el botón «Silencio» de la Isla Dinámica y de la pantalla bloqueada
+        NotificationCenter.default.addObserver(forName: Parar.ruidoAviso, object: nil, queue: .main) { _ in
+            Task { @MainActor in Ruido.shared.parar() }
+        }
+    }
 
     /// Lo que lee el hilo de audio: volumen y tipo. Escrituras sueltas de Float/Bool, sin bloqueos.
     final class Estado: @unchecked Sendable {
@@ -50,7 +60,10 @@ final class Ruido {
             try e.start()
         } catch { return false }
         engine = e
+        suena = true; esBlanco = blanco
         let total = Double(max(1, min(minutos, 600)) * 60)
+        // 0.60.0 (h8): la cuenta atrás del sonido en la Isla, con su botón «Silencio»
+        Isla.ruido(blanco ? "Ruido blanco" : "Lluvia suave", segundos: Int(total))
         fin = Task { [weak self] in
             // Entra en 5 s, se mantiene y en el último minuto (o la última quinta parte) se apaga poco a poco
             let bajada = min(60, total / 5)
@@ -75,6 +88,7 @@ final class Ruido {
 
     func parar() {
         fin?.cancel(); fin = nil
+        if suena { suena = false; Isla.quitarRuido() }
         guard let e = engine else { return }
         e.stop(); engine = nil
         estado.volumen = 0

@@ -23,7 +23,26 @@ struct PararTemporizadorIntent: LiveActivityIntent {
     }
 }
 
+/// 0.60.0 (h8): «Silencio» apaga el sonido para dormir desde la Isla o la pantalla bloqueada, sin abrir la app.
+struct PararRuidoIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Apagar el sonido para dormir"
+    static var description = IntentDescription("Apaga la lluvia o el ruido blanco de la araña.")
+
+    init() {}
+
+    func perform() async throws -> some IntentResult {
+        // iOS lo ejecuta en la app, que es la que suena: allí `Ruido` escucha este aviso
+        NotificationCenter.default.post(name: Parar.ruidoAviso, object: nil)
+        for a in Activity<AranaAttributes>.activities where a.content.state.ruido == true {
+            await a.end(nil, dismissalPolicy: .immediate)
+        }
+        return .result()
+    }
+}
+
 enum Parar {
+    static let ruidoAviso = Notification.Name("arana.pararRuido")
+
     /// Quita el aviso «timer-…» que suena a esa hora (con 5 s de margen) y cierra su actividad.
     static func temporizador(fin: Date) async {
         let c = UNUserNotificationCenter.current()

@@ -55,10 +55,27 @@ enum Isla {
                                   content: ActivityContent(state: estado, staleDate: fin))
     }
 
-    /// Quita de la Isla los temporizadores ya cumplidos (o todos, si se cancelan).
+    /// 0.60.0 (h8): el sonido para dormir en la Isla: cuánto le queda y el botón «Silencio».
+    static func ruido(_ titulo: String, segundos: Int) {
+        quitarRuido()
+        guard ActivityAuthorizationInfo().areActivitiesEnabled, segundos > 0 else { return }
+        let ahora = Date(), fin = ahora.addingTimeInterval(TimeInterval(segundos))
+        let estado = AranaAttributes.ContentState(estado: titulo, paso: 0, inicio: ahora, fin: fin, ruido: true)
+        _ = try? Activity.request(attributes: AranaAttributes(orden: ""),
+                                  content: ActivityContent(state: estado, staleDate: fin))
+    }
+
+    static func quitarRuido() {
+        for a in Activity<AranaAttributes>.activities where a.content.state.ruido == true {
+            Task { await a.end(nil, dismissalPolicy: .immediate) }
+        }
+    }
+
+    /// Quita de la Isla los temporizadores ya cumplidos (o todos, si se cancelan). El sonido para dormir, solo si ya acabó.
     static func limpiar(todos: Bool = false) {
         for a in Activity<AranaAttributes>.activities {
-            guard let f = a.content.state.fin, todos || f <= Date().addingTimeInterval(2) else { continue }
+            let esRuido = a.content.state.ruido == true
+            guard let f = a.content.state.fin, (todos && !esRuido) || f <= Date().addingTimeInterval(2) else { continue }
             Task { await a.end(nil, dismissalPolicy: .immediate) }
         }
     }

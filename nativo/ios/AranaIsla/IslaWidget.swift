@@ -22,7 +22,7 @@ struct IslaWidget: Widget {
             HStack(spacing: 12) {
                 MiniArana(paso: ctx.state.paso, color: Self.cian).frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(ctx.isStale && ctx.state.fin != nil ? "¡Tiempo!" : ctx.state.estado).font(.headline)
+                    Text(ctx.isStale && ctx.state.fin != nil ? (ctx.state.ruido == true ? "Silencio" : "¡Tiempo!") : ctx.state.estado).font(.headline)
                     if !ctx.attributes.orden.isEmpty { Text("«\(ctx.attributes.orden)»").font(.caption).foregroundStyle(.secondary) }
                 }
                 Spacer()
@@ -31,7 +31,7 @@ struct IslaWidget: Widget {
                     VStack(alignment: .trailing, spacing: 4) {
                         Text(timerInterval: r, countsDown: true).font(.title.monospacedDigit().bold())
                             .foregroundStyle(Self.cian).frame(maxWidth: 110, alignment: .trailing)
-                        if !ctx.isStale { Self.parar(r.upperBound) }
+                        if !ctx.isStale { Self.parar(r.upperBound, ruido: ctx.state.ruido == true) }
                     }
                 }
             }
@@ -55,7 +55,7 @@ struct IslaWidget: Widget {
                         HStack {
                             Text(ctx.state.estado).font(.caption).lineLimit(1)
                             Spacer()
-                            if !ctx.isStale { Self.parar(r.upperBound) }
+                            if !ctx.isStale { Self.parar(r.upperBound, ruido: ctx.state.ruido == true) }
                         }
                     }
                 }
@@ -83,12 +83,22 @@ extension IslaWidget {
     }
 
     /// 0.54.0 (h8): «Parar» cancela ese temporizador sin abrir la app.
-    static func parar(_ fin: Date) -> some View {
-        Button(intent: PararTemporizadorIntent(fin: fin)) {
-            Label("Parar", systemImage: "stop.fill").font(.caption.bold())
+    /// 0.60.0 (h8): si es el sonido para dormir, «Silencio» lo apaga.
+    @ViewBuilder
+    static func parar(_ fin: Date, ruido: Bool = false) -> some View {
+        if ruido {
+            Button(intent: PararRuidoIntent()) {
+                Label("Silencio", systemImage: "speaker.slash.fill").font(.caption.bold())
+            }
+            .tint(cian.opacity(0.7))
+            .buttonStyle(.borderedProminent)
+        } else {
+            Button(intent: PararTemporizadorIntent(fin: fin)) {
+                Label("Parar", systemImage: "stop.fill").font(.caption.bold())
+            }
+            .tint(rosa)
+            .buttonStyle(.borderedProminent)
         }
-        .tint(rosa)
-        .buttonStyle(.borderedProminent)
     }
 }
 

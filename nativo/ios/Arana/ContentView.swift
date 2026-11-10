@@ -22,6 +22,9 @@ struct ContentView: View {
     @State private var ghToken = Keychain.load(account: Peticiones.cuenta)
     @StateObject private var ear = Listener()
     @ObservedObject private var metro = Metronomo.shared
+    // 0.60.0 (condición 1): mientras suena el sonido para dormir, llueve en la pantalla
+    @ObservedObject private var ruido = Ruido.shared
+    @Environment(\.accessibilityReduceMotion) private var sinMovimiento
     @AppStorage("arana.hilos") private var hilos = 0
     // 0.23.0: la araña vuelve a moverse, a preguntar y a pedirle a Claude lo que no sabe
     @AppStorage("arana.pasear") private var pasear = true
@@ -54,6 +57,10 @@ struct ContentView: View {
             ZStack {
                 Wallpaper().ignoresSafeArea()
                 Telarana(threads: hilos).ignoresSafeArea().allowsHitTesting(false)
+                if ruido.suena && !sinMovimiento {
+                    Lluvia(blanco: ruido.esBlanco).ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
+                        .transition(.opacity)
+                }
                 VStack(spacing: typing ? 8 : 18) {
                     HStack(spacing: 18) { Spacer()
                         Button { abrirAjedrez(entrenar: false) } label: { Image(systemName: "checkerboard.rectangle").font(.title2) }.accessibilityLabel("Ajedrez")
@@ -86,6 +93,10 @@ struct ContentView: View {
                         Button { metro.stop() } label: { Label("♩ \(metro.bpm) · Parar", systemImage: "metronome") }
                             .buttonStyle(.bordered).tint(SpiderView.green)
                     }
+                    if ruido.suena && !typing {
+                        Button { ruido.parar() } label: { Label(ruido.esBlanco ? "Ruido blanco · Silencio" : "Lluvia · Silencio", systemImage: "speaker.slash") }
+                            .buttonStyle(.bordered).tint(SpiderView.green)
+                    }
                     Spacer(minLength: 0)
                     HStack {
                         Button(action: toggleEar) {
@@ -115,6 +126,7 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: typing)
+        .animation(.easeInOut(duration: 1.5), value: ruido.suena)
         .sheet(isPresented: $showSettings) { settings }
         .sheet(isPresented: $showCharla) { NavigationStack { charlaView } }
         .fullScreenCover(isPresented: $showAjedrez) {
@@ -625,5 +637,52 @@ struct Wallpaper: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// 0.60.0 (condición 1, visual atrevida): lluvia que cae sobre la telaraña mientras suena «lluvia suave»,
+/// con ondas en el suelo; con ruido blanco, estática como nieve de televisión. Se quita sin romper nada.
+struct Lluvia: View {
+    var blanco: Bool
+    private static let cian = Color(red: 0.35, green: 0.9, blue: 1.0)
+
+    private static func h(_ x: Double) -> Double { let v = sin(x) * 43758.5453; return v - floor(v) }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
+            Canvas { g, size in
+                let t = ctx.date.timeIntervalSinceReferenceDate
+                let w = Double(size.width), alto = Double(size.height)
+                if blanco {
+                    let k = floor(t * 12)
+                    for i in 0..<160 {
+                        let s = Double(i)
+                        let x = Self.h(s * 1.7 + k) * w, y = Self.h(s * 3.1 + k + 0.5) * alto
+                        let r = 0.8 + Self.h(s * 2.3 + k) * 1.4
+                        g.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)),
+                               with: .color(.white.opacity(0.12 + Self.h(s + k) * 0.25)))
+                    }
+                    return
+                }
+                for i in 0..<90 {
+                    let s = Double(i)
+                    let v = 380 + Self.h(s * 7.3) * 320, largo = 14 + Self.h(s * 2.1) * 22
+                    let y = (t * v + Self.h(s * 5.7) * (alto + largo)).truncatingRemainder(dividingBy: alto + largo) - largo
+                    let x = Self.h(s * 1.3) * (w + 80) - y * 0.12
+                    var p = Path()
+                    p.move(to: CGPoint(x: x, y: y)); p.addLine(to: CGPoint(x: x - largo * 0.12, y: y + largo))
+                    g.stroke(p, with: .color(Self.cian.opacity(0.15 + Self.h(s * 9.1) * 0.3)), lineWidth: 1.2)
+                }
+                // Ondas donde caen las gotas, abajo
+                for i in 0..<7 {
+                    let s = Double(i), ritmo = 0.6 + Self.h(s * 3.3) * 0.5
+                    let u = t * ritmo + Self.h(s * 4.4), fase = u - floor(u)
+                    let cx = Self.h(s * 2.2 + floor(u)) * w, cy = alto * (0.8 + Self.h(s * 6.6 + floor(u)) * 0.17)
+                    let rx = 6 + 34 * fase, ry = 2 + 8 * fase
+                    g.stroke(Path(ellipseIn: CGRect(x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2)),
+                             with: .color(Self.cian.opacity((1 - fase) * 0.35)), lineWidth: 1)
+                }
+            }
+        }
     }
 }

@@ -1,5 +1,41 @@
 [
  {
+  "v": "0.60.0",
+  "fecha": "2026-11-10",
+  "mejoras": [
+   {
+    "id": "0.60.0-1",
+    "tipo": "funcionalidad",
+    "hito": "h8",
+    "titulo": "El sonido para dormir en la Isla",
+    "detalle": "Al poner lluvia o ruido blanco, la Isla Dinámica y la pantalla bloqueada enseñan cuánto le queda y un botón «Silencio» que lo apaga sin abrir la app. Al apagarse solo, desaparece de la Isla. Cancelar los temporizadores ya no lo quita.",
+    "probar": "Diga «pon ruido para dormir 5 minutos», bloquee el iPhone y pulse «Silencio» en la pantalla bloqueada: debe callarse al momento."
+   },
+   {
+    "id": "0.60.0-2",
+    "tipo": "funcionalidad",
+    "hito": "asistente",
+    "titulo": "La hora en otras ciudades",
+    "detalle": "«Qué hora es en Nueva York», «hora en Tokio», «diferencia horaria con México»: la araña lo contesta en local, sin gastar consultas, con cuántas horas de diferencia hay y si allí ya es otro día. Unas cuarenta ciudades y países, con el horario de verano de cada sitio.",
+    "probar": "Pregunte «qué hora es en Tokio»: debe decir la hora de allí y cuántas horas más que aquí."
+   },
+   {
+    "id": "0.60.0-3",
+    "tipo": "grafica",
+    "titulo": "Llueve en la pantalla",
+    "detalle": "Mientras suena la lluvia suave, caen gotas sobre la telaraña y hacen ondas abajo; con ruido blanco, la pantalla chispea como una tele sin señal. Debajo de la araña sale el botón «Silencio». No aparece si tiene activado «Reducir movimiento». Condición del dado nº 1 (mejora visual atrevida).",
+    "probar": "Diga «pon lluvia 2 minutos» con la app abierta: deben caer gotas por la pantalla hasta que se apague."
+   },
+   {
+    "id": "0.60.0-4",
+    "tipo": "sorpresa",
+    "titulo": "Elijo por usted",
+    "detalle": "«Elige entre pizza o pasta», «decide por mí: cine, paseo o siesta»: la araña elige una y lo dice con su manía del día. Se quita sin romper nada. Dado: 0,157 / 0,480 → sorpresa sí; condición 1.",
+    "probar": "Diga «elige entre café o té»: debe elegir uno de los dos."
+   }
+  ]
+ },
+ {
   "v": "0.59.0",
   "fecha": "2026-11-09",
   "mejoras": [

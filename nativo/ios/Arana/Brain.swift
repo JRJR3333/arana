@@ -204,6 +204,11 @@ enum Brain {
             Memory.addTurn(user: text, reply: r)
             return r
         }
+        // Sorpresa 0.60.0: «elige entre pizza o pasta» (con las palabras tal como las dijo)
+        if let r = Rapido.elegir(text) {
+            Memory.addTurn(user: text, reply: r)
+            return r
+        }
         if let r = Rapido.responder(t) {
             Memory.addTurn(user: text, reply: r)
             return r
